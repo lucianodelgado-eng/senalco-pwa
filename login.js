@@ -23,7 +23,6 @@ function validarLogin(perfil) {
 
     const claves = {
         caba: "Senalco2025",
-        interior: "Se2025interior",
         cctv: "CCTV2025"
     };
 
