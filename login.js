@@ -40,7 +40,7 @@ function validarLogin(perfil) {
 
             // Redirecciones según perfil
             document.getElementById("btn-relevamiento").onclick = () => {
-                window.location.href = perfil === "caba" ? "index.html" : "index-interior.html";
+                window.location.href = perfil === "caba" ? "relevamiento1.html" : "index-interior.html";
             };
 
             document.getElementById("btn-base").onclick = () => {
