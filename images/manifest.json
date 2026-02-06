@@ -1,0 +1,13 @@
+{
+  "name": "SENALCO Relevamientos",
+  "short_name": "SENALCO",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#c10707",
+  "theme_color": "#c10707",
+  "icons": [
+    { "src": "./images/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "./images/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
