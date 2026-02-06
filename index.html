@@ -7,7 +7,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="stylesheet" href="estilo.css" />
     <script defer src="login.js"></script>
-    <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#0b1b2a">
     <style>
         body {
@@ -99,17 +98,8 @@
         }
     </style>
     <link rel="manifest" href="./manifest.json">
-<meta name="theme-color" content="#0b1b2a">
+    <meta name="theme-color" content="#0b1b2a">
 
-<script>
-  if ("serviceWorker" in navigator) {
-    window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./service-worker.js")
-        .then(() => console.log("✅ SW OK"))
-        .catch(err => console.error("❌ SW error", err));
-    });
-  }
-</script>
 </head>
 
 <body>
@@ -152,11 +142,15 @@
         <button id="btn-relevamiento">📋 Planilla de Relevamiento</button>
         <button id="btn-base">📊 Base de Datos</button>
     </div>
+
     <script>
         if ("serviceWorker" in navigator) {
-            navigator.serviceWorker.register("service-worker.js");
+            window.addEventListener("load", () => {
+                navigator.serviceWorker.register("./service-worker.js", { scope: "./" });
+            });
         }
     </script>
+
 </body>
 
 </html>
