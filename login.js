@@ -1,8 +1,8 @@
 let perfilSeleccionado = "";
 
 function mostrarLogin(perfil) {
+    // Ocultar todos
     document.getElementById("login-caba").style.display = "none";
-    document.getElementById("login-interior").style.display = "none";
     document.getElementById("login-cctv").style.display = "none";
     document.getElementById("seleccion-planillas").style.display = "none";
 
@@ -10,9 +10,8 @@ function mostrarLogin(perfil) {
 
     if (perfil === "caba") {
         document.getElementById("login-caba").style.display = "block";
-    } else if (perfil === "interior") {
-        document.getElementById("login-interior").style.display = "block";
-    } else if (perfil === "cctv") {
+    }
+    if (perfil === "cctv") {
         document.getElementById("login-cctv").style.display = "block";
     }
 }
@@ -32,20 +31,23 @@ function validarLogin(perfil) {
 
         document.getElementById(`login-${perfil}`).style.display = "none";
 
+        // CCTV sigue con su flujo propio
         if (perfil === "cctv") {
             window.location.href = "index2.html";
-        } else {
-            document.getElementById("seleccion-planillas").style.display = "block";
-
-            // Redirecciones según perfil
-            document.getElementById("btn-relevamiento").onclick = () => {
-                window.location.href = perfil === "caba" ? "relevamiento1.html" : "index-interior.html";
-            };
-
-            document.getElementById("btn-base").onclick = () => {
-                window.location.href = perfil === "caba" ? "index-base.html" : "index-base-interior.html";
-            };
+            return;
         }
+
+        // CABA (único flujo de planillas)
+        document.getElementById("seleccion-planillas").style.display = "block";
+
+        document.getElementById("btn-relevamiento").onclick = () => {
+            window.location.href = "relevamiento1.html";
+        };
+
+        document.getElementById("btn-base").onclick = () => {
+            window.location.href = "index-base.html";
+        };
+
     } else {
         alert("Credenciales incorrectas");
     }
