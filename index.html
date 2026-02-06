@@ -6,6 +6,18 @@
     <title>Ingreso Señalco</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="stylesheet" href="estilo.css" />
+    <link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#0b1b2a">
+
+<script>
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("./service-worker.js")
+        .then(() => console.log("✅ SW OK"))
+        .catch(err => console.error("❌ SW error", err));
+    });
+  }
+</script>
     <script defer src="login.js"></script>
 
     <style>
