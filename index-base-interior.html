@@ -6,12 +6,10 @@
   <title>Base de Datos - Señalco</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="estilo.css" />
-  <link rel="manifest" href="/manifest.json">
-  <meta name="theme-color" content="#c10707">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.7.0/jspdf.plugin.autotable.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
-  <script defer src="base.js"></script>
+  <script defer src="java-base-interior.js"></script>
   <script>
     // Verifica si está logueado, si no, redirige al login
     if (localStorage.getItem("logueado") !== "true") {
@@ -150,6 +148,15 @@
         🔒 Cerrar sesión
       </button>
     </div>
+    <div style="margin-top: 20px;">
+            <label for="fotos">📸 Subí tus fotos</label><br>
+            <a href="https://drive.google.com/drive/folders/1xug9oBV5ezG5kWitq7YPRpQzMAlyCks7?usp=sharing"
+                target="_blank" class="drive-link">
+                ➕ Subir tus archivos INSTALACIONES/OBRAS <a
+                </a>
+                <p class="drive-note">(Abrirá Google Drive crea tu carpeta de tecnico pega tu archivo)</p>
+                    
+        </div>
   </div>
   <div style="margin-top: 30px;">
     <h3>📁 Borradores disponibles</h3>
@@ -157,11 +164,7 @@
     <button onclick="guardarBorradorBase('borrador1')">💾 Guardar como Borrador 1</button>
     <button onclick="guardarBorradorBase('borrador2')">💾 Guardar como Borrador 2</button>
   </div>
-  <script>
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/service-worker.js");
-    }
-  </script>
+
 </body>
 
 </html>

@@ -1,23 +1,20 @@
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
   <meta charset="UTF-8" />
   <title>Base de Datos - Señalco</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="estilo.css" />
-  <link rel="manifest" href="/manifest.json">
-  <meta name="theme-color" content="#c10707">
+      <link rel="stylesheet" href="estilo.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.7.0/jspdf.plugin.autotable.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
-  <script defer src="base.js"></script>
+  <script defer src="java-base.js"></script>
   <script>
     // Verifica si está logueado, si no, redirige al login
     if (localStorage.getItem("logueado") !== "true") {
-      window.location.href = "login.html";
+        window.location.href = "login.html";
     }
-  </script>
+</script>
 
   <img id="logo" src="images/logo.jpg" style="display: none;" />
   <img src="images/logo_blanco.jpg" alt="Logo Señalco" class="logo-entrada">
@@ -34,8 +31,7 @@
       text-align: center;
     }
 
-    input,
-    select {
+    input, select {
       width: 100%;
       padding: 6px;
       margin: 5px 0;
@@ -48,15 +44,12 @@
       margin-top: 15px;
     }
 
-    table,
-    th,
-    td {
+    table, th, td {
       background-color: #01011f;
       border: 1px solid #0a0a0a;
     }
 
-    th,
-    td {
+    th, td {
       padding: 6px;
       text-align: center;
     }
@@ -97,7 +90,6 @@
     }
   </style>
 </head>
-
 <body onload="asignarEventosBase(); precargarZonas(); obtenerBasesGuardadas();">
 
   <h1>📊 Base de Datos - Señalco</h1>
@@ -130,11 +122,11 @@
       </tr>
     </thead>
     <script>
-      function cerrarSesion() {
+    function cerrarSesion() {
         localStorage.removeItem("logueado");
         window.location.href = "login.html";
-      }
-    </script>
+    }
+</script>
 
 
 
@@ -146,22 +138,18 @@
     <button id="btn-generar-pdf-base">📄 Generar PDF</button>
     <button id="btn-excel-base">📊 Exportar Excel</button>
     <div style="text-align:center; margin-top: 30px;">
-      <button onclick="cerrarSesion()" style="padding: 10px 20px; font-size: 16px;">
+    <button onclick="cerrarSesion()" style="padding: 10px 20px; font-size: 16px;">
         🔒 Cerrar sesión
-      </button>
-    </div>
+    </button>
+</div>
   </div>
   <div style="margin-top: 30px;">
-    <h3>📁 Borradores disponibles</h3>
-    <ul id="lista-bases"></ul>
-    <button onclick="guardarBorradorBase('borrador1')">💾 Guardar como Borrador 1</button>
-    <button onclick="guardarBorradorBase('borrador2')">💾 Guardar como Borrador 2</button>
-  </div>
-  <script>
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/service-worker.js");
-    }
-  </script>
-</body>
+  <h3>📁 Borradores disponibles</h3>
+  <ul id="lista-bases"></ul>
+  <button onclick="guardarBorradorBase('borrador1')">💾 Guardar como Borrador 1</button>
+  <button onclick="guardarBorradorBase('borrador2')">💾 Guardar como Borrador 2</button>
+</div>
 
+</body>
 </html>
+

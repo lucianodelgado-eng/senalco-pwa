@@ -157,29 +157,25 @@ function precargarDispositivos(btn, tipo) {
     const dispositivos = {
         atm: [
             ["ATM", "", "", "", ""],
-            ["Detectores térmicos", "", "", "24HS", ""],
-            ["Sensores Sísmicos", "", "SM50", "24HS", ""],
-            ["Juegos de magnéticos", "", "C&K", "Demorado", ""],
-            ["Magenticos antisabotaje", "", "K30", "24HS", ""]
+            ["Detectores térmicos", "", "", "", ""],
+            ["Sensores Sísmicos", "", "", "", ""],
+            ["Juegos de magnéticos", "", "", "", ""],
+            ["Magenticos antisabotaje", "", "", "", ""]
         ],
         tesoro: [
-            ["Modulo de caja de seguridad", "", "", "", "interior del recinto"],
-            ["Juegos de magnéticos", "", "Barral", "Demorado", ""],
-            ["Sensores Sísmicos", "", "SM50", "24HS", ""],
-            ["Cerradura electromagnética", "", "Zudsec", "", ""]
+            ["Modulo de tesoro", "", "", "", "interior del recinto"],
+            ["Juegos de magnéticos", "", "Barral", "", ""],
+            ["Sensores Sísmicos", "", "", "", ""]
         ],
         CDS: [
             ["Modulo de caja de seguridad", "", "", "", "interior del recinto"],
-            ["Juegos de magnéticos", "", "Barral", "Demorado", ""],
-            ["Sensores Sísmicos", "", "SM50", "24HS", ""],
-            ["Cerradura electromagnética", "", "Zudsec", "", ""]
+            ["Juegos de magnéticos", "", "Barral", "", ""],
+            ["Sensores Sísmicos", "", "", "", ""]
         ],
         bunker: [
             ["Equipo de abonado", "1", "Señalco", "", ""],
-            ["Gabinete de Baterias", "1", "Señalco", "", ""],
-            ["Baterías", "8", "", "", ""],
-            ["Pulsadores de asalto", "", "K92", "", ""],
-            ["Pulsadores de incendio", "", "K95", "", ""]
+            ["Gabinete de Baterias", "1", "", "", ""],
+            ["Baterías", "8", "", "", ""]
         ]
     };
 

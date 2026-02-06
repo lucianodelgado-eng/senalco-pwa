@@ -327,6 +327,68 @@ function precargarUltimaBase() {
         }
     });
 }
+function guardarBase() {
+    const datos = {
+        entidad: document.getElementById("entidad").value,
+        sucursal: document.getElementById("sucursal").value,
+        abonado: document.getElementById("abonado").value,
+        central: document.getElementById("central").value,
+        provincia: document.getElementById("provincia")?.value || "",
+        zonas: []
+    };
+    const filas = document.querySelectorAll("#tabla-base tbody tr");
+    filas.forEach(fila => {
+        const celdas = fila.querySelectorAll("td");
+        datos.zonas.push({
+            zona: celdas[0].textContent,
+            evento: celdas[1].querySelector("select").value,
+            area: celdas[2].querySelector("input").value,
+            dispositivo: celdas[3].querySelector("select").value,
+            descripcion: celdas[4].querySelector("input").value
+        });
+    });
+
+    localStorage.setItem("ultimaBase", JSON.stringify(datos));
+    alert("✅ Base guardada localmente");
+    obtenerBasesGuardadas();
+}
+
+
+
+function obtenerBasesGuardadas() {
+    const ul = document.getElementById("lista-bases");
+    ul.innerHTML = "";
+    const base = localStorage.getItem("ultimaBase");
+    if (base) {
+        const li = document.createElement("li");
+        li.textContent = "Última base guardada";
+        li.style.cursor = "pointer";
+        li.addEventListener("click", () => precargarUltimaBase());
+        ul.appendChild(li);
+    }
+}
+
+function precargarUltimaBase() {
+    const data = JSON.parse(localStorage.getItem("ultimaBase"));
+    if (!data) return;
+
+    document.getElementById("entidad").value = data.entidad;
+    document.getElementById("sucursal").value = data.sucursal;
+    document.getElementById("abonado").value = data.abonado;
+    document.getElementById("central").value = data.central;
+    document.getElementById("provincia").value = data.provincia || "";
+    precargarZonas();
+    const filas = document.querySelectorAll("#tabla-base tbody tr");
+    data.zonas.forEach((zona, i) => {
+        if (filas[i]) {
+            const celdas = filas[i].querySelectorAll("td");
+            celdas[1].querySelector("select").value = zona.evento;
+            celdas[2].querySelector("input").value = zona.area;
+            celdas[3].querySelector("select").value = zona.dispositivo;
+            celdas[4].querySelector("input").value = zona.descripcion;
+        }
+    });
+}
 // GUARDAR UN BORRADOR NUEVO
 function guardarBorradorBase(nombreClave) {
     const datos = {

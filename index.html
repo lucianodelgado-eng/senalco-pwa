@@ -3,145 +3,227 @@
 
 <head>
     <meta charset="UTF-8" />
-    <title>Ingreso Señalco</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Relevamiento de Alarmas</title>
     <link rel="stylesheet" href="estilo.css" />
-    <link rel="manifest" href="./manifest.json">
-<meta name="theme-color" content="#0b1b2a">
-
-<script>
-  if ("serviceWorker" in navigator) {
-    window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./service-worker.js")
-        .then(() => console.log("✅ SW OK"))
-        .catch(err => console.error("❌ SW error", err));
-    });
-  }
-</script>
-    <script defer src="login.js"></script>
-
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background: linear-gradient(to bottom right, #0d1b2a, #1b263b);
-            color: white;
-            text-align: center;
-            margin: 0;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: start;
-            padding-top: 60px;
+    <script>
+        // Verifica si está logueado, si no, redirige al login
+        if (localStorage.getItem("logueado") !== "true") {
+            window.location.href = "login.html";
         }
-
-        h1 {
-            color: #f72585;
-        }
-
-        .logo {
-            width: 150px;
-            margin-bottom: 20px;
-        }
-
-        .btn-container {
-            display: flex;
-            justify-content: center;
-            flex-wrap: wrap;
-            gap: 15px;
-            margin: 20px auto;
-        }
-
-        button {
-            background-color: #0077b6;
-            color: white;
-            border: none;
-            padding: 12px 20px;
-            font-size: 16px;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: background .3s;
-        }
-
-        button:hover {
-            background-color: #023e8a;
-        }
-
-        input {
-            padding: 10px;
-            margin: 8px;
-            font-size: 16px;
-            border-radius: 4px;
-            border: 1px solid #ccc;
-            width: 250px;
-        }
-
-        .seccion-login {
-            display: none;
-            width: 100%;
-            max-width: 400px;
-            margin: 30px auto;
-            padding: 20px;
-            background-color: rgba(255, 255, 255, .05);
-            border-radius: 10px;
-            box-shadow: 0 0 10px rgba(255, 255, 255, .2);
-        }
-
-        .seccion-login input {
-            width: 90%;
-            max-width: 300px;
-            padding: 10px;
-            margin: 10px auto;
-            font-size: 16px;
-            display: block;
-            border: none;
-            border-radius: 5px;
-        }
-
-        .seccion-login button {
-            padding: 10px 20px;
-            font-size: 16px;
-            background-color: #007bff;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            margin-top: 10px;
-        }
-    </style>
+    </script>
 </head>
 
 <body>
-    <img src="images/logo_blanco.jpg" alt="Logo Señalco" class="logo">
-    <h1>🔐 Ingreso al sistema Señalco</h1>
-
-    <div class="btn-container">
-        <button onclick="mostrarLogin('alarmas')">Alarmas</button>
-        <button onclick="mostrarLogin('cctv')">CCTV</button>
+    <img id="logo" src="images/logo.jpg" style="display: none;" />
+    <div style="text-align: center; margin-bottom: 10px;">
+        <img src="images/logo_blanco.jpg" alt="Logo Señalco" class="logo-entrada">
     </div>
 
-    <!-- LOGIN ALARMAS -->
-    <div id="login-alarmas" class="seccion-login">
-        <h3>Login Alarmas</h3>
-        <input type="text" id="usuario-alarmas" placeholder="Usuario" />
-        <input type="password" id="clave-alarmas" placeholder="Clave" />
-        <button onclick="validarLogin('alarmas')">Entrar</button>
+    <form>
+        <h1>Relevamiento</h1>
+
+        <!-- PRIMERA PÁGINA -->
+        <div class="seccion">
+            <label for="entidad">Entidad</label>
+            <input type="text" id="entidad" required />
+
+            <label for="sucursal">Sucursal</label>
+            <input type="text" id="sucursal" required />
+
+            <label for="direccion">Dirección</label>
+            <input type="text" id="direccion" required />
+
+            <label for="fecha">Fecha</label>
+            <input type="date" id="fecha" required />
+
+            <label for="remito">Remito</label>
+            <input type="text" id="remito" />
+
+            <label for="relevado">Relevado por el técnico</label>
+            <input type="text" id="relevado" />
+        </div>
+
+        <!-- SEGUNDA PÁGINA -->
+        <div class="seccion">
+            <div id="contenedor-sectores"></div>
+            <button type="button" onclick="agregarSector()">Agregar Sector</button>
+        </div>
+
+        <!-- NAVEGACIÓN -->
+        <div class="navegacion">
+            <button type="button" id="atras">Atrás</button>
+            <button type="button" id="siguiente">Siguiente</button>
+            <button type="button" id="btn-generar-pdf">Generar PDF</button>
+            <button type="button" onclick="borrarFormulario()">Borrar formulario guardado</button>
+        </div>
+        <div style="margin-top: 20px;">
+            <label for="fotos">📸 Subí tus fotos</label><br>
+            <a href="https://drive.google.com/drive/folders/1NXZR2d9FAMhaSio-xZ4JsF-HUEnsrbOR?usp=sharing"
+                target="_blank" class="drive-link">
+                ➕ Subir tus archivos INSTALACIONES/OBRAS <a
+                    href="https://drive.google.com/drive/folders/1gnHhmociP3fHu_ecxoa6A7D9ZbnNRnlf?usp=sharing"
+                    target="_blank" class="drive-link">
+                    ➕ Subir tus archivo SERVICE
+                </a>
+                <p class="drive-note">(Abrirá Google Drive crea tu carpeta de tecnico pega tu archivo)</p>
+                    
+        </div>
+        <!-- 📌 LIBRERÍAS PDF -->
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+        <script
+            src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.7.0/jspdf.plugin.autotable.min.js"></script>
+
+        <!-- 📌 SCRIPT -->
+        <script src="javas.js"></script>
+
+        <script>
+            const sectoresPrecargados = [
+                "Salón / Cajas",
+                "Área Operativa",
+                "Banca Automática / Lobby 24hs",
+                "Recinto Tesoro",
+                "Recinto Cajas de Seguridad",
+                "Bóveda de cajas de seguridad",
+                "Bóveda de tesoro",
+                "Bunker / Sala Técnica"
+            ];
+
+            window.addEventListener("DOMContentLoaded", () => {
+                const contenedor = document.getElementById("contenedor-sectores");
+                const datosGuardados = localStorage.getItem('formularioRelevamiento');
+
+                if (datosGuardados) {
+                    const data = JSON.parse(datosGuardados);
+                    const tieneDatos = data.sectores?.some(s => s.filas.length > 0);
+
+                    if (tieneDatos) {
+                        document.getElementById('entidad').value = data.entidad || '';
+                        document.getElementById('sucursal').value = data.sucursal || '';
+                        document.getElementById('direccion').value = data.direccion || '';
+                        document.getElementById('fecha').value = data.fecha || '';
+                        document.getElementById('remito').value = data.remito || '';
+                        document.getElementById('relevado').value = data.relevado || '';
+
+                        contenedor.innerHTML = '';
+                        data.sectores.forEach(sector => {
+                            const div = document.createElement('div');
+                            div.className = 'sector';
+                            div.innerHTML = `
+                                <h3 contenteditable>${sector.nombre}</h3>
+                                <table class="tabla-editable">
+                                    <thead>
+                                        <tr>
+                                            <th>Dispositivo</th>
+                                            <th>Cantidad</th>
+                                            <th>Modelo</th>
+                                            <th>Zona(instantanea/24hs)</th>
+                                            <th>Observación de ubicacion</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td data-label="Dispositivo">
+                                                <select onchange="mostrarOtro(this)">
+                                                    <option value="">-- Seleccionar --</option>
+                                                    <option>Equipo de abonado</option>
+                                                    <option>Gabinete de Baterias</option>
+                                                    <option>Central/Teclados volumetrico</option>
+                                                    <option>Teclados</option>
+                                                    <option>Pulsadores de asalto</option>
+                                                    <option>Pulsadores de Incendio</option>
+                                                    <option>Sensores Infrarrojos pasivos</option>
+                                                    <option>Sensor Infrarrojo Pasivo Antimasking</option>
+                                                    <option>Detectores de humo</option>
+                                                    <option>Sirena Interior</option>
+                                                    <option>Sirena Exterior</option>
+                                                    <option>Receptor Inalámbrico</option>
+                                                    <option>Pulsadores Inalámbricos</option>
+                                                    <option>Pulsador remoto</option>
+                                                    <option>Protectores de tesoro</option>
+                                                    <option>Sensores Sísmicos</option>
+                                                    <option>Detectores térmicos</option>
+                                                    <option>Juegos de magnéticos</option>
+                                                    <option>Magenticos antisabotaje</option>
+                                                    <option>Receptor inalámbrico</option>
+                                                    <option>Cerradura electromagnética</option>
+                                                    <option>Baterías</option>
+                                                    <option>Otro</option>
+                                                </select>
+                                                <input type="text" class="otro-dispositivo" style="display:none; margin-top:4px;" placeholder="Especificar otro dispositivo" />
+                                            </td>
+                                            <td data-label="Cantidad"><input type="number" min="0"></td>
+                                            <td data-label="Modelo"><input type="text"></td>
+                                            <td data-label="Zona"><input type="text"></td>
+                                            <td data-label="Observación"><input type="text"></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                                <div style="margin-top: 10px;">
+                                    <button type="button" onclick="guardarFilaEditable(this)">Guardar</button>
+                                    <button type="button" onclick="limpiarSector(this)">Limpiar sector</button>
+                                    <button type="button" onclick="precargarDispositivos(this, 'atm')">Dispositivos ATM</button>
+                                    <button type="button" onclick="precargarDispositivos(this, 'tesoro')">Dispositivos Tesoro</button>
+                                    <button type="button" onclick="precargarDispositivos(this, 'CDS')">Dispositivos C. de Seguridad</button>
+                                    <button type="button" onclick="precargarDispositivos(this, 'bunker')">Dispositivos Bunker</button>
+                                </div>
+                                <div class="contador">Dispositivos cargados: <span class="conteo">${sector.filas.length}</span></div>
+                                <details class="lista-dispositivos" open>
+                                    <summary>Dispositivos completados</summary>
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>Dispositivo</th>
+                                                <th>Cantidad</th>
+                                                <th>Modelo</th>
+                                                <th>Zona(instantanea/24hs)</th>
+                                                <th>Observación de ubicacion</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${sector.filas.map(fila => `
+                                                <tr>
+                                                    ${fila.map(val => `<td><input type="text" value="${val}"></td>`).join('')}
+                                                </tr>
+                                            `).join('')}
+                                        </tbody>
+                                    </table>
+                                </details>
+                            `;
+                            contenedor.appendChild(div);
+                        });
+                    } else {
+                        sectoresPrecargados.forEach(nombre => agregarSectorPorNombre(nombre));
+                    }
+                } else {
+                    sectoresPrecargados.forEach(nombre => agregarSectorPorNombre(nombre));
+                }
+            });
+        </script>
+
+    </form>
+    <script>
+        function cerrarSesion() {
+            localStorage.removeItem("logueado");
+            // Evita que el selector se muestre al volver
+            window.location.href = "login.html";
+        }
+    </script>
+
+    <div style="text-align:center; margin-top: 30px;">
+        <button onclick="cerrarSesion()" style="padding: 10px 20px; font-size: 16px;">
+            🔒 Cerrar sesión
+        </button>
+    </div>
+    <div style="margin-top: 30px;">
+        <h3>Relevamientos guardados:</h3>
+        <ul id="lista-relevamientos"></ul>
+        <button onclick="guardarRelevamientoLocal('relevamientoBorrador1')">💾 Guardar como Borrador 1</button>
+        <button onclick="guardarRelevamientoLocal('relevamientoBorrador2')">💾 Guardar como Borrador 2</button>
+
     </div>
 
-    <!-- LOGIN CCTV -->
-    <div id="login-cctv" class="seccion-login">
-        <h3>Login CCTV</h3>
-        <input type="text" id="usuario-cctv" placeholder="Usuario" />
-        <input type="password" id="clave-cctv" placeholder="Clave" />
-        <button onclick="validarLogin('cctv')">Entrar</button>
-    </div>
-
-    <!-- SELECCIÓN -->
-    <div id="seleccion-planillas" class="seccion-login">
-        <h3>¿Qué planilla querés abrir?</h3>
-        <button id="btn-relevamiento">📋 Planilla de Relevamiento</button>
-        <button id="btn-base">📊 Base de Datos</button>
-    </div>
+    </script>
 </body>
-<!--init-->
+
 </html>

@@ -1,50 +1,53 @@
-function ocultarTodo() {
-  const ids = ["login-alarmas", "login-cctv"];
-  ids.forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.style.display = "none";
-  });
-}
+let perfilSeleccionado = "";
 
-function mostrarLogin(tipo) {
-  ocultarTodo();
+function mostrarLogin(perfil) {
+    document.getElementById("login-caba").style.display = "none";
+    document.getElementById("login-interior").style.display = "none";
+    document.getElementById("login-cctv").style.display = "none";
+    document.getElementById("seleccion-planillas").style.display = "none";
 
-  const id = tipo === "alarmas" ? "login-alarmas" : "login-cctv";
-  const box = document.getElementById(id);
+    perfilSeleccionado = perfil;
 
-  if (!box) {
-    console.error("No existe el contenedor:", id);
-    return;
-  }
-  box.style.display = "block";
-}
-
-function validarLogin(tipo) {
-  const usuario = document.getElementById(`usuario-${tipo}`)?.value || "";
-  const clave = document.getElementById(`clave-${tipo}`)?.value || "";
-
-  const claves = {
-    alarmas: "Senalco2025",
-    cctv: "CCTV2025"
-  };
-
-  if (usuario === "admin" && clave === claves[tipo]) {
-    localStorage.setItem("logueado", "true");
-    localStorage.setItem("perfil", tipo);
-
-    if (tipo === "cctv") {
-      window.location.href = "relevamiento.html"; // o el que uses para CCTV
-    } else {
-      window.location.href = "base.html"; // o el que uses para Alarmas
+    if (perfil === "caba") {
+        document.getElementById("login-caba").style.display = "block";
+    } else if (perfil === "interior") {
+        document.getElementById("login-interior").style.display = "block";
+    } else if (perfil === "cctv") {
+        document.getElementById("login-cctv").style.display = "block";
     }
-  } else {
-    alert("Credenciales incorrectas");
-  }
 }
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/service-worker.js")
-      .then(() => console.log("✅ Service Worker registrado"))
-      .catch(err => console.error("❌ SW error", err));
-  });
+
+function validarLogin(perfil) {
+    let usuario = document.getElementById(`usuario-${perfil}`).value;
+    let clave = document.getElementById(`clave-${perfil}`).value;
+
+    const claves = {
+        caba: "Senalco2025",
+        interior: "Se2025interior",
+        cctv: "CCTV2025"
+    };
+
+    if (usuario === "admin" && clave === claves[perfil]) {
+        localStorage.setItem("logueado", "true");
+        localStorage.setItem("perfil", perfil);
+
+        document.getElementById(`login-${perfil}`).style.display = "none";
+
+        if (perfil === "cctv") {
+            window.location.href = "index2.html";
+        } else {
+            document.getElementById("seleccion-planillas").style.display = "block";
+
+            // Redirecciones según perfil
+            document.getElementById("btn-relevamiento").onclick = () => {
+                window.location.href = perfil === "caba" ? "index.html" : "index-interior.html";
+            };
+
+            document.getElementById("btn-base").onclick = () => {
+                window.location.href = perfil === "caba" ? "index-base.html" : "index-base-interior.html";
+            };
+        }
+    } else {
+        alert("Credenciales incorrectas");
+    }
 }
