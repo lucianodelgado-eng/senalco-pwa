@@ -1,154 +1,128 @@
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
-    <meta charset="UTF-8" />
-    <title>App relevamiento</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="stylesheet" href="estilo.css" />
-    <script defer src="login.js"></script>
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#0b1b2a">
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background: linear-gradient(to bottom right, #0d1b2a, #1b263b);
-            color: white;
-            text-align: center;
-            margin: 0;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: start;
-            padding-top: 60px;
-        }
+  <meta charset="UTF-8" />
+  <title>App Relevamiento Señalco</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-        h1 {
-            color: #f72585;
-        }
+  <link rel="stylesheet" href="estilo.css" />
 
-        .logo {
-            width: 150px;
-            margin-bottom: 20px;
-        }
+  <!-- PWA -->
+  <link rel="manifest" href="./manifest.json">
+  <meta name="theme-color" content="#0b1b2a">
 
-        .btn-container {
-            display: flex;
-            justify-content: center;
-            flex-wrap: wrap;
-            gap: 15px;
-            margin: 20px auto;
-        }
+  <!-- JS -->
+  <script defer src="login.js"></script>
 
-        button {
-            background-color: #0077b6;
-            color: white;
-            border: none;
-            padding: 12px 20px;
-            font-size: 16px;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: background 0.3s;
-        }
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: linear-gradient(to bottom right, #0d1b2a, #1b263b);
+      color: white;
+      text-align: center;
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: start;
+      padding-top: 60px;
+    }
 
-        button:hover {
-            background-color: #023e8a;
-        }
+    h1 { color: #f72585; }
 
-        input {
-            padding: 10px;
-            margin: 8px;
-            font-size: 16px;
-            border-radius: 4px;
-            border: 1px solid #ccc;
-            width: 250px;
-        }
+    .logo {
+      width: 150px;
+      margin-bottom: 20px;
+    }
 
-        .seccion-login {
-            display: none;
-            width: 100%;
-            max-width: 400px;
-            margin: 30px auto;
-            padding: 20px;
-            background-color: rgba(255, 255, 255, 0.05);
-            border-radius: 10px;
-            box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
-        }
+    .btn-container {
+      display: flex;
+      gap: 15px;
+      margin: 20px 0;
+    }
 
-        .seccion-login input {
-            width: 90%;
-            max-width: 300px;
-            padding: 10px;
-            margin: 10px auto;
-            font-size: 16px;
-            display: block;
-            border: none;
-            border-radius: 5px;
-        }
+    button {
+      background-color: #0077b6;
+      color: white;
+      border: none;
+      padding: 12px 20px;
+      font-size: 16px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
 
-        .seccion-login button {
-            padding: 10px 20px;
-            font-size: 16px;
-            background-color: #007bff;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            margin-top: 10px;
-        }
-    </style>
-    <link rel="manifest" href="./manifest.json">
-<meta name="theme-color" content="#0b1b2a">
+    button:hover {
+      background-color: #023e8a;
+    }
 
-<script>
-  if ("serviceWorker" in navigator) {
-    window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./service-worker.js")
-        .then(() => console.log("✅ SW OK"))
-        .catch(err => console.error("❌ SW error", err));
-    });
-  }
-</script>
+    input {
+      padding: 10px;
+      margin: 8px 0;
+      font-size: 16px;
+      border-radius: 4px;
+      border: none;
+      width: 90%;
+      max-width: 280px;
+    }
+
+    .seccion-login {
+      display: none;
+      width: 100%;
+      max-width: 360px;
+      margin-top: 20px;
+      padding: 20px;
+      background-color: rgba(255,255,255,0.08);
+      border-radius: 10px;
+    }
+  </style>
 </head>
 
 <body>
-    <img src="images/logo_blanco.jpg" alt="Logo Señalco" class="logo">
-    <h1>🔐 Ingreso al sistema Señalco</h1>
 
-    <div class="btn-container">
-        <button onclick="mostrarLogin('alarmas')">ALARMAS</button>
-        <button onclick="mostrarLogin('cctv')">CCTV</button>
-    </div>
+  <img src="images/logo_blanco.jpg" alt="Logo Señalco" class="logo">
+  <h1>🔐 Ingreso al sistema Señalco</h1>
 
-    <!-- LOGIN ALARMAS -->
-    <div id="alarmas" class="seccion-login">
-        <h3>Login alarmas</h3>
-        <input type="text" id="usuario-alarmas" placeholder="Usuario" />
-        <input type="password" id="clave-alarmas" placeholder="Clave" />
-        <button onclick="validarLogin('caba')">Entrar</button>
-    </div>
+  <!-- BOTONES PRINCIPALES -->
+  <div class="btn-container">
+    <button type="button" onclick="mostrarLogin('alarmas')">ALARMAS</button>
+    <button type="button" onclick="mostrarLogin('cctv')">CCTV</button>
+  </div>
 
+  <!-- LOGIN ALARMAS -->
+  <div id="login-alarmas" class="seccion-login">
+    <h3>Login Alarmas</h3>
+    <input type="text" id="usuario-alarmas" placeholder="Usuario">
+    <input type="password" id="clave-alarmas" placeholder="Clave">
+    <button type="button" onclick="validarLogin('alarmas')">Entrar</button>
+  </div>
 
-    <!-- LOGIN CCTV -->
-    <div id="login-cctv" class="seccion-login">
-        <h3>Login CCTV</h3>
-        <input type="text" id="usuario-cctv" placeholder="Usuario" />
-        <input type="password" id="clave-cctv" placeholder="Clave" />
-        <button onclick="validarLogin('cctv')">Entrar</button>
-    </div>
+  <!-- LOGIN CCTV -->
+  <div id="login-cctv" class="seccion-login">
+    <h3>Login CCTV</h3>
+    <input type="text" id="usuario-cctv" placeholder="Usuario">
+    <input type="password" id="clave-cctv" placeholder="Clave">
+    <button type="button" onclick="validarLogin('cctv')">Entrar</button>
+  </div>
 
-    <!-- SELECCION PLANILLAS -->
-    <div id="seleccion-planillas" class="seccion-login">
-        <h3>¿Qué planilla querés abrir?</h3>
-        <button id="btn-relevamiento">📋 Planilla de Relevamiento</button>
-        <button id="btn-base">📊 Base de Datos</button>
-    </div>
-    <script>
-        if ("serviceWorker" in navigator) {
-            navigator.serviceWorker.register("service-worker.js");
-        }
-    </script>
+  <!-- SELECCIÓN DE PLANILLAS (SOLO ALARMAS) -->
+  <div id="seleccion-planillas" class="seccion-login">
+    <h3>¿Qué planilla querés abrir?</h3>
+    <button type="button" id="btn-relevamiento">📋 Relevamiento</button>
+    <button type="button" id="btn-base">📊 Base de Datos</button>
+  </div>
+
+  <!-- SERVICE WORKER -->
+  <script>
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("./service-worker.js")
+          .then(() => console.log("✅ Service Worker OK"))
+          .catch(err => console.error("❌ SW error", err));
+      });
+    }
+  </script>
+
 </body>
 
 </html>
