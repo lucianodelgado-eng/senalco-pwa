@@ -351,3 +351,58 @@ button:hover {
         width: 100% !important;
     }
 }
+/* ===== Modal siempre CLARO (previsualización) ===== */
+.modal .box{
+  background:#ffffff !important;
+  color:#111 !important;
+}
+#prev-body{
+  background:#ffffff !important;
+  color:#111 !important;
+}
+#prev-body *{
+  color:#111 !important;
+}
+
+/* ===== Tabla Base en móvil como tarjetas por zona ===== */
+@media (max-width: 600px) {
+  #tabla-base, #tabla-base thead, #tabla-base tbody, #tabla-base th, #tabla-base td, #tabla-base tr {
+    display: block;
+    width: 100%;
+  }
+
+  #tabla-base thead { display: none; }
+
+  #tabla-base tbody tr{
+    margin-bottom: 12px;
+    border-radius: 12px;
+    padding: 10px;
+    border: 1px solid #2c2c2c;
+    background: #101030;
+    box-shadow: 0 0 10px rgba(0,0,0,.25);
+  }
+
+  #tabla-base tbody td{
+    border: none;
+    padding: 6px 0;
+    text-align: left;
+  }
+
+  /* la celda Zona tipo "título" */
+  #tabla-base tbody td:nth-child(1){
+    font-weight: 800;
+    font-size: 16px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #2c2c2c;
+    margin-bottom: 10px;
+  }
+
+  /* inputs/selects en móvil */
+  #tabla-base select, #tabla-base input{
+    width: 100% !important;
+  }
+}
+.modal .box, #prev-body, #prev-body *{
+  background:#fff !important;
+  color:#111 !important;
+}
