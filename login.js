@@ -1,77 +1,39 @@
-let perfilSeleccionado = "";
-
-function getEl(id) {
-    return document.getElementById(id);
-}
-
-// Soporta ambos nombres por si el HTML quedó con id viejo
-function getLoginBox(perfil) {
-    if (perfil === "alarmas") return getEl("login-alarmas") || getEl("alarmas");
-    if (perfil === "cctv") return getEl("login-cctv") || getEl("cctv") || getEl("login-cctv");
-    return null;
-}
-
 function ocultarTodo() {
-    const a = getEl("login-alarmas") || getEl("alarmas");
-    const c = getEl("login-cctv") || getEl("cctv");
-    const s = getEl("seleccion-planillas");
-
-    if (a) a.style.display = "none";
-    if (c) c.style.display = "none";
-    if (s) s.style.display = "none";
+    document.getElementById("login-alarmas")?.classList.remove("active");
+    document.getElementById("login-cctv")?.classList.remove("active");
+    document.getElementById("seleccion-planillas")?.classList.remove("active");
 }
 
 function mostrarLogin(perfil) {
     ocultarTodo();
-    perfilSeleccionado = perfil;
-
-    const box = getLoginBox(perfil);
-    if (!box) {
-        alert("❌ No encuentro el contenedor de login de " + perfil + ". Revisá IDs en el HTML.");
-        return;
-    }
-    box.style.display = "block";
+    if (perfil === "alarmas") document.getElementById("login-alarmas")?.classList.add("active");
+    if (perfil === "cctv") document.getElementById("login-cctv")?.classList.add("active");
 }
 
 function validarLogin(perfil) {
-    const userEl = getEl(`usuario-${perfil}`);
-    const passEl = getEl(`clave-${perfil}`);
+    const usuario = document.getElementById(`usuario-${perfil}`)?.value?.trim() || "";
+    const clave = document.getElementById(`clave-${perfil}`)?.value?.trim() || "";
 
-    // Si el HTML quedó con ids viejos, los buscamos
-    const usuario = (userEl?.value || "").trim();
-    const clave = (passEl?.value || "").trim();
-
-    const claves = {
-        alarmas: "Senalco2025",
-        cctv: "CCTV2025"
-    };
+    const claves = { alarmas: "Senalco2025", cctv: "CCTV2025" };
 
     if (usuario === "admin" && clave === claves[perfil]) {
         localStorage.setItem("logueado", "true");
         localStorage.setItem("perfil", perfil);
-
-        // Oculto el login actual (cualquiera de los IDs)
-        const box = getLoginBox(perfil);
-        if (box) box.style.display = "none";
 
         if (perfil === "cctv") {
             window.location.href = "index2.html";
             return;
         }
 
-        // Alarmas -> selector planillas
-        const sel = getEl("seleccion-planillas");
-        if (!sel) {
-            alert("❌ Falta el div #seleccion-planillas en el HTML.");
-            return;
-        }
-        sel.style.display = "block";
+        ocultarTodo();
+        document.getElementById("seleccion-planillas")?.classList.add("active");
 
-        const btnRel = getEl("btn-relevamiento");
-        const btnBase = getEl("btn-base");
-
-        if (btnRel) btnRel.onclick = () => window.location.href = "relevamiento1.html";
-        if (btnBase) btnBase.onclick = () => window.location.href = "index-base.html";
+        document.getElementById("btn-relevamiento").onclick = () => {
+            window.location.href = "relevamiento1.html";
+        };
+        document.getElementById("btn-base").onclick = () => {
+            window.location.href = "index-base.html";
+        };
 
     } else {
         alert("Credenciales incorrectas");
