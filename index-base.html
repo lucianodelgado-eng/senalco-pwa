@@ -8,12 +8,12 @@
 
   <link rel="stylesheet" href="estilo.css" />
 
+  <!-- PDF -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.7.0/jspdf.plugin.autotable.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
 
-  <!-- PDF.js para poder leer texto del PDF subido (si usás el botón "Subir PDF a modificar") -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.min.js"></script>
+  <!-- Excel -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
 
   <script defer src="java-base.js"></script>
 
@@ -24,41 +24,49 @@
     }
   </script>
 
-  <img id="logo" src="images/logo.jpg" style="display: none;" />
-  <img src="images/logo_blanco.jpg" alt="Logo Señalco" class="logo-entrada">
-
   <style>
     body {
       font-family: Arial, sans-serif;
       margin: 20px;
       max-width: 1000px;
       margin: auto;
+      background: #0b0b20;
+      color: #fff;
     }
 
     h1 {
       text-align: center;
     }
 
+    label {
+      display: block;
+      margin-top: 10px;
+      font-weight: bold;
+    }
+
     input,
     select {
       width: 100%;
-      padding: 6px;
-      margin: 5px 0;
+      padding: 10px;
+      margin: 6px 0;
       box-sizing: border-box;
+      border-radius: 8px;
+      border: 1px solid #333;
+      background: #121235;
+      color: #fff;
     }
 
     table {
       width: 100%;
       border-collapse: collapse;
       margin-top: 15px;
+      background: #0d0d2a;
     }
 
     table,
     th,
     td {
-      background-color: #01011f;
       border: 1px solid #0a0a0a;
-      color: #fff;
     }
 
     th,
@@ -70,109 +78,114 @@
     .botones {
       display: flex;
       flex-wrap: wrap;
-      justify-content: space-between;
-      margin-top: 20px;
       gap: 10px;
+      margin-top: 20px;
     }
 
-    button {
-      flex: 1 1 200px;
-      padding: 10px;
+    .botones button {
+      flex: 1 1 220px;
+      padding: 12px;
       font-weight: bold;
       cursor: pointer;
+      border: 0;
+      border-radius: 10px;
+      background: #1976d2;
+      color: #fff;
     }
 
-    ul {
-      list-style-type: none;
-      padding-left: 0;
-      margin-top: 10px;
+    .botones button:hover {
+      opacity: .92;
     }
 
-    li {
+    .zonaInput {
+      width: 100%;
+      border-radius: 8px;
+      padding: 8px;
+      border: 1px solid #333;
+      background: #14143a;
+      color: #fff;
+    }
+
+    .mini-btn {
+      padding: 10px 14px;
+      border-radius: 10px;
+      background: #444;
+      color: #fff;
+      border: 0;
       cursor: pointer;
-      padding: 5px;
-      border-bottom: 1px solid #eee;
+      font-weight: bold;
     }
 
-    li:hover {
-      background-color: #f0f0f0;
+    /* Modal genérico */
+    .modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .65);
+      z-index: 9999;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .modal .box {
+      background: #fff;
+      color: #000;
+      width: min(95vw, 900px);
+      border-radius: 14px;
+      padding: 16px;
+      max-height: 85vh;
+      overflow: auto;
+    }
+
+    .modal .row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .card {
+      border: 1px solid #ddd;
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 10px;
+      background: #fafafa;
     }
 
     #logo-pdf {
       display: none;
     }
 
-    /* Modal preview */
-    #modal-preview {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, .7);
-      z-index: 9999;
-      padding: 20px;
-    }
-
-    #modal-preview .box {
-      background: #fff;
-      color: #000;
-      max-width: 1000px;
-      margin: auto;
-      border-radius: 12px;
-      padding: 16px;
-      max-height: 90vh;
-      overflow: auto;
-    }
-
-    #modal-preview table,
-    #modal-preview th,
-    #modal-preview td {
-      background: #fff;
-      color: #000;
-      border: 1px solid #ccc;
-    }
-
-    #modal-preview th,
-    #modal-preview td {
-      padding: 6px;
-      text-align: left;
-    }
-
-    #modal-preview .actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      justify-content: flex-end;
-      margin-top: 12px;
-    }
-
-    #modal-preview .actions button {
-      flex: 0 0 auto;
-      padding: 8px 12px;
-      font-weight: bold;
+    .logo-entrada {
+      width: 140px;
+      display: block;
+      margin: 10px auto 0;
     }
   </style>
 </head>
 
 <body onload="asignarEventosBase(); precargarZonas(); obtenerBasesGuardadas();">
+  <img id="logo-pdf" src="images/logo.jpg" alt="logo" />
+  <img src="images/logo_blanco.jpg" alt="Logo Señalco" class="logo-entrada">
 
   <h1>📊 Base de Datos - Señalco</h1>
 
-  <img id="logo-pdf" src="images/logo.jpg" alt="logo" />
-
   <label>Entidad</label>
-  <input type="text" id="entidad" />
+  <input type="text" id="entidad" placeholder="Ej: Galicia" />
 
   <label>Sucursal</label>
-  <input type="text" id="sucursal" />
+  <input type="text" id="sucursal" placeholder="Ej: 1234" />
 
   <label>Abonado</label>
-  <input type="text" id="abonado" />
+  <input type="text" id="abonado" placeholder="Ej: 000123" />
 
   <label>Central</label>
-  <input type="text" id="central" />
+  <input type="text" id="central" placeholder="Ej: Acicomp" />
 
   <label>Provincia</label>
-  <input type="text" id="provincia" />
+  <input type="text" id="provincia" placeholder="Ej: Buenos Aires" />
 
   <table id="tabla-base">
     <thead>
@@ -184,81 +197,83 @@
         <th>Descripción</th>
       </tr>
     </thead>
-
-    <script>
-      function cerrarSesion() {
-        localStorage.removeItem("logueado");
-        window.location.href = "login.html";
-      }
-    </script>
-
     <tbody></tbody>
   </table>
 
   <div class="botones">
     <button id="btn-limpiar-base">🧹 Limpiar</button>
 
-    <!-- NUEVOS (los botones que veníamos hablando) -->
-    <button id="btn-precarga-excel">⚡ Precarga base (Excel)</button>
+    <button id="btn-subir-pdf">📂 Subir PDF a modificar (solo si es de la app)</button>
+    <input id="input-pdf-base" type="file" accept="application/pdf,.pdf"
+      style="position:absolute; left:-9999px; width:1px; height:1px;" />
 
-    <button id="btn-subir-pdf">📂 Subir PDF a modificar</button>
-    <input type="file" id="input-pdf-base" accept="application/pdf,.pdf" style="display:none;">
+    <button id="btn-subir-excel">📂 Subir Excel a modificar</button>
+    <input id="input-excel-base" type="file"
+      accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      style="position:absolute; left:-9999px; width:1px; height:1px;" />
 
-    <!-- PREVIEW -->
     <button id="btn-previsualizar">👁️ Previsualizar</button>
 
     <button id="btn-generar-pdf-base">📄 Generar PDF</button>
     <button id="btn-excel-base">📊 Exportar Excel</button>
 
-    <div style="text-align:center; margin-top: 30px;">
-      <button onclick="cerrarSesion()" style="padding: 10px 20px; font-size: 16px;">
-        🔒 Cerrar sesión
-      </button>
-    </div>
+    <button id="btn-guardar-local">💾 Guardar Base (Local)</button>
+    <button id="btn-mis-bases">📁 Mis Bases</button>
+
+    <button onclick="cerrarSesion()">🔒 Cerrar sesión</button>
   </div>
 
-  <div style="margin-top: 30px;">
-    <h3>📁 Borradores disponibles</h3>
+  <div style="margin-top: 26px;">
+    <h3>📁 Borradores disponibles (clásico)</h3>
     <ul id="lista-bases"></ul>
-    <button onclick="guardarBorradorBase('borrador1')">💾 Guardar como Borrador 1</button>
-    <button onclick="guardarBorradorBase('borrador2')">💾 Guardar como Borrador 2</button>
+    <button class="mini-btn" onclick="guardarBorradorBase('borrador1')">💾 Guardar como Borrador 1</button>
+    <button class="mini-btn" onclick="guardarBorradorBase('borrador2')">💾 Guardar como Borrador 2</button>
   </div>
 
-  <!-- MODAL PREVIEW -->
-  <div id="modal-preview">
+  <!-- MODAL: PREVISUALIZAR -->
+  <div id="modal-prev" class="modal">
     <div class="box">
-      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
-        <h3 style="margin:0;">Previsualización de Base</h3>
-        <button id="btn-cerrar-preview">Cerrar ✖</button>
+      <div class="row">
+        <h2 style="margin:0;">Previsualización de Base</h2>
+        <button class="mini-btn" id="btn-cerrar-prev">Cerrar ✖</button>
       </div>
-
-      <div id="preview-meta" style="margin-top:12px; text-align:left;"></div>
-
-      <div style="margin-top:12px; text-align:left;">
-        <b>Resumen:</b> <span id="preview-resumen"></span>
-      </div>
-
-      <div style="margin-top:12px;">
-        <table style="width:100%; border-collapse:collapse;">
-          <thead>
-            <tr>
-              <th>Zona</th>
-              <th>Evento</th>
-              <th>Área</th>
-              <th>Dispositivo</th>
-              <th>Descripción</th>
-            </tr>
-          </thead>
-          <tbody id="preview-tbody"></tbody>
-        </table>
-      </div>
-
-      <div class="actions">
-        <button id="btn-preview-descargar">✅ Descargar PDF</button>
+      <div id="prev-body" style="margin-top:12px;"></div>
+      <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
+        <button class="mini-btn" id="btn-descargar-pdf-prev">✅ Descargar PDF</button>
       </div>
     </div>
   </div>
 
+  <!-- MODAL: MIS BASES (DB local JSON interna) -->
+  <div id="modal-bases" class="modal">
+    <div class="box">
+      <div class="row">
+        <h2 style="margin:0;">📁 Mis Bases (guardadas en el teléfono)</h2>
+        <button class="mini-btn" id="btn-cerrar-bases">Cerrar ✖</button>
+      </div>
+
+      <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
+        <input id="nombre-base" placeholder="Nombre (ej: Galicia_Suc123)"
+          style="flex:1; min-width:220px; padding:10px;">
+        <button class="mini-btn" id="btn-guardar-como">Guardar como</button>
+        <button class="mini-btn" id="btn-descargar-json">Descargar JSON</button>
+        <button class="mini-btn" id="btn-importar-json">Importar JSON</button>
+        <input id="input-json-base" type="file" accept="application/json,.json"
+          style="position:absolute; left:-9999px; width:1px; height:1px;" />
+      </div>
+
+      <hr style="margin:14px 0;">
+      <div id="lista-bases-json"></div>
+    </div>
+  </div>
+
+  <script>
+    function cerrarSesion() {
+      localStorage.removeItem("logueado");
+      localStorage.removeItem("perfil");
+      window.location.href = "login.html";
+    }
+  </script>
 </body>
 
 </html>
