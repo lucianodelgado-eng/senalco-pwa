@@ -2,14 +2,14 @@ let perfilSeleccionado = "";
 
 function mostrarLogin(perfil) {
     // Ocultar todos
-    document.getElementById("login-caba").style.display = "none";
+    document.getElementById("login").style.display = "none";
     document.getElementById("login-cctv").style.display = "none";
     document.getElementById("seleccion-planillas").style.display = "none";
 
     perfilSeleccionado = perfil;
 
-    if (perfil === "caba") {
-        document.getElementById("login-caba").style.display = "block";
+    if (perfil === "login") {
+        document.getElementById("login").style.display = "block";
     }
     if (perfil === "cctv") {
         document.getElementById("login-cctv").style.display = "block";
