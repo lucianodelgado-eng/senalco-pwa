@@ -2,14 +2,14 @@ let perfilSeleccionado = "";
 
 function mostrarLogin(perfil) {
     // Ocultar todos
-    document.getElementById("login").style.display = "none";
+    document.getElementById("alarmas").style.display = "none";
     document.getElementById("login-cctv").style.display = "none";
     document.getElementById("seleccion-planillas").style.display = "none";
 
     perfilSeleccionado = perfil;
 
-    if (perfil === "login") {
-        document.getElementById("login").style.display = "block";
+    if (perfil === "alarmas") {
+        document.getElementById("login-alarmas").style.display = "block";
     }
     if (perfil === "cctv") {
         document.getElementById("login-cctv").style.display = "block";
@@ -21,7 +21,7 @@ function validarLogin(perfil) {
     let clave = document.getElementById(`clave-${perfil}`).value;
 
     const claves = {
-        caba: "Senalco2025",
+        alarmas: "Senalco2025",
         cctv: "CCTV2025"
     };
 
@@ -37,7 +37,7 @@ function validarLogin(perfil) {
             return;
         }
 
-        // CABA (único flujo de planillas)
+        // ALARMAS (único flujo de planillas)
         document.getElementById("seleccion-planillas").style.display = "block";
 
         document.getElementById("btn-relevamiento").onclick = () => {
