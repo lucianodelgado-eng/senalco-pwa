@@ -8,7 +8,7 @@
 
   <link rel="stylesheet" href="estilo.css" />
 
-  <!-- PDF -->
+  <!-- PDF (salida) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.7.0/jspdf.plugin.autotable.min.js"></script>
 
@@ -18,7 +18,6 @@
   <script defer src="java-base.js"></script>
 
   <script>
-    // Verifica si está logueado, si no, redirige al login
     if (localStorage.getItem("logueado") !== "true") {
       window.location.href = "login.html";
     }
@@ -116,7 +115,6 @@
       font-weight: bold;
     }
 
-    /* Modal genérico */
     .modal {
       display: none;
       position: fixed;
@@ -203,10 +201,6 @@
   <div class="botones">
     <button id="btn-limpiar-base">🧹 Limpiar</button>
 
-    <button id="btn-subir-pdf">📂 Subir PDF a modificar (solo si es de la app)</button>
-    <input id="input-pdf-base" type="file" accept="application/pdf,.pdf"
-      style="position:absolute; left:-9999px; width:1px; height:1px;" />
-
     <button id="btn-subir-excel">📂 Subir Excel a modificar</button>
     <input id="input-excel-base" type="file"
       accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -214,7 +208,7 @@
 
     <button id="btn-previsualizar">👁️ Previsualizar</button>
 
-    <button id="btn-generar-pdf-base">📄 Generar PDF</button>
+    <button id="btn-generar-pdf-base">📄 Generar PDF (opcional)</button>
     <button id="btn-excel-base">📊 Exportar Excel</button>
 
     <button id="btn-guardar-local">💾 Guardar Base (Local)</button>
@@ -244,7 +238,7 @@
     </div>
   </div>
 
-  <!-- MODAL: MIS BASES (DB local JSON interna) -->
+  <!-- MODAL: MIS BASES -->
   <div id="modal-bases" class="modal">
     <div class="box">
       <div class="row">
@@ -256,10 +250,14 @@
         <input id="nombre-base" placeholder="Nombre (ej: Galicia_Suc123)"
           style="flex:1; min-width:220px; padding:10px;">
         <button class="mini-btn" id="btn-guardar-como">Guardar como</button>
+
         <button class="mini-btn" id="btn-descargar-json">Descargar JSON</button>
         <button class="mini-btn" id="btn-importar-json">Importar JSON</button>
         <input id="input-json-base" type="file" accept="application/json,.json"
           style="position:absolute; left:-9999px; width:1px; height:1px;" />
+
+        <button class="mini-btn" id="btn-compartir-json">Compartir JSON</button>
+        <button class="mini-btn" id="btn-compartir-excel">Compartir Excel</button>
       </div>
 
       <hr style="margin:14px 0;">
