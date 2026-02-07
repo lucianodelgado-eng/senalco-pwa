@@ -15,8 +15,7 @@
   <!-- Excel -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
 
-  <script defer src="java-base.js"></script>
-
+  <!-- Seguridad: si no está logueado -->
   <script>
     if (localStorage.getItem("logueado") !== "true") {
       window.location.href = "login.html";
@@ -35,6 +34,7 @@
 
     h1 {
       text-align: center;
+      margin-top: 10px;
     }
 
     label {
@@ -72,6 +72,17 @@
     td {
       padding: 6px;
       text-align: center;
+      vertical-align: middle;
+    }
+
+    td input {
+      width: 100%;
+      border-radius: 8px;
+      padding: 8px;
+      border: 1px solid #333;
+      background: #14143a;
+      color: #fff;
+      box-sizing: border-box;
     }
 
     .botones {
@@ -94,15 +105,6 @@
 
     .botones button:hover {
       opacity: .92;
-    }
-
-    .zonaInput {
-      width: 100%;
-      border-radius: 8px;
-      padding: 8px;
-      border: 1px solid #333;
-      background: #14143a;
-      color: #fff;
     }
 
     .mini-btn {
@@ -160,12 +162,18 @@
       width: 140px;
       display: block;
       margin: 10px auto 0;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, .5);
     }
   </style>
 </head>
 
-<body onload="asignarEventosBase(); precargarZonas(); obtenerBasesGuardadas();">
+<body>
+
+  <!-- Logo para PDF -->
   <img id="logo-pdf" src="images/logo.jpg" alt="logo" />
+
+  <!-- Logo visible -->
   <img src="images/logo_blanco.jpg" alt="Logo Señalco" class="logo-entrada">
 
   <h1>📊 Base de Datos - Señalco</h1>
@@ -201,24 +209,23 @@
   <div class="botones">
     <button id="btn-limpiar-base">🧹 Limpiar</button>
 
-    <button id="btn-subir-excel">📂 Subir Excel a modificar</button>
+    <button id="btn-subir-excel">📂 Importar Excel</button>
     <input id="input-excel-base" type="file"
       accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
       style="position:absolute; left:-9999px; width:1px; height:1px;" />
 
     <button id="btn-previsualizar">👁️ Previsualizar</button>
 
-    <button id="btn-generar-pdf-base">📄 Generar PDF (opcional)</button>
+    <button id="btn-generar-pdf-base">📄 Generar PDF</button>
     <button id="btn-excel-base">📊 Exportar Excel</button>
 
-    <button id="btn-guardar-local">💾 Guardar Base (Local)</button>
     <button id="btn-mis-bases">📁 Mis Bases</button>
+
     <button id="btn-editar-zonas123">🔓 Editar Zonas 1-3</button>
     <button id="btn-bloquear-zonas123" style="display:none;">🔒 Bloquear Zonas 1-3</button>
+
     <button onclick="cerrarSesion()">🔒 Cerrar sesión</button>
   </div>
-
-
 
   <!-- MODAL: PREVISUALIZAR -->
   <div id="modal-prev" class="modal">
@@ -244,7 +251,7 @@
 
       <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
         <input id="nombre-base" placeholder="Nombre (ej: Galicia_Suc123)"
-          style="flex:1; min-width:220px; padding:10px;">
+          style="flex:1; min-width:220px; padding:10px; border-radius:10px; border:1px solid #ddd;">
         <button class="mini-btn" id="btn-guardar-como">Guardar como</button>
 
         <button class="mini-btn" id="btn-descargar-json">Descargar JSON</button>
@@ -265,6 +272,10 @@
       window.location.href = "login.html";
     }
   </script>
+
+  <!-- ✅ TU JS (el que te pasé completo) -->
+  <script src="java-base.js"></script>
+
 </body>
 
 </html>
