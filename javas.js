@@ -5,90 +5,90 @@ let paso = 0;
 let secciones, btnAtras, btnSig;
 
 function mostrarPaso(i) {
-    secciones.forEach((sec, idx) => sec.style.display = (idx === i) ? "block" : "none");
-    btnAtras.style.display = (i === 0) ? "none" : "inline-block";
-    btnSig.style.display = (i === secciones.length - 1) ? "none" : "inline-block";
+  secciones.forEach((sec, idx) => sec.style.display = (idx === i) ? "block" : "none");
+  btnAtras.style.display = (i === 0) ? "none" : "inline-block";
+  btnSig.style.display = (i === secciones.length - 1) ? "none" : "inline-block";
 }
 
 /*************************
  *  Helpers UI / Sector  *
  *************************/
 function mostrarOtro(select) {
-    const inputOtro = select.parentElement.querySelector(".otro-dispositivo");
-    if (!inputOtro) return;
-    inputOtro.style.display = (select.value === "Otro") ? "block" : "none";
+  const inputOtro = select.parentElement.querySelector(".otro-dispositivo");
+  if (!inputOtro) return;
+  inputOtro.style.display = (select.value === "Otro") ? "block" : "none";
 }
 
 function guardarFilaEditable(btn) {
-    const sector = btn.closest(".sector");
-    const filaEdicion = sector.querySelector("tbody tr");
-    if (!filaEdicion) return;
+  const sector = btn.closest(".sector");
+  const filaEdicion = sector.querySelector("tbody tr");
+  if (!filaEdicion) return;
 
-    const sel = filaEdicion.querySelector("select");
-    const inpCant = filaEdicion.querySelector('td[data-label="Cantidad"] input');
-    const inpModelo = filaEdicion.querySelector('td[data-label="Modelo"] input');
-    const inpZona = filaEdicion.querySelector('td[data-label="Zona"] input');
-    const inpObs = filaEdicion.querySelector('td[data-label="Observación"] input');
-    const inpOtro = filaEdicion.querySelector(".otro-dispositivo");
+  const sel = filaEdicion.querySelector("select");
+  const inpCant = filaEdicion.querySelector('td[data-label="Cantidad"] input');
+  const inpModelo = filaEdicion.querySelector('td[data-label="Modelo"] input');
+  const inpZona = filaEdicion.querySelector('td[data-label="Zona"] input');
+  const inpObs = filaEdicion.querySelector('td[data-label="Observación"] input');
+  const inpOtro = filaEdicion.querySelector(".otro-dispositivo");
 
-    let dispositivo = sel?.value || "";
-    if (dispositivo === "Otro" && inpOtro && inpOtro.value.trim() !== "") {
-        dispositivo = inpOtro.value.trim();
-    }
+  let dispositivo = sel?.value || "";
+  if (dispositivo === "Otro" && inpOtro && inpOtro.value.trim() !== "") {
+    dispositivo = inpOtro.value.trim();
+  }
 
-    if (!dispositivo) { alert("Seleccioná un dispositivo válido."); return; }
-    if (!inpCant?.value || +inpCant.value <= 0) { alert("La cantidad debe ser mayor que 0."); return; }
+  if (!dispositivo) { alert("Seleccioná un dispositivo válido."); return; }
+  if (!inpCant?.value || +inpCant.value <= 0) { alert("La cantidad debe ser mayor que 0."); return; }
 
-    const datos = [
-        dispositivo,
-        inpCant.value.trim(),
-        (inpModelo?.value || "").trim(),
-        (inpZona?.value || "").trim(),
-        (inpObs?.value || "").trim()
-    ];
+  const datos = [
+    dispositivo,
+    inpCant.value.trim(),
+    (inpModelo?.value || "").trim(),
+    (inpZona?.value || "").trim(),
+    (inpObs?.value || "").trim()
+  ];
 
-    const filaNueva = document.createElement("tr");
-    datos.forEach(d => {
-        const td = document.createElement("td");
-        const input = document.createElement("input");
-        input.type = "text";
-        input.value = d;
-        input.style.width = "100%";
-        td.appendChild(input);
-        filaNueva.appendChild(td);
-    });
+  const filaNueva = document.createElement("tr");
+  datos.forEach(d => {
+    const td = document.createElement("td");
+    const input = document.createElement("input");
+    input.type = "text";
+    input.value = d;
+    input.style.width = "100%";
+    td.appendChild(input);
+    filaNueva.appendChild(td);
+  });
 
-    sector.querySelector("details tbody").appendChild(filaNueva);
+  sector.querySelector("details tbody").appendChild(filaNueva);
 
-    const contador = sector.querySelector(".conteo");
-    if (contador) contador.textContent = +contador.textContent + 1;
+  const contador = sector.querySelector(".conteo");
+  if (contador) contador.textContent = +contador.textContent + 1;
 
-    // Reset
-    if (sel) sel.value = "";
-    if (inpCant) inpCant.value = "";
-    if (inpModelo) inpModelo.value = "";
-    if (inpZona) inpZona.value = "";
-    if (inpObs) inpObs.value = "";
-    if (inpOtro) { inpOtro.value = ""; inpOtro.style.display = "none"; }
+  // Reset
+  if (sel) sel.value = "";
+  if (inpCant) inpCant.value = "";
+  if (inpModelo) inpModelo.value = "";
+  if (inpZona) inpZona.value = "";
+  if (inpObs) inpObs.value = "";
+  if (inpOtro) { inpOtro.value = ""; inpOtro.style.display = "none"; }
 
-    guardarEstadoLocal();
-    refrescarListaRelevamientos();
+  guardarEstadoLocal();
+  refrescarListaRelevamientos();
 }
 
 function limpiarSector(btn) {
-    const sector = btn.closest(".sector");
-    sector.querySelector("details tbody").innerHTML = "";
-    sector.querySelector(".conteo").textContent = "0";
-    guardarEstadoLocal();
-    refrescarListaRelevamientos();
+  const sector = btn.closest(".sector");
+  sector.querySelector("details tbody").innerHTML = "";
+  sector.querySelector(".conteo").textContent = "0";
+  guardarEstadoLocal();
+  refrescarListaRelevamientos();
 }
 
 function agregarSectorPorNombre(nombre) {
-    const contenedor = document.getElementById("contenedor-sectores");
-    const div = document.createElement("div");
-    div.className = "sector";
+  const contenedor = document.getElementById("contenedor-sectores");
+  const div = document.createElement("div");
+  div.className = "sector";
 
-    div.innerHTML = `
+  div.innerHTML = `
     <h3 contenteditable>${nombre}</h3>
     <table class="tabla-editable">
       <thead>
@@ -159,155 +159,154 @@ function agregarSectorPorNombre(nombre) {
     </details>
   `;
 
-    contenedor.appendChild(div);
+  contenedor.appendChild(div);
 }
 
 function agregarSector() {
-    agregarSectorPorNombre("Nuevo sector");
+  agregarSectorPorNombre("Nuevo sector");
 }
 
 /*******************************
  * Precargas (ATM/Tesoro/...)  *
  *******************************/
 function precargarDispositivos(btn, tipo) {
-    const sector = btn.closest(".sector");
-    const dispositivos = {
-        atm: [
-            ["ATM", "", "", "", ""],
-            ["Detectores térmicos", "", "", "24HS", ""],
-            ["Sensores Sísmicos", "", "SM50", "24HS", ""],
-            ["Juegos de magnéticos", "", "C&K", "Demorado", ""],
-            ["Magenticos antisabotaje", "", "K30", "24HS", ""]
-        ],
-        tesoro: [
-            ["Modulo de caja de seguridad", "", "", "", "interior del recinto"],
-            ["Juegos de magnéticos", "", "Barral", "Demorado", ""],
-            ["Sensores Sísmicos", "", "SM50", "24HS", ""],
-            ["Cerradura electromagnética", "", "Zudsec", "", ""]
-        ],
-        CDS: [
-            ["Modulo de caja de seguridad", "", "", "", "interior del recinto"],
-            ["Juegos de magnéticos", "", "Barral", "Demorado", ""],
-            ["Sensores Sísmicos", "", "SM50", "24HS", ""],
-            ["Cerradura electromagnética", "", "Zudsec", "", ""]
-        ],
-        bunker: [
-            ["Equipo de abonado", "1", "Señalco", "", ""],
-            ["Gabinete de Baterias", "1", "Señalco", "", ""],
-            ["Baterías", "8", "", "", ""],
-            ["Pulsadores de asalto", "", "K92", "", ""],
-            ["Pulsadores de incendio", "", "K95", "", ""]
-        ]
-    };
+  const sector = btn.closest(".sector");
+  const dispositivos = {
+    atm: [
+      ["ATM", "", "", "", ""],
+      ["Detectores térmicos", "", "", "24HS", ""],
+      ["Sensores Sísmicos", "", "SM50", "24HS", ""],
+      ["Juegos de magnéticos", "", "C&K", "Demorado", ""],
+      ["Magenticos antisabotaje", "", "K30", "24HS", ""]
+    ],
+    tesoro: [
+      ["Modulo de caja de seguridad", "", "", "", "interior del recinto"],
+      ["Juegos de magnéticos", "", "Barral", "Demorado", ""],
+      ["Sensores Sísmicos", "", "SM50", "24HS", ""],
+      ["Cerradura electromagnética", "", "Zudsec", "", ""]
+    ],
+    CDS: [
+      ["Modulo de caja de seguridad", "", "", "", "interior del recinto"],
+      ["Juegos de magnéticos", "", "Barral", "Demorado", ""],
+      ["Sensores Sísmicos", "", "SM50", "24HS", ""],
+      ["Cerradura electromagnética", "", "Zudsec", "", ""]
+    ],
+    bunker: [
+      ["Equipo de abonado", "1", "Señalco", "", ""],
+      ["Gabinete de Baterias", "1", "Señalco", "", ""],
+      ["Baterías", "8", "", "", ""],
+      ["Pulsadores de asalto", "", "K92", "", ""],
+      ["Pulsadores de incendio", "", "K95", "", ""]
+    ]
+  };
 
-    const lista = dispositivos[tipo];
-    if (!lista) return;
+  const lista = dispositivos[tipo];
+  if (!lista) return;
 
-    const tbody = sector.querySelector("details tbody");
-    const contador = sector.querySelector(".conteo");
+  const tbody = sector.querySelector("details tbody");
+  const contador = sector.querySelector(".conteo");
 
-    let cantidadGlobal = "1";
-    if (["atm", "tesoro", "CDS"].includes(tipo)) {
-        const cant = prompt(`¿Cantidad para cada dispositivo ${tipo.toUpperCase()}?`);
-        if (cant === null || cant.trim() === "" || isNaN(cant) || +cant <= 0) return;
-        cantidadGlobal = cant;
-    }
+  let cantidadGlobal = "1";
+  if (["atm", "tesoro", "CDS"].includes(tipo)) {
+    const cant = prompt(`¿Cantidad para cada dispositivo ${tipo.toUpperCase()}?`);
+    if (cant === null || cant.trim() === "" || isNaN(cant) || +cant <= 0) return;
+    cantidadGlobal = cant;
+  }
 
-    lista.forEach(item => {
-        const datos = [
-            item[0],
-            ["atm", "tesoro", "CDS"].includes(tipo) ? cantidadGlobal : (item[1] || ""),
-            item[2] || "",
-            item[3] || "",
-            item[4] || ""
-        ];
+  lista.forEach(item => {
+    const datos = [
+      item[0],
+      ["atm", "tesoro", "CDS"].includes(tipo) ? cantidadGlobal : (item[1] || ""),
+      item[2] || "",
+      item[3] || "",
+      item[4] || ""
+    ];
 
-        const tr = document.createElement("tr");
-        datos.forEach(d => {
-            const td = document.createElement("td");
-            const input = document.createElement("input");
-            input.type = "text";
-            input.value = d;
-            input.style.width = "100%";
-            td.appendChild(input);
-            tr.appendChild(td);
-        });
-
-        tbody.appendChild(tr);
-        if (contador) contador.textContent = +contador.textContent + 1;
+    const tr = document.createElement("tr");
+    datos.forEach(d => {
+      const td = document.createElement("td");
+      const input = document.createElement("input");
+      input.type = "text";
+      input.value = d;
+      input.style.width = "100%";
+      td.appendChild(input);
+      tr.appendChild(td);
     });
 
-    guardarEstadoLocal();
-    refrescarListaRelevamientos();
+    tbody.appendChild(tr);
+    if (contador) contador.textContent = +contador.textContent + 1;
+  });
+
+  guardarEstadoLocal();
+  refrescarListaRelevamientos();
 }
 
 /*******************************
  *    Construir / Aplicar JSON *
  *******************************/
 function buildRelevamientoData() {
-    const data = {
-        entidad: document.getElementById("entidad")?.value || "",
-        sucursal: document.getElementById("sucursal")?.value || "",
-        direccion: document.getElementById("direccion")?.value || "",
-        fecha: document.getElementById("fecha")?.value || "",
-        remito: document.getElementById("remito")?.value || "",
-        relevado: document.getElementById("relevado")?.value || "",
-        sectores: []
-    };
+  const data = {
+    entidad: document.getElementById("entidad")?.value || "",
+    sucursal: document.getElementById("sucursal")?.value || "",
+    direccion: document.getElementById("direccion")?.value || "",
+    fecha: document.getElementById("fecha")?.value || "",
+    remito: document.getElementById("remito")?.value || "",
+    relevado: document.getElementById("relevado")?.value || "",
+    sectores: []
+  };
 
-    document.querySelectorAll(".sector").forEach(sector => {
-        const nombre = sector.querySelector("h3")?.textContent?.trim() || "Sector";
-        const filas = Array.from(sector.querySelectorAll("details tbody tr")).map(tr => {
-            const inputs = tr.querySelectorAll("td input");
-            const arr = Array.from(inputs).map(i => i.value || "");
-            // [disp, cant, modelo, zona, obs]
-            return (arr.length >= 5) ? arr.slice(0, 5) : arr;
-        });
-
-        data.sectores.push({ nombre, filas });
+  document.querySelectorAll(".sector").forEach(sector => {
+    const nombre = sector.querySelector("h3")?.textContent?.trim() || "Sector";
+    const filas = Array.from(sector.querySelectorAll("details tbody tr")).map(tr => {
+      const inputs = tr.querySelectorAll("td input");
+      const arr = Array.from(inputs).map(i => i.value || "");
+      return (arr.length >= 5) ? arr.slice(0, 5) : arr;
     });
 
-    return data;
+    data.sectores.push({ nombre, filas });
+  });
+
+  return data;
 }
 
 function applyRelevamientoData(data) {
-    document.getElementById("entidad").value = data.entidad || "";
-    document.getElementById("sucursal").value = data.sucursal || "";
-    document.getElementById("direccion").value = data.direccion || "";
-    document.getElementById("fecha").value = data.fecha || "";
-    document.getElementById("remito").value = data.remito || "";
-    document.getElementById("relevado").value = data.relevado || "";
+  document.getElementById("entidad").value = data.entidad || "";
+  document.getElementById("sucursal").value = data.sucursal || "";
+  document.getElementById("direccion").value = data.direccion || "";
+  document.getElementById("fecha").value = data.fecha || "";
+  document.getElementById("remito").value = data.remito || "";
+  document.getElementById("relevado").value = data.relevado || "";
 
-    const contenedor = document.getElementById("contenedor-sectores");
-    contenedor.innerHTML = "";
+  const contenedor = document.getElementById("contenedor-sectores");
+  contenedor.innerHTML = "";
 
-    (data.sectores || []).forEach(sec => {
-        agregarSectorPorNombre(sec.nombre || "Sector");
-        const last = contenedor.lastElementChild;
-        const tbody = last.querySelector("details tbody");
-        const contador = last.querySelector(".conteo");
+  (data.sectores || []).forEach(sec => {
+    agregarSectorPorNombre(sec.nombre || "Sector");
+    const last = contenedor.lastElementChild;
+    const tbody = last.querySelector("details tbody");
+    const contador = last.querySelector(".conteo");
 
-        let count = 0;
-        (sec.filas || []).forEach(fila => {
-            const tr = document.createElement("tr");
-            (fila || []).slice(0, 5).forEach(val => {
-                const td = document.createElement("td");
-                const input = document.createElement("input");
-                input.type = "text";
-                input.value = val ?? "";
-                input.style.width = "100%";
-                td.appendChild(input);
-                tr.appendChild(td);
-            });
-            tbody.appendChild(tr);
-            count++;
-        });
-
-        if (contador) contador.textContent = String(count);
+    let count = 0;
+    (sec.filas || []).forEach(fila => {
+      const tr = document.createElement("tr");
+      (fila || []).slice(0, 5).forEach(val => {
+        const td = document.createElement("td");
+        const input = document.createElement("input");
+        input.type = "text";
+        input.value = val ?? "";
+        input.style.width = "100%";
+        td.appendChild(input);
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+      count++;
     });
 
-    guardarEstadoLocal();
-    refrescarListaRelevamientos();
+    if (contador) contador.textContent = String(count);
+  });
+
+  guardarEstadoLocal();
+  refrescarListaRelevamientos();
 }
 
 /*******************************
@@ -319,308 +318,376 @@ const BORRADOR_1 = "relevamientoBorrador1";
 const BORRADOR_2 = "relevamientoBorrador2";
 
 function guardarEstadoLocal() {
-    const data = buildRelevamientoData();
-    localStorage.setItem(KEY_AUTO, JSON.stringify(data));
+  const data = buildRelevamientoData();
+  localStorage.setItem(KEY_AUTO, JSON.stringify(data));
 }
 
 function borrarFormulario() {
-    localStorage.removeItem(KEY_AUTO);
+  localStorage.removeItem(KEY_AUTO);
 
-    ["entidad", "sucursal", "direccion", "fecha", "remito", "relevado"].forEach(id => {
-        const campo = document.getElementById(id);
-        if (campo) campo.value = "";
-    });
+  ["entidad","sucursal","direccion","fecha","remito","relevado"].forEach(id => {
+    const campo = document.getElementById(id);
+    if (campo) campo.value = "";
+  });
 
-    // reset a sectores base
-    const contenedor = document.getElementById("contenedor-sectores");
-    contenedor.innerHTML = "";
-    sectoresPrecargados.forEach(n => agregarSectorPorNombre(n));
+  const contenedor = document.getElementById("contenedor-sectores");
+  contenedor.innerHTML = "";
+  sectoresPrecargados.forEach(n => agregarSectorPorNombre(n));
 
-    paso = 0;
-    mostrarPaso(paso);
+  paso = 0;
+  mostrarPaso(paso);
 
-    refrescarListaRelevamientos();
+  refrescarListaRelevamientos();
+  cerrarVistaPrevia();
 }
 
 function guardarRelevamientoLocal(clave) {
-    const data = buildRelevamientoData();
-    localStorage.setItem(clave, JSON.stringify(data));
-    guardarEstadoLocal();
-    refrescarListaRelevamientos();
+  const data = buildRelevamientoData();
+  localStorage.setItem(clave, JSON.stringify(data));
+  guardarEstadoLocal();
+  refrescarListaRelevamientos();
 }
 
 function eliminarRelevamiento(clave) {
-    localStorage.removeItem(clave);
-    refrescarListaRelevamientos();
+  localStorage.removeItem(clave);
+  refrescarListaRelevamientos();
 }
 
 function cargarRelevamientoLocal(clave) {
-    const raw = localStorage.getItem(clave);
-    if (!raw) return;
-    const data = JSON.parse(raw);
-    applyRelevamientoData(data);
+  const raw = localStorage.getItem(clave);
+  if (!raw) return;
+  const data = JSON.parse(raw);
+  applyRelevamientoData(data);
+  cerrarVistaPrevia();
 }
 
 /*******************************
  *   JSON: Guardar / Descargar / Importar
  *******************************/
 function generarNombreBase() {
-    const e = (document.getElementById("entidad")?.value || "entidad").trim();
-    const s = (document.getElementById("sucursal")?.value || "sucursal").trim();
-    const f = (document.getElementById("fecha")?.value || "").trim();
-    const safe = (x) => x.replace(/[^\w\d\-]+/g, "_");
-    return `relev_${safe(e)}_${safe(s)}_${safe(f || "sin_fecha")}`.replace(/_+/g, "_");
+  const e = (document.getElementById("entidad")?.value || "entidad").trim();
+  const s = (document.getElementById("sucursal")?.value || "sucursal").trim();
+  const f = (document.getElementById("fecha")?.value || "").trim();
+  const safe = (x) => x.replace(/[^\w\d\-]+/g, "_");
+  return `relev_${safe(e)}_${safe(s)}_${safe(f || "sin_fecha")}`.replace(/_+/g, "_");
 }
 
 function guardarJSONNuevo() {
-    const data = buildRelevamientoData();
-    const nombre = generarNombreBase();
-    const key = KEY_PREFIX + nombre + "_" + Date.now();
-    localStorage.setItem(key, JSON.stringify(data));
-    alert("✅ JSON guardado en el teléfono");
-    refrescarListaRelevamientos();
+  const data = buildRelevamientoData();
+  const nombre = generarNombreBase();
+  const key = KEY_PREFIX + nombre + "_" + Date.now();
+  localStorage.setItem(key, JSON.stringify(data));
+  alert("✅ JSON guardado en el teléfono");
+  refrescarListaRelevamientos();
 }
 
 function descargarJSONActual() {
-    const data = buildRelevamientoData();
-    const nombre = generarNombreBase() + ".json";
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = nombre;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+  const data = buildRelevamientoData();
+  const nombre = generarNombreBase() + ".json";
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = nombre;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
 }
 
 function importarJSONDesdeArchivo(file) {
-    const reader = new FileReader();
-    reader.onload = () => {
-        try {
-            const data = JSON.parse(reader.result);
-            // aplico y además lo guardo como un JSON “nuevo”
-            applyRelevamientoData(data);
-            alert("✅ JSON importado y cargado");
-        } catch (e) {
-            alert("❌ Ese archivo no es un JSON válido");
-        }
-    };
-    reader.readAsText(file);
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const data = JSON.parse(reader.result);
+      applyRelevamientoData(data);
+      alert("✅ JSON importado y cargado");
+    } catch (e) {
+      alert("❌ Ese archivo no es un JSON válido");
+    }
+  };
+  reader.readAsText(file);
+}
+
+/*******************************
+ * ✅ VISTA PREVIA
+ *******************************/
+function abrirVistaPrevia() {
+  const data = buildRelevamientoData();
+
+  const box = document.getElementById("preview-box");
+  const head = document.getElementById("preview-head");
+  const kpis = document.getElementById("preview-kpis");
+  const tbody = document.querySelector("#preview-table tbody");
+
+  if (!box || !head || !kpis || !tbody) return;
+
+  // Encabezado (cards)
+  head.innerHTML = `
+    <div class="preview-kpi"><b>Entidad</b><br>${escapeHtml(data.entidad)}</div>
+    <div class="preview-kpi"><b>Sucursal</b><br>${escapeHtml(data.sucursal)}</div>
+    <div class="preview-kpi"><b>Fecha</b><br>${escapeHtml(data.fecha)}</div>
+    <div class="preview-kpi"><b>Remito</b><br>${escapeHtml(data.remito)}</div>
+    <div class="preview-kpi"><b>Dirección</b><br>${escapeHtml(data.direccion)}</div>
+    <div class="preview-kpi"><b>Técnico</b><br>${escapeHtml(data.relevado)}</div>
+  `;
+
+  const totalSectores = (data.sectores || []).length;
+  let totalItems = 0;
+
+  // KPIs por sector
+  kpis.innerHTML = "";
+  (data.sectores || []).forEach(sec => {
+    const cant = (sec.filas || []).length;
+    totalItems += cant;
+    const div = document.createElement("div");
+    div.className = "preview-kpi";
+    div.innerHTML = `<b>${escapeHtml(sec.nombre)}</b><br>Ítems: ${cant}`;
+    kpis.appendChild(div);
+  });
+
+  // KPIs generales arriba
+  const divGen1 = document.createElement("div");
+  divGen1.className = "preview-kpi";
+  divGen1.innerHTML = `<b>Totales</b><br>Sectores: ${totalSectores} • Ítems: ${totalItems}`;
+  kpis.prepend(divGen1);
+
+  // Tabla detalle
+  tbody.innerHTML = "";
+  (data.sectores || []).forEach(sec => {
+    (sec.filas || []).forEach(f => {
+      const tr = document.createElement("tr");
+      const row = [
+        sec.nombre || "",
+        f[0] || "",
+        f[1] || "",
+        f[2] || "",
+        f[3] || "",
+        f[4] || ""
+      ];
+      row.forEach(v => {
+        const td = document.createElement("td");
+        td.textContent = v;
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+  });
+
+  box.classList.add("active");
+  // scrollea a preview
+  box.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function cerrarVistaPrevia() {
+  const box = document.getElementById("preview-box");
+  if (box) box.classList.remove("active");
+}
+
+function escapeHtml(str) {
+  return String(str ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
 /*******************************
  * Lista de relevamientos guardados
  *******************************/
 function refrescarListaRelevamientos() {
-    const ul = document.getElementById("lista-relevamientos");
-    if (!ul) return;
-    ul.innerHTML = "";
+  const ul = document.getElementById("lista-relevamientos");
+  if (!ul) return;
+  ul.innerHTML = "";
 
-    // 1) Borradores fijos
-    [
-        { key: BORRADOR_1, label: "📁 Borrador 1" },
-        { key: BORRADOR_2, label: "📁 Borrador 2" }
-    ].forEach(item => {
-        const raw = localStorage.getItem(item.key);
-        if (!raw) return;
+  // Borradores fijos
+  [
+    { key: BORRADOR_1, label: "📁 Borrador 1" },
+    { key: BORRADOR_2, label: "📁 Borrador 2" }
+  ].forEach(item => {
+    const raw = localStorage.getItem(item.key);
+    if (!raw) return;
 
-        const data = JSON.parse(raw);
-        const li = document.createElement("li");
-        li.style.cursor = "pointer";
-        li.textContent = `${item.label}: ${data.entidad || ""} - ${data.sucursal || ""}`;
+    const data = JSON.parse(raw);
+    const li = document.createElement("li");
+    li.style.cursor = "pointer";
+    li.textContent = `${item.label}: ${data.entidad || ""} - ${data.sucursal || ""}`;
 
-        const del = document.createElement("button");
-        del.type = "button";
-        del.textContent = "🗑️";
-        del.style.marginLeft = "10px";
-        del.onclick = (e) => { e.stopPropagation(); eliminarRelevamiento(item.key); };
+    const del = document.createElement("button");
+    del.type = "button";
+    del.textContent = "🗑️";
+    del.style.marginLeft = "10px";
+    del.onclick = (e) => { e.stopPropagation(); eliminarRelevamiento(item.key); };
 
-        li.onclick = () => cargarRelevamientoLocal(item.key);
-        li.appendChild(del);
-        ul.appendChild(li);
-    });
+    li.onclick = () => cargarRelevamientoLocal(item.key);
+    li.appendChild(del);
+    ul.appendChild(li);
+  });
 
-    // 2) JSON guardados “ilimitados”
-    const keys = Object.keys(localStorage).filter(k => k.startsWith(KEY_PREFIX)).sort().reverse();
-    keys.forEach(k => {
-        const raw = localStorage.getItem(k);
-        if (!raw) return;
+  // JSON guardados “ilimitados”
+  const keys = Object.keys(localStorage).filter(k => k.startsWith(KEY_PREFIX)).sort().reverse();
+  keys.forEach(k => {
+    const raw = localStorage.getItem(k);
+    if (!raw) return;
 
-        let data;
-        try { data = JSON.parse(raw); } catch { return; }
+    let data;
+    try { data = JSON.parse(raw); } catch { return; }
 
-        const li = document.createElement("li");
-        li.style.cursor = "pointer";
-        li.textContent = `🧾 JSON: ${data.entidad || ""} - ${data.sucursal || ""} (${(data.fecha || "").slice(0, 10)})`;
+    const li = document.createElement("li");
+    li.style.cursor = "pointer";
+    li.textContent = `🧾 JSON: ${data.entidad || ""} - ${data.sucursal || ""} (${(data.fecha || "").slice(0,10)})`;
 
-        const del = document.createElement("button");
-        del.type = "button";
-        del.textContent = "🗑️";
-        del.style.marginLeft = "10px";
-        del.onclick = (e) => { e.stopPropagation(); eliminarRelevamiento(k); };
+    const del = document.createElement("button");
+    del.type = "button";
+    del.textContent = "🗑️";
+    del.style.marginLeft = "10px";
+    del.onclick = (e) => { e.stopPropagation(); eliminarRelevamiento(k); };
 
-        li.onclick = () => cargarRelevamientoLocal(k);
-        li.appendChild(del);
-        ul.appendChild(li);
-    });
+    li.onclick = () => cargarRelevamientoLocal(k);
+    li.appendChild(del);
+    ul.appendChild(li);
+  });
 }
 
 /*******************************
- *        PDF (lo tuyo)        *
+ *        PDF (opcional)       *
  *******************************/
 function generarPDF() {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ orientation: "landscape" });
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: "landscape" });
 
-    const entidad = document.getElementById("entidad").value;
-    const sucursal = document.getElementById("sucursal").value;
-    const direccion = document.getElementById("direccion").value;
-    const fechaVal = document.getElementById("fecha").value;
-    const fecha = fechaVal ? new Date(fechaVal).toLocaleDateString("es-AR") : "";
-    const remito = document.getElementById("remito").value;
-    const relevado = document.getElementById("relevado").value;
+  const entidad = document.getElementById("entidad").value;
+  const sucursal = document.getElementById("sucursal").value;
+  const direccion = document.getElementById("direccion").value;
+  const fechaVal = document.getElementById("fecha").value;
+  const fecha = fechaVal ? new Date(fechaVal).toLocaleDateString("es-AR") : "";
+  const remito = document.getElementById("remito").value;
+  const relevado = document.getElementById("relevado").value;
 
-    doc.setFontSize(14);
-    doc.text("Relevamiento", 10, 10);
+  doc.setFontSize(14);
+  doc.text("Relevamiento", 10, 10);
 
-    try {
-        const logoImg = document.getElementById("logo");
-        if (logoImg && logoImg.complete) {
-            const canvas = document.createElement("canvas");
-            canvas.width = logoImg.naturalWidth;
-            canvas.height = logoImg.naturalHeight;
-            canvas.getContext("2d").drawImage(logoImg, 0, 0);
-            doc.addImage(canvas.toDataURL("image/jpeg"), "JPEG", 250, 5, 40, 20);
-        }
-    } catch { }
+  try {
+    const logoImg = document.getElementById("logo");
+    if (logoImg && logoImg.complete) {
+      const canvas = document.createElement("canvas");
+      canvas.width = logoImg.naturalWidth;
+      canvas.height = logoImg.naturalHeight;
+      canvas.getContext("2d").drawImage(logoImg, 0, 0);
+      doc.addImage(canvas.toDataURL("image/jpeg"), "JPEG", 250, 5, 40, 20);
+    }
+  } catch {}
 
-    doc.setFontSize(10);
-    doc.text(`Entidad:   ${entidad}`, 10, 20);
-    doc.text(`Sucursal:  ${sucursal}`, 10, 26);
-    doc.text(`Dirección: ${direccion}`, 10, 32);
-    doc.text(`Fecha:     ${fecha}`, 10, 38);
-    doc.text(`Remito:    ${remito}`, 10, 44);
+  doc.setFontSize(10);
+  doc.text(`Entidad:   ${entidad}`, 10, 20);
+  doc.text(`Sucursal:  ${sucursal}`, 10, 26);
+  doc.text(`Dirección: ${direccion}`, 10, 32);
+  doc.text(`Fecha:     ${fecha}`, 10, 38);
+  doc.text(`Remito:    ${remito}`, 10, 44);
 
-    let y = 54;
+  let y = 54;
 
-    document.querySelectorAll(".sector").forEach(sector => {
-        const nombre = sector.querySelector("h3").textContent.trim();
+  document.querySelectorAll(".sector").forEach(sector => {
+    const nombre = sector.querySelector("h3").textContent.trim();
 
-        const filas = Array.from(sector.querySelectorAll("details tbody tr"))
-            .map(tr => {
-                const inputs = tr.querySelectorAll("td input");
-                return Array.from(inputs).slice(0, 5).map(i => (i.value || "").trim());
-            })
-            .filter(f => parseInt(f[1]) > 0);
+    const filas = Array.from(sector.querySelectorAll("details tbody tr"))
+      .map(tr => {
+        const inputs = tr.querySelectorAll("td input");
+        return Array.from(inputs).slice(0, 5).map(i => (i.value || "").trim());
+      })
+      .filter(f => parseInt(f[1]) > 0);
 
-        if (filas.length === 0) return;
+    if (filas.length === 0) return;
 
-        const encabezado = ["Dispositivo", "Cantidad", "Modelo", "Zona(instantanea/24hs)", "Observación de ubicacion"];
+    const encabezado = ["Dispositivo", "Cantidad", "Modelo", "Zona(instantanea/24hs)", "Observación de ubicacion"];
 
-        doc.autoTable({
-            startY: y,
-            head: [[nombre]],
-            theme: "plain",
-            styles: { fontSize: 11 },
-            margin: { left: 10, right: 10 }
-        });
+    doc.autoTable({ startY: y, head: [[nombre]], theme: "plain", styles: { fontSize: 11 }, margin: { left: 10, right: 10 } });
 
-        doc.autoTable({
-            startY: doc.lastAutoTable.finalY + 2,
-            head: [encabezado],
-            body: filas,
-            theme: "grid",
-            styles: { fontSize: 8 },
-            headStyles: { fillColor: [197, 0, 0], textColor: 255 },
-            margin: { left: 10, right: 10 }
-        });
-
-        y = doc.lastAutoTable.finalY + 14;
+    doc.autoTable({
+      startY: doc.lastAutoTable.finalY + 2,
+      head: [encabezado],
+      body: filas,
+      theme: "grid",
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [197, 0, 0], textColor: 255 },
+      margin: { left: 10, right: 10 }
     });
 
-    let finalY = doc.lastAutoTable ? doc.lastAutoTable.finalY : y;
-    if (finalY > 160) {
-        doc.addPage("landscape");
-        finalY = 20;
-    }
+    y = doc.lastAutoTable.finalY + 14;
+  });
 
-    doc.setFontSize(12);
-    doc.text("Formulario completado por:", 14, finalY + 10);
-    doc.setFontSize(14);
-    doc.text(`Técnico: ${relevado}`, 14, finalY + 20);
-    doc.setFontSize(10);
-    doc.text("Firma:", 14, finalY + 40);
-    doc.line(30, finalY + 42, 100, finalY + 42);
-
-    doc.save("relevamiento.pdf");
+  doc.save("relevamiento.pdf");
 }
 
 /*******************************
  *  Bootstrap DOMContentLoaded *
  *******************************/
 const sectoresPrecargados = [
-    "Salón / Cajas",
-    "Área Operativa",
-    "Banca Automática / Lobby 24hs",
-    "Recinto Tesoro",
-    "Recinto Cajas de Seguridad",
-    "Bóveda de cajas de seguridad",
-    "Bóveda de tesoro",
-    "Bunker / Sala Técnica"
+  "Salón / Cajas",
+  "Área Operativa",
+  "Banca Automática / Lobby 24hs",
+  "Recinto Tesoro",
+  "Recinto Cajas de Seguridad",
+  "Bóveda de cajas de seguridad",
+  "Bóveda de tesoro",
+  "Bunker / Sala Técnica"
 ];
 
 document.addEventListener("DOMContentLoaded", () => {
-    // Paso / navegación
-    secciones = document.querySelectorAll(".seccion");
-    btnAtras = document.getElementById("atras");
-    btnSig = document.getElementById("siguiente");
+  // Paso / navegación
+  secciones = document.querySelectorAll(".seccion");
+  btnAtras = document.getElementById("atras");
+  btnSig = document.getElementById("siguiente");
 
-    btnSig.onclick = () => { if (paso < secciones.length - 1) { paso++; mostrarPaso(paso); } };
-    btnAtras.onclick = () => { if (paso > 0) { paso--; mostrarPaso(paso); } };
-    mostrarPaso(paso);
+  btnSig.onclick = () => { if (paso < secciones.length - 1) { paso++; mostrarPaso(paso); } };
+  btnAtras.onclick = () => { if (paso > 0) { paso--; mostrarPaso(paso); } };
+  mostrarPaso(paso);
 
-    // Sectores iniciales + cargar auto guardado
-    const contenedor = document.getElementById("contenedor-sectores");
-    const auto = localStorage.getItem(KEY_AUTO);
-    if (auto) {
-        try {
-            const data = JSON.parse(auto);
-            const tieneAlgo = (data.sectores || []).some(s => (s.filas || []).length > 0);
-            if (tieneAlgo) applyRelevamientoData(data);
-            else sectoresPrecargados.forEach(n => agregarSectorPorNombre(n));
-        } catch {
-            sectoresPrecargados.forEach(n => agregarSectorPorNombre(n));
-        }
-    } else {
-        sectoresPrecargados.forEach(n => agregarSectorPorNombre(n));
+  // Cargar auto guardado o precarga
+  const auto = localStorage.getItem(KEY_AUTO);
+  if (auto) {
+    try {
+      const data = JSON.parse(auto);
+      const tieneAlgo = (data.sectores || []).some(s => (s.filas || []).length > 0);
+      if (tieneAlgo) applyRelevamientoData(data);
+      else sectoresPrecargados.forEach(n => agregarSectorPorNombre(n));
+    } catch {
+      sectoresPrecargados.forEach(n => agregarSectorPorNombre(n));
     }
+  } else {
+    sectoresPrecargados.forEach(n => agregarSectorPorNombre(n));
+  }
 
-    // Botones del HTML
-    document.getElementById("btn-agregar-sector")?.addEventListener("click", agregarSector);
-    document.getElementById("btn-generar-pdf")?.addEventListener("click", generarPDF);
-    document.getElementById("btn-borrar-form")?.addEventListener("click", borrarFormulario);
+  // Botones del HTML
+  document.getElementById("btn-agregar-sector")?.addEventListener("click", agregarSector);
+  document.getElementById("btn-generar-pdf")?.addEventListener("click", generarPDF);
+  document.getElementById("btn-borrar-form")?.addEventListener("click", borrarFormulario);
 
-    // Borradores
-    document.getElementById("btn-borrador-1")?.addEventListener("click", () => guardarRelevamientoLocal(BORRADOR_1));
-    document.getElementById("btn-borrador-2")?.addEventListener("click", () => guardarRelevamientoLocal(BORRADOR_2));
+  // Borradores
+  document.getElementById("btn-borrador-1")?.addEventListener("click", () => guardarRelevamientoLocal(BORRADOR_1));
+  document.getElementById("btn-borrador-2")?.addEventListener("click", () => guardarRelevamientoLocal(BORRADOR_2));
 
-    // JSON
-    document.getElementById("btn-guardar-json")?.addEventListener("click", guardarJSONNuevo);
-    document.getElementById("btn-descargar-json")?.addEventListener("click", descargarJSONActual);
+  // JSON
+  document.getElementById("btn-guardar-json")?.addEventListener("click", guardarJSONNuevo);
+  document.getElementById("btn-descargar-json")?.addEventListener("click", descargarJSONActual);
 
-    const fileInput = document.getElementById("file-json");
-    document.getElementById("btn-importar-json")?.addEventListener("click", () => fileInput.click());
-    fileInput?.addEventListener("change", (e) => {
-        const file = e.target.files?.[0];
-        if (file) importarJSONDesdeArchivo(file);
-        fileInput.value = "";
-    });
+  const fileInput = document.getElementById("file-json");
+  document.getElementById("btn-importar-json")?.addEventListener("click", () => fileInput.click());
+  fileInput?.addEventListener("change", (e) => {
+    const file = e.target.files?.[0];
+    if (file) importarJSONDesdeArchivo(file);
+    fileInput.value = "";
+  });
 
-    // Auto-guardar cuando escribís
-    document.addEventListener("input", guardarEstadoLocal);
+  // ✅ Vista previa
+  document.getElementById("btn-vista-previa")?.addEventListener("click", abrirVistaPrevia);
+  document.getElementById("btn-preview-cerrar")?.addEventListener("click", cerrarVistaPrevia);
+  document.getElementById("btn-preview-descargar")?.addEventListener("click", descargarJSONActual);
 
-    // Lista
-    refrescarListaRelevamientos();
+  // Auto-guardar
+  document.addEventListener("input", guardarEstadoLocal);
+
+  // Lista
+  refrescarListaRelevamientos();
 });
