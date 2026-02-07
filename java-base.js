@@ -587,5 +587,5 @@ function obtenerBasesGuardadas() {
 function precargarBorradorBase(clave) {
     const data = JSON.parse(localStorage.getItem(clave));
     if (!data) return;
-    cargarBaseEnFormulario(data);
+    cargarBaseEnFormulario(data);  
 }
