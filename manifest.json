@@ -1,6 +1,6 @@
 {
-  "name": "App Relevamientos",
-  "short_name": "Relevamientos",
+  "name": "App senalco",
+  "short_name": "SENALCO",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
