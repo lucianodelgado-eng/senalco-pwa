@@ -218,12 +218,7 @@
     <button onclick="cerrarSesion()">🔒 Cerrar sesión</button>
   </div>
 
-  <div style="margin-top: 26px;">
-    <h3>📁 Borradores disponibles (clásico)</h3>
-    <ul id="lista-bases"></ul>
-    <button class="mini-btn" onclick="guardarBorradorBase('borrador1')">💾 Guardar como Borrador 1</button>
-    <button class="mini-btn" onclick="guardarBorradorBase('borrador2')">💾 Guardar como Borrador 2</button>
-  </div>
+
 
   <!-- MODAL: PREVISUALIZAR -->
   <div id="modal-prev" class="modal">
@@ -256,9 +251,6 @@
         <button class="mini-btn" id="btn-importar-json">Importar JSON</button>
         <input id="input-json-base" type="file" accept="application/json,.json"
           style="position:absolute; left:-9999px; width:1px; height:1px;" />
-
-        <button class="mini-btn" id="btn-compartir-json">Compartir JSON</button>
-        <button class="mini-btn" id="btn-compartir-excel">Compartir Excel</button>
       </div>
 
       <hr style="margin:14px 0;">
