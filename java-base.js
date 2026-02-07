@@ -765,9 +765,9 @@ function renderMisBases() {
    ✅ NUEVO: Compartir robusto (sin canShare que a veces rompe)
    ========================= */
 async function compartirArchivoSeguro(file, titulo = "Compartir") {
+  // 1) Intento compartir archivo real (ideal)
   try {
     if (navigator.share) {
-      // IMPORTANT: share directo (en muchos PWA canShare falla)
       await navigator.share({
         title: titulo,
         text: "Archivo generado desde Señalco",
@@ -776,10 +776,27 @@ async function compartirArchivoSeguro(file, titulo = "Compartir") {
       return true;
     }
   } catch (e) {
-    console.warn("Share falló:", e);
+    console.warn("Share con archivo falló:", e);
   }
 
-  // fallback: descargar para enviarlo manualmente
+  // 2) Fallback: compartir como LINK (muy compatible)
+  try {
+    const text = await file.text();
+    const b64 = btoa(unescape(encodeURIComponent(text)));
+    const link = `data:${file.type};base64,${b64}`;
+
+    if (navigator.share) {
+      await navigator.share({
+        title: titulo,
+        text: `📎 ${file.name}\n\nAbrí este link para descargar:\n${link}`
+      });
+      return true;
+    }
+  } catch (e) {
+    console.warn("Share como link falló:", e);
+  }
+
+  // 3) Último fallback: descarga
   try {
     descargarBlob(file, file.name);
     alert("⚠️ No se pudo abrir el menú Compartir. Te lo descargué para enviarlo por WhatsApp/Mail.");
