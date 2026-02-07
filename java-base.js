@@ -6,7 +6,7 @@
 const $ = (id) => document.getElementById(id);
 
 /* =========================
-   Listas (como tu base original)
+   Listas
    ========================= */
 const eventos = [
   "- Sin tipo definido -", "Alarma", "Robo", "Asalto",
@@ -58,7 +58,6 @@ function fechaGeneracionLegible() { return new Date().toLocaleString("es-AR"); }
    ========================= */
 let zonas123Editables = false;
 
-// defaults de zonas 1-2-3
 const ZONAS_FIJAS_123 = [
   { zona: "1", evento: "Avería de Línea" },
   { zona: "2", evento: "Apertura de Equipo" },
@@ -124,7 +123,7 @@ function crearFilaBase({ zona = "", evento = "", area = "", dispositivo = "", de
   inpZona.className = "zonaInput";
   tdZona.appendChild(inpZona);
 
-  // EVENTO (select + otro)
+  // EVENTO
   const tdEvento = document.createElement("td");
   const selectEvento = createSelect(eventos, eventos.includes(evento) ? evento : "Otros");
   const inputEventoOtro = createInput("Especificar evento", eventos.includes(evento) ? "" : (evento || ""));
@@ -137,7 +136,7 @@ function crearFilaBase({ zona = "", evento = "", area = "", dispositivo = "", de
   tdEvento.appendChild(selectEvento);
   tdEvento.appendChild(inputEventoOtro);
 
-  // ÁREA (select + otro)
+  // ÁREA
   const tdArea = document.createElement("td");
   const selectArea = createSelect(areas, areas.includes(area) ? area : "Otros");
   const inputAreaOtro = createInput("Especificar área", areas.includes(area) ? "" : (area || ""));
@@ -150,7 +149,7 @@ function crearFilaBase({ zona = "", evento = "", area = "", dispositivo = "", de
   tdArea.appendChild(selectArea);
   tdArea.appendChild(inputAreaOtro);
 
-  // DISPOSITIVO (select + otro)
+  // DISPOSITIVO
   const tdDisp = document.createElement("td");
   const selectDisp = createSelect(dispositivos, dispositivos.includes(dispositivo) ? dispositivo : "otros");
   const inputDispOtro = createInput("Especificar dispositivo", dispositivos.includes(dispositivo) ? "" : (dispositivo || ""));
@@ -175,10 +174,8 @@ function crearFilaBase({ zona = "", evento = "", area = "", dispositivo = "", de
   tr.appendChild(tdDisp);
   tr.appendChild(tdDesc);
 
-  // marcar zonas 1-3
   if (idx <= 2) tr.dataset.zona123 = "1";
 
-  // autosave
   [inpZona, selectEvento, selectArea, selectDisp, inpDesc].forEach(el => {
     el.addEventListener("input", guardarEstadoTemp);
     el.addEventListener("change", guardarEstadoTemp);
@@ -188,7 +185,7 @@ function crearFilaBase({ zona = "", evento = "", area = "", dispositivo = "", de
 }
 
 /* =========================
-   Precargar zonas 1-3 fijas + 4..24
+   Precargar zonas
    ========================= */
 function precargarZonas() {
   const tbody = document.querySelector("#tabla-base tbody");
@@ -214,7 +211,7 @@ function precargarZonas() {
 }
 
 /* =========================
-   Bloqueo real total de zonas 1-2-3
+   Bloqueo total zonas 1-2-3
    ========================= */
 function aplicarBloqueoZonas123() {
   const tbody = document.querySelector("#tabla-base tbody");
@@ -236,13 +233,13 @@ function aplicarBloqueoZonas123() {
 
       const inpDesc = tr.querySelector("td:nth-child(5) input");
 
-      // Zona SIEMPRE fija 1-2-3
+      // zona fija
       if (inpZona) {
         inpZona.value = String(idx + 1);
         inpZona.readOnly = true;
       }
 
-      // Si NO se está editando, forzar defaults
+      // si NO editable, defaults
       if (!zonas123Editables) {
         const def = ZONAS_FIJAS_123[idx];
 
@@ -258,7 +255,7 @@ function aplicarBloqueoZonas123() {
         if (inpDesc) inpDesc.value = "";
       }
 
-      // Bloquear / Desbloquear TODO lo demás según botón
+      // bloquear/desbloquear todo menos el número de zona
       if (selEvento) selEvento.disabled = !zonas123Editables;
       if (selArea) selArea.disabled = !zonas123Editables;
       if (selDisp) selDisp.disabled = !zonas123Editables;
@@ -270,7 +267,6 @@ function aplicarBloqueoZonas123() {
     }
   });
 
-  // UI botones
   if ($("btn-editar-zonas123") && $("btn-bloquear-zonas123")) {
     $("btn-editar-zonas123").style.display = zonas123Editables ? "none" : "inline-block";
     $("btn-bloquear-zonas123").style.display = zonas123Editables ? "inline-block" : "none";
@@ -291,7 +287,7 @@ function bloquearEdicionZonas123() {
 }
 
 /* =========================
-   Obtener data actual (para PDF/Excel/JSON)
+   Data actual
    ========================= */
 function getCurrentBaseData() {
   const meta = {
@@ -331,7 +327,7 @@ function getCurrentBaseData() {
 }
 
 /* =========================
-   Modal helpers
+   Modales
    ========================= */
 function escapeHtml(s) {
   return String(s ?? "")
@@ -339,19 +335,17 @@ function escapeHtml(s) {
     .replace(/>/g, "&gt;").replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
 }
-
 function abrirModal(id) { const m = $(id); if (m) m.style.display = "flex"; }
 function cerrarModal(id) { const m = $(id); if (m) m.style.display = "none"; }
 
 /* =========================
-   Previsualización CLARA (no oscura)
+   Previsualización clara
    ========================= */
 function abrirPrevisualizacion() {
   const data = getCurrentBaseData();
   const body = $("prev-body");
   if (!body) return;
 
-  // Forzar claro dentro del modal (aunque el sitio sea oscuro)
   body.style.background = "#ffffff";
   body.style.color = "#111111";
 
@@ -379,9 +373,7 @@ function abrirPrevisualizacion() {
           </tr>
         </thead>
         <tbody>
-          ${data.filas
-            .filter((f, idx) => idx <= 2 || (f.zona || f.evento || f.area || f.dispositivo || f.descripcion))
-            .map(f => `
+          ${data.filas.map(f => `
               <tr>
                 <td style="border:1px solid #ddd;padding:6px;">${escapeHtml(f.zona)}</td>
                 <td style="border:1px solid #ddd;padding:6px;">${escapeHtml(f.evento)}</td>
@@ -389,7 +381,7 @@ function abrirPrevisualizacion() {
                 <td style="border:1px solid #ddd;padding:6px;">${escapeHtml(f.dispositivo)}</td>
                 <td style="border:1px solid #ddd;padding:6px;">${escapeHtml(f.descripcion)}</td>
               </tr>
-            `).join("")}
+          `).join("")}
         </tbody>
       </table>
     </div>
@@ -399,7 +391,7 @@ function abrirPrevisualizacion() {
 }
 
 /* =========================
-   PDF PRO (logo + autotable + fecha generado)
+   PDF pro
    ========================= */
 function generarPDFBase() {
   const data = getCurrentBaseData();
@@ -459,12 +451,6 @@ function normalizarHeaders(s) {
     .replaceAll("á", "a").replaceAll("é", "e").replaceAll("í", "i").replaceAll("ó", "o").replaceAll("ú", "u");
 }
 
-/**
- * IMPORTAR EXCEL CORRECTO:
- * - NO toca zonas 1-2-3
- * - Solo carga 4..24
- * - No inventa filas extra
- */
 async function importarDesdeExcel(file) {
   const buf = await file.arrayBuffer();
   const wb = new ExcelJS.Workbook();
@@ -494,13 +480,11 @@ async function importarDesdeExcel(file) {
     }
   });
 
-  // fallback
   if (!headerRow) {
     headerRow = 1;
     map = { zona: 1, evento: 2, area: 3, dispositivo: 4, descripcion: 5 };
   }
 
-  // Leer filas reales del excel
   const filasExcel = [];
   for (let r = headerRow + 1; r <= ws.rowCount; r++) {
     const row = ws.getRow(r);
@@ -514,23 +498,22 @@ async function importarDesdeExcel(file) {
     filasExcel.push({ zona, evento, area, dispositivo, descripcion });
   }
 
-  // Filtrar solo zonas 4..24 (ignorar 1-2-3)
+  // Solo 4..24. Ignora 1-2-3
   const filasFiltradas = filasExcel.filter(f => {
     const zRaw = (f.zona || "").toString().toLowerCase();
     const num = parseInt(zRaw.replace("zona", "").trim(), 10);
     return !isNaN(num) && num >= 4 && num <= 24;
   });
 
-  // Re-armar tabla desde cero
   const tbody = document.querySelector("#tabla-base tbody");
   tbody.innerHTML = "";
 
-  // Zonas 1-2-3 defaults fijos
+  // 1-2-3 defaults
   ZONAS_FIJAS_123.forEach((z, i) => {
     tbody.appendChild(crearFilaBase({ zona: z.zona, evento: z.evento, area: "-", dispositivo: "-", descripcion: "" }, i));
   });
 
-  // Mapear por num
+  // Map por numero
   const mapPorNum = {};
   filasFiltradas.forEach(f => {
     const num = parseInt((f.zona || "").toString().toLowerCase().replace("zona", "").trim(), 10);
@@ -543,7 +526,6 @@ async function importarDesdeExcel(file) {
     };
   });
 
-  // 4..24
   for (let i = 4; i <= 24; i++) {
     const fila = mapPorNum[i] || { zona: `Zona ${i}`, evento: "- Sin tipo definido -", area: "-", dispositivo: "-", descripcion: "" };
     tbody.appendChild(crearFilaBase(fila, i));
@@ -552,6 +534,15 @@ async function importarDesdeExcel(file) {
   zonas123Editables = false;
   aplicarBloqueoZonas123();
   guardarEstadoTemp();
+}
+
+function descargarBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 700);
 }
 
 async function exportarExcel() {
@@ -579,17 +570,8 @@ async function exportarExcel() {
 }
 
 /* =========================
-   JSON Save/Import/Share
+   JSON Descargar / Importar (archivo)
    ========================= */
-function descargarBlob(blob, filename) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 500);
-}
-
 function descargarJSONActual() {
   const data = getCurrentBaseData();
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
@@ -600,8 +582,13 @@ function descargarJSONActual() {
 function importarJSONFile(file) {
   const reader = new FileReader();
   reader.onload = (e) => {
-    const data = JSON.parse(e.target.result);
-    cargarBaseDesdeJSON(data);
+    try {
+      const data = JSON.parse(e.target.result);
+      cargarBaseDesdeJSON(data);
+      alert("✅ JSON importado");
+    } catch {
+      alert("❌ JSON inválido");
+    }
   };
   reader.readAsText(file);
 }
@@ -618,66 +605,192 @@ function cargarBaseDesdeJSON(data) {
 
   (data.filas || []).forEach((f, idx) => tbody.appendChild(crearFilaBase(f, idx)));
 
-  // asegurar 1-2-3 num fijo
-  const trs = tbody.querySelectorAll("tr");
-  if (trs[0]) trs[0].querySelector("td:nth-child(1) input").value = "1";
-  if (trs[1]) trs[1].querySelector("td:nth-child(1) input").value = "2";
-  if (trs[2]) trs[2].querySelector("td:nth-child(1) input").value = "3";
-
   zonas123Editables = false;
   aplicarBloqueoZonas123();
   guardarEstadoTemp();
 }
 
-async function construirArchivoJSON() {
-  const data = getCurrentBaseData();
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-  const nombre = `base_${(data.meta.entidad || "entidad")}_${(data.meta.sucursal || "sucursal")}.json`.replace(/\s+/g, "_");
-  return new File([blob], nombre, { type: "application/json" });
-}
+/* =========================
+   ✅ NUEVO: Mis Bases (guardado REAL en el teléfono)
+   ========================= */
+const BASES_INDEX_KEY = "senalco_bases_index_v1";
+const BASE_PREFIX = "senalco_base_saved__";
 
-async function construirArchivoExcel() {
-  const data = getCurrentBaseData();
-  const wb = new ExcelJS.Workbook();
-  const sheet = wb.addWorksheet("Base");
-
-  sheet.addRow(["Entidad", data.meta.entidad]);
-  sheet.addRow(["Sucursal", data.meta.sucursal]);
-  sheet.addRow(["Abonado", data.meta.abonado]);
-  sheet.addRow(["Central", data.meta.central]);
-  sheet.addRow(["Provincia", data.meta.provincia]);
-  sheet.addRow(["Generado", data.generadoEn.legible]);
-  sheet.addRow([]);
-
-  sheet.addRow(["Zona", "Evento", "Área", "Dispositivo", "Descripción"]);
-  data.filas.forEach(f => sheet.addRow([f.zona, f.evento, f.area, f.dispositivo, f.descripcion]));
-
-  const buffer = await wb.xlsx.writeBuffer();
-  const nombre = `base_${(data.meta.entidad || "entidad")}_${(data.meta.sucursal || "sucursal")}.xlsx`.replace(/\s+/g, "_");
-
-  return new File([buffer], nombre, {
-    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-  });
-}
-
-// COMPARTIR robusto: si no soporta, descarga
-async function compartirArchivo(file, titulo = "Compartir") {
+function leerIndexBases() {
   try {
-    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-      await navigator.share({ title: titulo, text: "Archivo generado desde Señalco", files: [file] });
-      return;
-    }
-    descargarBlob(file, file.name);
-    alert("⚠️ Tu teléfono/navegador no permite compartir directo. Te lo descargué para enviarlo por WhatsApp/Mail.");
-  } catch (e) {
-    console.warn("Share error:", e);
-    descargarBlob(file, file.name);
-    alert("⚠️ No se pudo abrir 'Compartir'. Te lo descargué para enviarlo manualmente.");
+    return JSON.parse(localStorage.getItem(BASES_INDEX_KEY)) || [];
+  } catch {
+    return [];
+  }
+}
+function guardarIndexBases(arr) {
+  localStorage.setItem(BASES_INDEX_KEY, JSON.stringify(arr));
+}
+
+function sugerirNombreBase() {
+  const entidad = ($("entidad")?.value || "").trim().replace(/\s+/g, "_");
+  const suc = ($("sucursal")?.value || "").trim().replace(/\s+/g, "_");
+  const base = [entidad || "Entidad", suc || "Sucursal"].join("_");
+  return base;
+}
+
+function guardarBaseEnTelefono(nombre) {
+  const n = (nombre || "").trim();
+  if (!n) { alert("Poné un nombre para guardar"); return; }
+
+  const data = getCurrentBaseData();
+  const key = BASE_PREFIX + n;
+
+  localStorage.setItem(key, JSON.stringify(data));
+
+  const idx = leerIndexBases();
+  if (!idx.includes(n)) {
+    idx.unshift(n);
+    guardarIndexBases(idx);
+  } else {
+    // mover arriba
+    const nuevo = [n, ...idx.filter(x => x !== n)];
+    guardarIndexBases(nuevo);
+  }
+
+  renderMisBases();
+  alert(`✅ Base guardada: ${n}`);
+}
+
+function borrarBaseEnTelefono(nombre) {
+  if (!confirm(`¿Borrar base "${nombre}"?`)) return;
+  localStorage.removeItem(BASE_PREFIX + nombre);
+  const idx = leerIndexBases().filter(x => x !== nombre);
+  guardarIndexBases(idx);
+  renderMisBases();
+}
+
+function cargarBaseDesdeTelefono(nombre) {
+  const raw = localStorage.getItem(BASE_PREFIX + nombre);
+  if (!raw) { alert("No existe esa base"); return; }
+  try {
+    const data = JSON.parse(raw);
+    cargarBaseDesdeJSON(data);
+    alert(`✅ Base cargada: ${nombre}`);
+  } catch {
+    alert("❌ No se pudo cargar esa base (JSON corrupto)");
   }
 }
 
+function descargarBaseGuardadaJSON(nombre) {
+  const raw = localStorage.getItem(BASE_PREFIX + nombre);
+  if (!raw) return;
+  const blob = new Blob([raw], { type: "application/json" });
+  const filename = `${nombre}.json`.replace(/\s+/g, "_");
+  descargarBlob(blob, filename);
+}
+
+async function compartirBaseGuardadaJSON(nombre) {
+  const raw = localStorage.getItem(BASE_PREFIX + nombre);
+  if (!raw) return;
+  const blob = new Blob([raw], { type: "application/json" });
+  const file = new File([blob], `${nombre}.json`.replace(/\s+/g, "_"), { type: "application/json" });
+  await compartirArchivoSeguro(file, "Compartir base JSON");
+}
+
+async function compartirBaseGuardadaExcel(nombre) {
+  // Genera EXCEL desde lo guardado
+  const raw = localStorage.getItem(BASE_PREFIX + nombre);
+  if (!raw) return;
+  let data;
+  try { data = JSON.parse(raw); } catch { return; }
+
+  const wb = new ExcelJS.Workbook();
+  const sheet = wb.addWorksheet("Base");
+
+  sheet.addRow(["Entidad", data.meta?.entidad || ""]);
+  sheet.addRow(["Sucursal", data.meta?.sucursal || ""]);
+  sheet.addRow(["Abonado", data.meta?.abonado || ""]);
+  sheet.addRow(["Central", data.meta?.central || ""]);
+  sheet.addRow(["Provincia", data.meta?.provincia || ""]);
+  sheet.addRow(["Generado", data.generadoEn?.legible || ""]);
+  sheet.addRow([]);
+
+  sheet.addRow(["Zona", "Evento", "Área", "Dispositivo", "Descripción"]);
+  (data.filas || []).forEach(f => sheet.addRow([f.zona, f.evento, f.area, f.dispositivo, f.descripcion]));
+
+  const buffer = await wb.xlsx.writeBuffer();
+  const file = new File([buffer], `${nombre}.xlsx`.replace(/\s+/g, "_"), {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  });
+
+  await compartirArchivoSeguro(file, "Compartir base Excel");
+}
+
+function renderMisBases() {
+  const cont = $("lista-bases-json");
+  if (!cont) return;
+
+  const idx = leerIndexBases();
+  if (idx.length === 0) {
+    cont.innerHTML = `<div style="padding:10px;border:1px dashed #ccc;border-radius:10px;">No hay bases guardadas todavía.</div>`;
+    return;
+  }
+
+  cont.innerHTML = idx.map(nombre => `
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center;">
+        <div style="font-weight:800;">📄 ${escapeHtml(nombre)}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="mini-btn" data-act="cargar" data-n="${escapeHtml(nombre)}">Abrir</button>
+          <button class="mini-btn" data-act="json" data-n="${escapeHtml(nombre)}">JSON</button>
+          <button class="mini-btn" data-act="sharejson" data-n="${escapeHtml(nombre)}">Compartir JSON</button>
+          <button class="mini-btn" data-act="sharexls" data-n="${escapeHtml(nombre)}">Compartir Excel</button>
+          <button class="mini-btn" data-act="borrar" data-n="${escapeHtml(nombre)}" style="background:#b00020;">Borrar</button>
+        </div>
+      </div>
+    </div>
+  `).join("");
+
+  // Delegación de eventos
+  cont.querySelectorAll("button[data-act]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const act = btn.dataset.act;
+      const n = btn.dataset.n;
+      if (act === "cargar") return cargarBaseDesdeTelefono(n);
+      if (act === "borrar") return borrarBaseEnTelefono(n);
+      if (act === "json") return descargarBaseGuardadaJSON(n);
+      if (act === "sharejson") return compartirBaseGuardadaJSON(n);
+      if (act === "sharexls") return compartirBaseGuardadaExcel(n);
+    });
+  });
+}
+
 /* =========================
-   Wiring de botones
+   ✅ NUEVO: Compartir robusto (sin canShare que a veces rompe)
+   ========================= */
+async function compartirArchivoSeguro(file, titulo = "Compartir") {
+  try {
+    if (navigator.share) {
+      // IMPORTANT: share directo (en muchos PWA canShare falla)
+      await navigator.share({
+        title: titulo,
+        text: "Archivo generado desde Señalco",
+        files: [file]
+      });
+      return true;
+    }
+  } catch (e) {
+    console.warn("Share falló:", e);
+  }
+
+  // fallback: descargar para enviarlo manualmente
+  try {
+    descargarBlob(file, file.name);
+    alert("⚠️ No se pudo abrir el menú Compartir. Te lo descargué para enviarlo por WhatsApp/Mail.");
+  } catch {
+    alert("❌ No se pudo compartir ni descargar.");
+  }
+  return false;
+}
+
+/* =========================
+   Wiring botones
    ========================= */
 function asignarEventosBase() {
   // Limpiar
@@ -691,7 +804,7 @@ function asignarEventosBase() {
   });
 
   // Subir Excel a modificar
-  $("btn-subir-excel")?.addEventListener("click", () => $("input-excel-base").click());
+  $("btn-subir-excel")?.addEventListener("click", () => $("input-excel-base")?.click());
   $("input-excel-base")?.addEventListener("change", async (e) => {
     const file = e.target.files?.[0];
     e.target.value = "";
@@ -718,7 +831,31 @@ function asignarEventosBase() {
   $("btn-editar-zonas123")?.addEventListener("click", habilitarEdicionZonas123);
   $("btn-bloquear-zonas123")?.addEventListener("click", bloquearEdicionZonas123);
 
-  // JSON modal (si existen botones)
+  // ✅ NUEVO: Guardar Base (Local)
+  $("btn-guardar-local")?.addEventListener("click", () => {
+    const sugerido = sugerirNombreBase();
+    const nombre = prompt("Nombre para guardar la base:", sugerido);
+    if (nombre === null) return;
+    guardarBaseEnTelefono(nombre);
+  });
+
+  // ✅ NUEVO: Mis Bases (abre modal y render)
+  $("btn-mis-bases")?.addEventListener("click", () => {
+    // setear sugerido
+    if ($("nombre-base")) $("nombre-base").value = sugerirNombreBase();
+    renderMisBases();
+    abrirModal("modal-bases");
+  });
+
+  $("btn-cerrar-bases")?.addEventListener("click", () => cerrarModal("modal-bases"));
+
+  // ✅ NUEVO: Guardar como (desde modal)
+  $("btn-guardar-como")?.addEventListener("click", () => {
+    const nombre = ($("nombre-base")?.value || "").trim();
+    guardarBaseEnTelefono(nombre);
+  });
+
+  // Descargar / Importar JSON (archivo)
   $("btn-descargar-json")?.addEventListener("click", descargarJSONActual);
 
   $("btn-importar-json")?.addEventListener("click", () => $("input-json-base")?.click());
@@ -728,14 +865,39 @@ function asignarEventosBase() {
     if (file) importarJSONFile(file);
   });
 
+  // Compartir JSON / Excel (de la base actual)
   $("btn-compartir-json")?.addEventListener("click", async () => {
-    const f = await construirArchivoJSON();
-    await compartirArchivo(f, "Compartir JSON");
+    const data = getCurrentBaseData();
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const nombre = `base_${(data.meta.entidad || "entidad")}_${(data.meta.sucursal || "sucursal")}.json`.replace(/\s+/g, "_");
+    const file = new File([blob], nombre, { type: "application/json" });
+    await compartirArchivoSeguro(file, "Compartir JSON");
   });
 
   $("btn-compartir-excel")?.addEventListener("click", async () => {
-    const f = await construirArchivoExcel();
-    await compartirArchivo(f, "Compartir Excel");
+    // generar excel desde base actual (sin cambiar el exportarExcel)
+    const data = getCurrentBaseData();
+    const wb = new ExcelJS.Workbook();
+    const sheet = wb.addWorksheet("Base");
+
+    sheet.addRow(["Entidad", data.meta.entidad]);
+    sheet.addRow(["Sucursal", data.meta.sucursal]);
+    sheet.addRow(["Abonado", data.meta.abonado]);
+    sheet.addRow(["Central", data.meta.central]);
+    sheet.addRow(["Provincia", data.meta.provincia]);
+    sheet.addRow(["Generado", data.generadoEn.legible]);
+    sheet.addRow([]);
+
+    sheet.addRow(["Zona", "Evento", "Área", "Dispositivo", "Descripción"]);
+    data.filas.forEach(f => sheet.addRow([f.zona, f.evento, f.area, f.dispositivo, f.descripcion]));
+
+    const buffer = await wb.xlsx.writeBuffer();
+    const nombre = `base_${(data.meta.entidad || "entidad")}_${(data.meta.sucursal || "sucursal")}.xlsx`.replace(/\s+/g, "_");
+    const file = new File([buffer], nombre, {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    });
+
+    await compartirArchivoSeguro(file, "Compartir Excel");
   });
 
   // autosave cabecera
@@ -754,11 +916,9 @@ window.precargarZonas = precargarZonas;
    Init
    ========================= */
 (function init() {
-  // Si hay temp, lo carga. Si no, precarga
   const ok = cargarEstadoTemp();
   if (!ok) precargarZonas();
 
-  // Importante: asegurar bloqueo post-carga
   zonas123Editables = false;
   aplicarBloqueoZonas123();
 })();
