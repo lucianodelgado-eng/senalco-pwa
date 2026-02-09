@@ -11,7 +11,7 @@ const eventos = [
     "clave", "Sabotaje", "Apertura de Equipo", "Puls. Remoto - Falla Red", "ALM + 4 HS", "Asalto Clave Falsa",
     "Falla activador portátil", "Falla cent. Policial. GPRS OK", "Falla Comunicación GPRS",
     "Falla de Conexión al Servidor GPRS", "Falla de PT", "Falla Enlace Red PT",
-    "Falla enlace Supervisión de Radio", "Falta de 220V", "Incendio", "Otros",
+    "Incendio", "Otros",
     "Prevención con Policía", "Prevención de Red", "Prevención Placa Acicomp",
     "Puerta Abierta", "Sirena Disparada"
 ];
@@ -260,7 +260,7 @@ function aplicarDefaultsZonas123SiVacias() {
 
         if (vacia) {
             if (z === 1) {
-                selEvento.value = "Puerta Abierta";  // ajustable
+                selEvento.value = "Averia de linea";  // ajustable
                 selArea.value = "-";
                 selDisp.value = "-";
                 desc.value = "";
