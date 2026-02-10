@@ -218,10 +218,9 @@
 
     <button id="btn-generar-pdf-base">📄 Generar PDF</button>
     <button id="btn-excel-base">📊 Exportar Excel</button>
-
-    <!-- ✅ (PEDIDO) Botón Descargar JSON directo -->
+    
+<!-- ✅ (PEDIDO) Botón Descargar JSON directo -->
     <button id="btn-descargar-json-main">⬇️ Descargar JSON</button>
-
     <button id="btn-mis-bases">📁 Mis Bases</button>
 
     <button id="btn-editar-zonas123">🔓 Editar Zonas 1-3</button>
@@ -244,7 +243,7 @@
     </div>
   </div>
 
-  <!-- MODAL: MIS BASES / RESULTADOS -->
+  <!-- MODAL: MIS BASES -->
   <div id="modal-bases" class="modal">
     <div class="box">
       <div class="row">
@@ -261,6 +260,13 @@
         <button class="mini-btn" id="btn-importar-json">Importar JSON</button>
         <input id="input-json-base" type="file" accept="application/json,.json"
           style="position:absolute; left:-9999px; width:1px; height:1px;" />
+      </div>
+
+      <!-- ✅ BUSCADOR -->
+      <div style="margin-top:12px;">
+        <input id="filtro-bases"
+          placeholder="Buscar: entidad / sucursal / abonado / central / provincia / nombre..."
+          style="width:100%; padding:10px; border-radius:10px; border:1px solid #ddd;">
       </div>
 
       <hr style="margin:14px 0;">
