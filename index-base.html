@@ -165,36 +165,6 @@
       border-radius: 8px;
       box-shadow: 0 0 10px rgba(0, 0, 0, .5);
     }
-
-    .buscador-wrap{
-      margin-top: 18px;
-      padding: 12px;
-      border: 1px solid rgba(255,255,255,.12);
-      border-radius: 12px;
-      background: rgba(0,0,0,.18);
-    }
-
-    .buscador-row{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      align-items:center;
-    }
-
-    .buscador-row input{
-      flex: 1 1 420px;
-      margin: 0;
-    }
-
-    .buscador-row button{
-      flex: 0 0 auto;
-    }
-
-    .hint{
-      opacity:.8;
-      font-size: 12px;
-      margin-top: 8px;
-    }
   </style>
 </head>
 
@@ -236,22 +206,6 @@
     <tbody></tbody>
   </table>
 
-  <!-- ✅ Buscador + Importar carpeta PC -->
-  <div class="buscador-wrap">
-    <div class="buscador-row">
-      <button id="btn-importar-carpeta">📁 Importar carpeta (PC)</button>
-      <input id="buscador-bases" type="text" placeholder="Buscar: entidad / sucursal / abonado / central / provincia" />
-      <button id="btn-buscar-catalogo">🔎 Buscar</button>
-    </div>
-    <div class="hint">
-      Tip: elegí la carpeta donde tenés JSON/XLSX. Después buscás y abrís la base para editar y exportar.
-    </div>
-
-    <!-- input carpeta oculto -->
-    <input id="input-carpeta" type="file" webkitdirectory multiple
-      style="position:absolute; left:-9999px; width:1px; height:1px;" />
-  </div>
-
   <div class="botones">
     <button id="btn-limpiar-base">🧹 Limpiar</button>
 
@@ -265,7 +219,7 @@
     <button id="btn-generar-pdf-base">📄 Generar PDF</button>
     <button id="btn-excel-base">📊 Exportar Excel</button>
 
-    <!-- ✅ ahora visible siempre -->
+    <!-- ✅ (PEDIDO) Botón Descargar JSON directo -->
     <button id="btn-descargar-json-main">⬇️ Descargar JSON</button>
 
     <button id="btn-mis-bases">📁 Mis Bases</button>
@@ -322,7 +276,7 @@
     }
   </script>
 
-  <!-- ✅ TU JS FULL -->
+  <!-- ✅ TU JS -->
   <script src="java-base.js"></script>
 
 </body>
