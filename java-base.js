@@ -1,6 +1,7 @@
 /***********************
  *   Señalco - Base    *
  * java-base.js FULL   *
+ * (ajustado a HTML nuevo)
  ***********************/
 
 /** =========================
@@ -9,7 +10,7 @@
 const eventos = [
   "- Sin tipo definido -",
   "Avería de linea",           // ✅ Default zona 1
-  "Averia de linea",           // ✅ variante (por si viene sin tilde)
+  "Averia de linea",           // ✅ variante
   "Falta de 220V",             // ✅ Default zona 3
   "Alarma", "Robo", "Asalto",
   "clave", "Sabotaje", "Apertura de Equipo",
@@ -53,6 +54,14 @@ const dispositivos = [
  *  ========================================== */
 let zonas123Editables = false; // por defecto BLOQUEADAS
 
+// ✅ Para saber si estás editando una base existente
+const CURRENT_NAME_KEY = "senalco_current_base_name"; // nombre (sin prefijo)
+function getCurrentBaseName() { return localStorage.getItem(CURRENT_NAME_KEY) || ""; }
+function setCurrentBaseName(name) {
+  if (!name) localStorage.removeItem(CURRENT_NAME_KEY);
+  else localStorage.setItem(CURRENT_NAME_KEY, name);
+}
+
 /** ==========================================
  *  Utilidades
  *  ========================================== */
@@ -69,7 +78,7 @@ function fechaStamp() {
 }
 
 function safeName(s) {
-  return (s || "base").toString().trim().replace(/\s+/g, "_").replace(/[^\w\-]/g, "_");
+  return (s || "base").toString().trim().replace(/\s+/g, "_").replace(/[^\w\-()]/g, "_");
 }
 
 function getZonaNumberFromText(z) {
@@ -94,12 +103,8 @@ function escapeHtml(s) {
     .replaceAll("'", "&#039;");
 }
 
-function normLite(s) {
-  return String(s || "")
-    .toLowerCase()
-    .replaceAll("á", "a").replaceAll("é", "e").replaceAll("í", "i").replaceAll("ó", "o").replaceAll("ú", "u")
-    .replace(/\s+/g, " ")
-    .trim();
+function deepEqual(a, b) {
+  try { return JSON.stringify(a) === JSON.stringify(b); } catch { return false; }
 }
 
 /** ==========================================
@@ -152,15 +157,12 @@ function poblarDatalistEntidades() {
 }
 
 /** ==========================================
- *  LocalStorage Keys
+ *  Storage Keys (LS)
  *  ========================================== */
 const INDEX_KEY = "senalco_bases_index";
 const BASE_PREFIX = "senalco_base_";
 const AUTOSAVE_KEY = "senalco_base_autosave";
 
-/** ==========================================
- *  Index helpers
- *  ========================================== */
 function getIndex() {
   try { return JSON.parse(localStorage.getItem(INDEX_KEY) || "[]"); }
   catch { return []; }
@@ -186,7 +188,7 @@ function asignarEventosBase() {
     e.target.value = "";
   });
 
-  // Import JSON top
+  // Import JSON
   $("btn-importar-json-top")?.addEventListener("click", () => $("input-json-base-top")?.click());
   $("input-json-base-top")?.addEventListener("change", (e) => {
     const f = e.target.files?.[0];
@@ -194,7 +196,7 @@ function asignarEventosBase() {
     e.target.value = "";
   });
 
-  // Import folder top (muchos JSON)
+  // Import folder (muchos JSON)
   $("btn-importar-carpeta-top")?.addEventListener("click", () => $("input-json-folder-top")?.click());
   $("input-json-folder-top")?.addEventListener("change", async (e) => {
     const files = Array.from(e.target.files || []).filter(f => (f.name || "").toLowerCase().endsWith(".json"));
@@ -205,56 +207,18 @@ function asignarEventosBase() {
   // Guardar rápido + backup
   $("btn-guardar-rapido")?.addEventListener("click", guardarRapidoConBackup);
 
-  // Descargar JSON actual
-  $("btn-descargar-json-top")?.addEventListener("click", descargarJSONBase);
-
   // Previsualizar
   $("btn-previsualizar")?.addEventListener("click", abrirPrevisualizacion);
   $("btn-cerrar-prev")?.addEventListener("click", cerrarPrevisualizacion);
   $("btn-descargar-pdf-prev")?.addEventListener("click", generarPDF);
 
-  // Modal Mis bases
-  $("btn-mis-bases")?.addEventListener("click", abrirModalBases);
-  $("btn-abrir-mis-bases")?.addEventListener("click", abrirModalBases);
-  $("btn-cerrar-bases")?.addEventListener("click", cerrarModalBases);
-
-  // Guardar como (manual)  ✅ (tu HTML llama a esta)
-  $("btn-guardar-como")?.addEventListener("click", guardarBaseComoManual);
-
-  // JSON modal
-  $("btn-descargar-json")?.addEventListener("click", descargarJSONBase);
-  $("btn-importar-json")?.addEventListener("click", () => $("input-json-base")?.click());
-  $("input-json-base")?.addEventListener("change", (e) => {
-    const f = e.target.files?.[0];
-    if (f) importarJSONBase(f);
-    e.target.value = "";
+  // Buscador rápido
+  $("buscar-rapido")?.addEventListener("input", () => renderBuscadorRapido());
+  document.querySelectorAll(".filtro-check").forEach(chk => {
+    chk.addEventListener("change", () => renderBuscadorRapido());
   });
-
-  // Buscadores
-  $("filtro-bases")?.addEventListener("input", () => renderBasesModal());
-  $("buscar-rapido")?.addEventListener("input", () => {
-    updateBusquedaSuggestions();   // ✅ sugerencias
-    renderBuscadorRapido();
-  });
-
-  $("filtro-campo")?.addEventListener("change", () => {
-    updateBusquedaSuggestions();
-    renderBuscadorRapido();
-  });
-
-  // ✅ Si existen checkboxes de filtros, también refrescan
-  [
-    "fchk-nombre", "fchk-entidad", "fchk-sucursal", "fchk-abonado", "fchk-central", "fchk-provincia"
-  ].forEach(id => {
-    $(id)?.addEventListener("change", () => {
-      updateBusquedaSuggestions();
-      renderBuscadorRapido();
-    });
-  });
-
   $("btn-limpiar-buscador")?.addEventListener("click", () => {
     if ($("buscar-rapido")) $("buscar-rapido").value = "";
-    updateBusquedaSuggestions(true);
     renderBuscadorRapido();
   });
 
@@ -271,21 +235,10 @@ function asignarEventosBase() {
     alert("🔒 Zonas 1-3 bloqueadas");
   });
 
-  // Cerrar modales tocando fuera
-  $("modal-prev")?.addEventListener("click", (e) => {
-    if (e.target.id === "modal-prev") cerrarPrevisualizacion();
-  });
-  $("modal-bases")?.addEventListener("click", (e) => {
-    if (e.target.id === "modal-bases") cerrarModalBases();
-  });
-
   // Autosave cabecera
   ["entidad", "sucursal", "abonado", "central", "provincia"].forEach(id => {
     $(id)?.addEventListener("input", autosaveBase);
   });
-
-  // ✅ asegurar datalist de sugerencias del buscador rápido (si no existe lo crea)
-  ensureBusquedaDatalist();
 }
 
 /** ==========================================
@@ -412,11 +365,8 @@ function aplicarDefaultsZonas123SiVacias() {
 
     if (!vacia) return;
 
-    // Evento default
     const ev = defaults[z];
     if (selEvento) selEvento.value = eventos.includes(ev) ? ev : "- Sin tipo definido -";
-
-    // resto
     if (selArea) selArea.value = "-";
     if (selDisp) selDisp.value = "-";
     if (desc) desc.value = "";
@@ -450,6 +400,7 @@ function limpiarBase() {
   $("provincia").value = "";
 
   zonas123Editables = false;
+  setCurrentBaseName(""); // ✅ ya no estamos editando ninguna base existente
   precargarZonas();
   autosaveBase();
 }
@@ -503,171 +454,91 @@ function construirJSONBase() {
 }
 
 /** ==========================================
- *  Descargar JSON (actual)
- *  ========================================== */
-function descargarJSONBase() {
-  const data = construirJSONBase();
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-
-  const a = document.createElement("a");
-  const entidad = $("entidad").value || "base";
-  const suc = $("sucursal").value || "";
-  a.href = url;
-  a.download = `base_${safeName(entidad)}_${safeName(suc)}_${safeName(fechaStamp())}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-/** ==========================================
- *  Guardar rápido en Mis Bases + Backup
+ *  Naming
  *  ========================================== */
 function generarNombreAuto() {
   const e = safeName($("entidad").value || "Entidad");
   const s = safeName($("sucursal").value || "Suc");
   const a = safeName($("abonado").value || "");
-  const c = safeName($("central").value || "");
-  const p = safeName($("provincia").value || "");
   const base = [e, s, a].filter(Boolean).join("_");
-  const extra = [c, p].filter(Boolean).join("_");
-  return extra ? `${base}__${extra}` : base;
+  return base || `Base_${fechaStamp()}`;
 }
 
-function guardarRapidoConBackup() {
-  const nombreBase = generarNombreAuto();
-  let nombre = nombreBase || `Base_${fechaStamp()}`;
+function addToIndex(nombre) {
+  const idx = getIndex();
+  if (!idx.includes(nombre)) idx.unshift(nombre);
+  else {
+    // si ya existe, lo subimos arriba
+    const n = idx.filter(x => x !== nombre);
+    n.unshift(nombre);
+    setIndex(n);
+    return;
+  }
+  setIndex(idx);
+}
 
-  if (localStorage.getItem(baseKey(nombre))) {
-    nombre = `${nombre}_mod_${fechaStamp()}`;
+/** ==========================================
+ *  Guardar rápido + Backup
+ *  - si estás editando una base existente => crea (mod FECHA)
+ *  ========================================== */
+function guardarRapidoConBackup() {
+  const data = construirJSONBase();
+
+  const current = getCurrentBaseName();
+  let nombre = "";
+
+  if (current && localStorage.getItem(baseKey(current))) {
+    // Si venís de abrir una base, NO la pisamos: creamos una “mod”
+    nombre = `${current} (mod ${fechaStamp()})`;
+  } else {
+    nombre = generarNombreAuto();
+    // si choca, le agregamos mod
+    if (localStorage.getItem(baseKey(nombre))) {
+      nombre = `${nombre} (mod ${fechaStamp()})`;
+    }
   }
 
-  const data = construirJSONBase();
+  // Guardar LS
   localStorage.setItem(baseKey(nombre), JSON.stringify(data));
 
-  // ✅ también en IndexedDB (si existe la función, no rompe si no)
-  try { idbPutBase?.(baseKey(nombre), data)?.catch?.(console.warn); } catch {}
+  // Guardar IDB (silencioso) si existe
+  if (typeof idbPutBase === "function") {
+    idbPutBase(baseKey(nombre), data).catch(console.warn);
+  }
 
-  const idx = getIndex();
-  if (!idx.includes(nombre)) idx.unshift(nombre);
-  setIndex(idx);
+  addToIndex(nombre);
+  setCurrentBaseName(nombre);
 
-  descargarBaseGuardadaComoJSON(nombre);
+  // Backup JSON (descarga)
+  descargarRawComoJSON(nombre, JSON.stringify(data));
 
-  renderBasesModal();
+  // refrescos UI
   renderBuscadorRapido();
-  updateBusquedaSuggestions(true);
+  renderBasesMini();
 
-  if ($("nombre-base")) $("nombre-base").value = nombre;
+  alert("✅ Guardado + Backup\n" + nombre);
+}
 
-  alert("✅ Guardado en Mis Bases + Backup descargado\n" + nombre);
+function descargarRawComoJSON(nombre, rawJsonString) {
+  const blob = new Blob([rawJsonString], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `base_${safeName(nombre)}_${safeName(fechaStamp())}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 /** ==========================================
- *  Guardar como (manual)
- *  - tu UI usa guardarBaseComoManual(), lo definimos para que NO falle
- *  ========================================== */
-function guardarBaseComoManual() {
-  // Wrapper seguro (no rompe tus botones)
-  return guardarBaseComo();
-}
-
-function guardarBaseComo() {
-  const nombre = safeName($("nombre-base")?.value || "");
-  if (!nombre) return alert("Poné un nombre válido (ej: Galicia_1234)");
-
-  const key = BASE_PREFIX + nombre;
-  const data = construirJSONBase();
-
-  localStorage.setItem(key, JSON.stringify(data));
-
-  // ✅ también guardar en IndexedDB (silencioso)
-  try { idbPutBase?.(key, data)?.catch?.(console.warn); } catch {}
-
-  const idx = getIndex();
-  if (!idx.includes(nombre)) idx.unshift(nombre);
-  setIndex(idx);
-
-  renderBasesModal();       // ✅ antes llamaba a renderBases() que no existía
-  renderBuscadorRapido();
-  updateBusquedaSuggestions(true);
-
-  alert("✅ Base guardada: " + nombre);
-}
-
-/** ==========================================
- *  Importar JSON (1)
+ *  Importar JSON (1) => carga a pantalla (no guarda)
  *  ========================================== */
 function importarJSONBase(file) {
   const reader = new FileReader();
   reader.onload = () => {
     try {
       const data = JSON.parse(reader.result);
-
-      $("entidad").value = data.entidad || "";
-      $("sucursal").value = data.sucursal || "";
-      $("abonado").value = data.abonado || "";
-      $("central").value = data.central || "";
-      $("provincia").value = data.provincia || "";
-
-      precargarZonas();
-
-      const filas = document.querySelectorAll("#tabla-base tbody tr");
-      (data.zonas || []).forEach((zObj) => {
-        const n = getZonaNumberFromText(zObj.zona);
-        if (!n || n < 1 || n > 24) return;
-
-        const tr = Array.from(filas).find(r => parseInt(r.dataset.zona, 10) === n);
-        if (!tr) return;
-
-        const celdas = tr.querySelectorAll("td");
-
-        // Evento
-        const se = celdas[1].querySelector("select");
-        const ie = celdas[1].querySelector("input");
-        if (eventos.includes(zObj.evento)) {
-          se.value = zObj.evento;
-          ie.value = "";
-          ie.style.display = "none";
-        } else {
-          se.value = "Otros";
-          ie.value = zObj.evento || "";
-          ie.style.display = "inline-block";
-        }
-
-        // Área
-        const sa = celdas[2].querySelector("select");
-        const ia = celdas[2].querySelector("input");
-        if (areas.includes(zObj.area)) {
-          sa.value = zObj.area;
-          ia.value = "";
-          ia.style.display = "none";
-        } else {
-          sa.value = "Otros";
-          ia.value = zObj.area || "";
-          ia.style.display = "inline-block";
-        }
-
-        // Dispositivo
-        const sd = celdas[3].querySelector("select");
-        const id = celdas[3].querySelector("input");
-        if (dispositivos.includes(zObj.dispositivo)) {
-          sd.value = zObj.dispositivo;
-          id.value = "";
-          id.style.display = "none";
-        } else {
-          sd.value = "otros";
-          id.value = zObj.dispositivo || "";
-          id.style.display = "inline-block";
-        }
-
-        // Desc
-        celdas[4].querySelector("input").value = zObj.descripcion || "";
-      });
-
-      aplicarDefaultsZonas123SiVacias();
-      aplicarBloqueoZonas123();
-      autosaveBase();
-      updateBusquedaSuggestions(true);
+      cargarDataEnPantalla(data);
+      setCurrentBaseName(""); // import manual = “sin nombre”
       alert("✅ JSON importado (cabecera + zonas)");
     } catch (e) {
       alert("❌ JSON inválido");
@@ -677,7 +548,7 @@ function importarJSONBase(file) {
 }
 
 /** ==========================================
- *  Importar carpeta (muchos JSON)
+ *  Importar carpeta (muchos JSON) => guarda directo
  *  ========================================== */
 async function importarMuchosJSON(files) {
   let ok = 0, bad = 0;
@@ -687,32 +558,97 @@ async function importarMuchosJSON(files) {
       const text = await f.text();
       const data = JSON.parse(text);
 
-      let nombre = safeName(f.name.replace(/\.json$/i, "")) || generarNombreAuto() || `Base_${fechaStamp()}`;
-      if (localStorage.getItem(baseKey(nombre))) nombre = `${nombre}_mod_${fechaStamp()}`;
+      let nombre = safeName(f.name.replace(/\.json$/i, "")) || generarNombreAuto();
+      if (localStorage.getItem(baseKey(nombre))) nombre = `${nombre} (mod ${fechaStamp()})`;
 
       localStorage.setItem(baseKey(nombre), JSON.stringify(data));
+      if (typeof idbPutBase === "function") {
+        idbPutBase(baseKey(nombre), data).catch(console.warn);
+      }
 
-      // ✅ también en IDB (si está)
-      try { idbPutBase?.(baseKey(nombre), data)?.catch?.(console.warn); } catch {}
-
-      const idx = getIndex();
-      if (!idx.includes(nombre)) idx.unshift(nombre);
-      setIndex(idx);
-
+      addToIndex(nombre);
       ok++;
     } catch {
       bad++;
     }
   }
 
-  renderBasesModal();
   renderBuscadorRapido();
-  updateBusquedaSuggestions(true);
+  renderBasesMini();
   alert(`✅ Importación masiva lista\nOK: ${ok}  •  Fallidos: ${bad}`);
 }
 
 /** ==========================================
- *  Importar Excel
+ *  Cargar data a pantalla (reutilizable)
+ *  ========================================== */
+function cargarDataEnPantalla(data) {
+  $("entidad").value = data.entidad || "";
+  $("sucursal").value = data.sucursal || "";
+  $("abonado").value = data.abonado || "";
+  $("central").value = data.central || "";
+  $("provincia").value = data.provincia || "";
+
+  precargarZonas();
+
+  (data.zonas || []).forEach(zObj => {
+    const n = getZonaNumberFromText(zObj.zona);
+    if (!n || n < 1 || n > 24) return;
+
+    const tr = document.querySelector(`#tabla-base tbody tr[data-zona="${n}"]`);
+    if (!tr) return;
+    const celdas = tr.querySelectorAll("td");
+
+    // Evento
+    const se = celdas[1].querySelector("select");
+    const ie = celdas[1].querySelector("input");
+    if (eventos.includes(zObj.evento)) {
+      se.value = zObj.evento;
+      ie.value = "";
+      ie.style.display = "none";
+    } else {
+      se.value = "Otros";
+      ie.value = zObj.evento || "";
+      ie.style.display = "inline-block";
+    }
+
+    // Área
+    const sa = celdas[2].querySelector("select");
+    const ia = celdas[2].querySelector("input");
+    if (areas.includes(zObj.area)) {
+      sa.value = zObj.area;
+      ia.value = "";
+      ia.style.display = "none";
+    } else {
+      sa.value = "Otros";
+      ia.value = zObj.area || "";
+      ia.style.display = "inline-block";
+    }
+
+    // Dispositivo
+    const sd = celdas[3].querySelector("select");
+    const id = celdas[3].querySelector("input");
+    if (dispositivos.includes(zObj.dispositivo)) {
+      sd.value = zObj.dispositivo;
+      id.value = "";
+      id.style.display = "none";
+    } else {
+      sd.value = "otros";
+      id.value = zObj.dispositivo || "";
+      id.style.display = "inline-block";
+    }
+
+    // Desc
+    celdas[4].querySelector("input").value = zObj.descripcion || "";
+  });
+
+  aplicarDefaultsZonas123SiVacias();
+  aplicarBloqueoZonas123();
+  autosaveBase();
+}
+
+/** ==========================================
+ *  Excel IMPORT
+ *  - Zonas 1-3 NO se pisan
  *  ========================================== */
 async function importarExcelBase(file) {
   try {
@@ -813,13 +749,14 @@ async function importarExcelBase(file) {
         id.style.display = "inline-block";
       }
 
+      // Desc
       celdas[4].querySelector("input").value = E || "";
     }
 
     aplicarDefaultsZonas123SiVacias();
     aplicarBloqueoZonas123();
     autosaveBase();
-    updateBusquedaSuggestions(true);
+    setCurrentBaseName(""); // excel import = sin nombre
     alert("✅ Excel importado (cabecera + zonas, 1-3 ignoradas)");
   } catch (e) {
     console.error(e);
@@ -837,15 +774,15 @@ function generarPDF() {
   doc.text("Base de Datos - Señalco", 14, 14);
 
   try {
-    const logoImg = document.getElementById('logo-pdf');
+    const logoImg = document.getElementById("logo-pdf");
     if (logoImg && logoImg.complete) {
-      const canvas = document.createElement('canvas');
+      const canvas = document.createElement("canvas");
       canvas.width = logoImg.naturalWidth;
       canvas.height = logoImg.naturalHeight;
-      const ctx = canvas.getContext('2d');
+      const ctx = canvas.getContext("2d");
       ctx.drawImage(logoImg, 0, 0);
-      const dataURL = canvas.toDataURL('image/jpeg');
-      doc.addImage(dataURL, 'JPEG', 160, 10, 40, 20);
+      const dataURL = canvas.toDataURL("image/jpeg");
+      doc.addImage(dataURL, "JPEG", 160, 10, 40, 20);
     }
   } catch {}
 
@@ -939,7 +876,7 @@ function generarExcel() {
     const inputDispOtro = celdas[3].querySelector("input");
     const disp = (selectDisp.value === "otros" && inputDispOtro.value.trim())
       ? inputDispOtro.value.trim()
-      : selectDisp.value; // ✅ FIX: antes era selectDispositivo.value (variable inexistente)
+      : selectDisp.value;
 
     sheet.addRow([
       celdas[0].textContent,
@@ -1019,208 +956,42 @@ function cerrarPrevisualizacion() {
 }
 
 /** ==========================================
- *  Mis Bases (modal)
+ *  Bases: abrir/borrar (desde buscador o ventanita)
  *  ========================================== */
-function abrirModalBases() {
-  if ($("nombre-base")) {
-    const sug = generarNombreAuto();
-    if (sug) $("nombre-base").value = sug;
-  }
-  $("modal-bases").style.display = "flex";
-  renderBasesModal();
-}
-function cerrarModalBases() {
-  $("modal-bases").style.display = "none";
-}
-
-function descargarBaseGuardadaComoJSON(nombre) {
+function leerBase(nombre) {
   const raw = localStorage.getItem(baseKey(nombre));
-  if (!raw) return;
-
-  const blob = new Blob([raw], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `base_${safeName(nombre)}_${safeName(fechaStamp())}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-function confirmarBorrado(nombre) {
-  return confirm(`🗑️ ¿Seguro que querés eliminar esta base?\n\n${nombre}\n\nAceptar = borrar / Cancelar = no borrar`);
-}
-
-function borrarBaseGuardada(nombre) {
-  if (!confirmarBorrado(nombre)) return;
-  localStorage.removeItem(baseKey(nombre));
-  setIndex(getIndex().filter(x => x !== nombre));
-  renderBasesModal();
-  renderBuscadorRapido();
-  updateBusquedaSuggestions(true);
+  if (!raw) return null;
+  try { return JSON.parse(raw); } catch { return null; }
 }
 
 function abrirBaseGuardada(nombre) {
-  const raw = localStorage.getItem(baseKey(nombre));
-  if (!raw) return alert("❌ No se encontró la base");
-  try {
-    const data = JSON.parse(raw);
-
-    $("entidad").value = data.entidad || "";
-    $("sucursal").value = data.sucursal || "";
-    $("abonado").value = data.abonado || "";
-    $("central").value = data.central || "";
-    $("provincia").value = data.provincia || "";
-
-    precargarZonas();
-
-    (data.zonas || []).forEach(zObj => {
-      const n = getZonaNumberFromText(zObj.zona);
-      if (!n || n < 1 || n > 24) return;
-
-      const tr = document.querySelector(`#tabla-base tbody tr[data-zona="${n}"]`);
-      if (!tr) return;
-      const celdas = tr.querySelectorAll("td");
-
-      const se = celdas[1].querySelector("select");
-      const ie = celdas[1].querySelector("input");
-      if (eventos.includes(zObj.evento)) {
-        se.value = zObj.evento;
-        ie.value = "";
-        ie.style.display = "none";
-      } else {
-        se.value = "Otros";
-        ie.value = zObj.evento || "";
-        ie.style.display = "inline-block";
-      }
-
-      const sa = celdas[2].querySelector("select");
-      const ia = celdas[2].querySelector("input");
-      if (areas.includes(zObj.area)) {
-        sa.value = zObj.area;
-        ia.value = "";
-        ia.style.display = "none";
-      } else {
-        sa.value = "Otros";
-        ia.value = zObj.area || "";
-        ia.style.display = "inline-block";
-      }
-
-      const sd = celdas[3].querySelector("select");
-      const id = celdas[3].querySelector("input");
-      if (dispositivos.includes(zObj.dispositivo)) {
-        sd.value = zObj.dispositivo;
-        id.value = "";
-        id.style.display = "none";
-      } else {
-        sd.value = "otros";
-        id.value = zObj.dispositivo || "";
-        id.style.display = "inline-block";
-      }
-
-      celdas[4].querySelector("input").value = zObj.descripcion || "";
-    });
-
-    aplicarDefaultsZonas123SiVacias();
-    aplicarBloqueoZonas123();
-    autosaveBase();
-    cerrarModalBases();
-    updateBusquedaSuggestions(true);
-    alert("✅ Base cargada: " + nombre);
-  } catch (e) {
-    alert("❌ La base guardada está dañada");
-  }
+  const data = leerBase(nombre);
+  if (!data) return alert("❌ No se encontró la base");
+  cargarDataEnPantalla(data);
+  setCurrentBaseName(nombre);
 }
 
-/** Render modal */
-function renderBasesModal() {
-  const cont = $("lista-bases-json");
-  if (!cont) return;
-  cont.innerHTML = "";
+function borrarBaseGuardada(nombre) {
+  if (!confirm(`🗑️ ¿Borrar esta base?\n\n${nombre}`)) return;
+  localStorage.removeItem(baseKey(nombre));
+  setIndex(getIndex().filter(x => x !== nombre));
+  // si borraste la que estabas editando, limpiamos current
+  if (getCurrentBaseName() === nombre) setCurrentBaseName("");
 
-  const idx = getIndex();
-  const filtro = ($("filtro-bases")?.value || "").trim().toLowerCase();
-
-  if (!idx.length) {
-    cont.innerHTML = `<p style="opacity:.75;">No hay bases guardadas todavía.</p>`;
-    return;
-  }
-
-  let mostradas = 0;
-
-  idx.forEach(nombre => {
-    const raw = localStorage.getItem(baseKey(nombre));
-    if (!raw) return;
-
-    let data;
-    try { data = JSON.parse(raw); } catch { return; }
-
-    const blobText = [
-      nombre,
-      data.entidad || "",
-      data.sucursal || "",
-      data.abonado || "",
-      data.central || "",
-      data.provincia || ""
-    ].join(" ").toLowerCase();
-
-    if (filtro && !blobText.includes(filtro)) return;
-
-    mostradas++;
-
-    const card = document.createElement("div");
-    card.className = "card";
-    card.innerHTML = `
-      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between;">
-        <div>
-          <div style="font-weight:bold;">${escapeHtml(nombre)}</div>
-          <div style="font-size:12px; opacity:.85;">
-            ${escapeHtml(data.entidad || "-")} • Suc: ${escapeHtml(data.sucursal || "-")} • Ab: ${escapeHtml(data.abonado || "-")} • ${escapeHtml(data.provincia || "-")}
-          </div>
-        </div>
-        <div style="display:flex; gap:8px; flex-wrap:wrap;">
-          <button class="mini-btn" data-act="abrir">Abrir</button>
-          <button class="mini-btn" data-act="json">JSON</button>
-          <button class="mini-btn" data-act="borrar" style="background:#b00020;">Borrar</button>
-        </div>
-      </div>
-    `;
-
-    card.querySelector('[data-act="abrir"]').onclick = () => abrirBaseGuardada(nombre);
-    card.querySelector('[data-act="json"]').onclick = () => descargarBaseGuardadaComoJSON(nombre);
-    card.querySelector('[data-act="borrar"]').onclick = () => borrarBaseGuardada(nombre);
-
-    cont.appendChild(card);
-  });
-
-  if (!mostradas) cont.innerHTML = `<p style="opacity:.75;">No hay resultados con ese filtro.</p>`;
+  renderBuscadorRapido();
+  renderBasesMini();
 }
 
 /** ==========================================
- *  Buscador rápido (afuera) con filtros
- *  - Compat: si existen checkboxes usa casillas
- *  - Si no, usa el select #filtro-campo como antes
+ *  Buscador rápido (afuera) con CASILLAS
+ *  - tocar tarjeta => IMPORTA DIRECTO (no abre paneles)
  *  ========================================== */
-function getActiveFieldsForQuickSearch() {
-  // ✅ modo casillas (si existen)
-  const anyChk =
-    $("fchk-nombre") || $("fchk-entidad") || $("fchk-sucursal") || $("fchk-abonado") || $("fchk-central") || $("fchk-provincia");
-
-  if (anyChk) {
-    const fields = [];
-    if ($("fchk-nombre")?.checked) fields.push("nombre");
-    if ($("fchk-entidad")?.checked) fields.push("entidad");
-    if ($("fchk-sucursal")?.checked) fields.push("sucursal");
-    if ($("fchk-abonado")?.checked) fields.push("abonado");
-    if ($("fchk-central")?.checked) fields.push("central");
-    if ($("fchk-provincia")?.checked) fields.push("provincia");
-    // si no marcó nada, default "all"
-    return fields.length ? fields : ["all"];
-  }
-
-  // ✅ modo viejo (select)
-  const campo = $("filtro-campo")?.value || "all";
-  return [campo];
+function getCamposSeleccionados() {
+  const checks = Array.from(document.querySelectorAll(".filtro-check"))
+    .filter(ch => ch.checked)
+    .map(ch => ch.value);
+  // fallback: si destilda todo, buscamos en todo
+  return checks.length ? checks : ["nombre", "entidad", "sucursal", "abonado", "central", "provincia"];
 }
 
 function renderBuscadorRapido() {
@@ -1228,8 +999,7 @@ function renderBuscadorRapido() {
   if (!cont) return;
   cont.innerHTML = "";
 
-  const qRaw = ($("buscar-rapido")?.value || "").trim();
-  const q = qRaw.toLowerCase();
+  const q = ($("buscar-rapido")?.value || "").trim().toLowerCase();
   const idx = getIndex();
 
   if (!idx.length) {
@@ -1237,22 +1007,18 @@ function renderBuscadorRapido() {
     return;
   }
 
+  const campos = getCamposSeleccionados();
   const modoCorto = q.length < 3;
+
   const nombres = modoCorto ? idx.slice(0, 8) : idx;
-
-  const activeFields = getActiveFieldsForQuickSearch();
-
   let count = 0;
 
   nombres.forEach(nombre => {
-    const raw = localStorage.getItem(baseKey(nombre));
-    if (!raw) return;
-
-    let data;
-    try { data = JSON.parse(raw); } catch { return; }
+    const data = leerBase(nombre);
+    if (!data) return;
 
     const map = {
-      nombre: nombre,
+      nombre,
       entidad: (data.entidad || ""),
       sucursal: (data.sucursal || ""),
       abonado: (data.abonado || ""),
@@ -1260,20 +1026,80 @@ function renderBuscadorRapido() {
       provincia: (data.provincia || "")
     };
 
-    const blobAll = Object.values(map).join(" ").toLowerCase();
-
+    // match
     let ok = true;
-
     if (!modoCorto) {
-      if (activeFields.includes("all")) {
-        ok = blobAll.includes(q);
-      } else {
-        ok = activeFields.some(f => String(map[f] || "").toLowerCase().includes(q));
-      }
+      ok = campos.some(c => String(map[c] || "").toLowerCase().includes(q));
     }
 
     if (!ok) return;
     count++;
+
+    const card = document.createElement("div");
+    card.className = "card";
+    card.style.cursor = "pointer";
+    card.innerHTML = `
+      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between;">
+        <div>
+          <div style="font-weight:bold;">${escapeHtml(nombre)}</div>
+          <div style="font-size:12px; opacity:.85;">
+            ${escapeHtml(data.entidad || "-")}
+            • Suc: ${escapeHtml(data.sucursal || "-")}
+            • Ab: ${escapeHtml(data.abonado || "-")}
+            • Central: ${escapeHtml(data.central || "-")}
+            • ${escapeHtml(data.provincia || "-")}
+          </div>
+          <div style="margin-top:6px; font-size:12px; opacity:.8;">
+            👉 Tocá para importar esta base a la pantalla
+          </div>
+        </div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="mini-btn" data-act="borrar" style="background:#b00020;">Borrar</button>
+        </div>
+      </div>
+    `;
+
+    // ✅ tocar tarjeta => importar directo
+    card.addEventListener("click", () => abrirBaseGuardada(nombre));
+
+    // ✅ botón borrar sin disparar el click del card
+    card.querySelector('[data-act="borrar"]').addEventListener("click", (e) => {
+      e.stopPropagation();
+      borrarBaseGuardada(nombre);
+    });
+
+    cont.appendChild(card);
+  });
+
+  if (count === 0) {
+    cont.innerHTML = `<div class="card"><b>Sin resultados</b><div style="opacity:.8;">Probá tildar más casillas o escribir otra palabra.</div></div>`;
+  }
+}
+
+/** ==========================================
+ *  Ventanita abajo: lista de bases (scrolleable)
+ *  - NO duplica, usa el INDEX
+ *  ========================================== */
+function renderBasesMini() {
+  const cont = $("lista-bases-mini");
+  if (!cont) return;
+
+  const idx = getIndex();
+  if (!idx.length) {
+    cont.innerHTML = `
+      <div class="card">
+        <b>Sin bases todavía</b>
+        <div style="opacity:.8;">Guardá una base y te aparece acá.</div>
+      </div>
+    `;
+    return;
+  }
+
+  cont.innerHTML = "";
+
+  idx.forEach(nombre => {
+    const data = leerBase(nombre);
+    if (!data) return;
 
     const card = document.createElement("div");
     card.className = "card";
@@ -1282,101 +1108,20 @@ function renderBuscadorRapido() {
         <div>
           <div style="font-weight:bold;">${escapeHtml(nombre)}</div>
           <div style="font-size:12px; opacity:.85;">
-            ${escapeHtml(data.entidad || "-")} • Suc: ${escapeHtml(data.sucursal || "-")} • Ab: ${escapeHtml(data.abonado || "-")} • Central: ${escapeHtml(data.central || "-")} • ${escapeHtml(data.provincia || "-")}
+            ${escapeHtml(data.entidad || "-")} • Suc: ${escapeHtml(data.sucursal || "-")} • Ab: ${escapeHtml(data.abonado || "-")}
           </div>
         </div>
         <div style="display:flex; gap:8px; flex-wrap:wrap;">
-          <button class="mini-btn" data-act="abrir">Abrir</button>
-          <button class="mini-btn" data-act="json">JSON</button>
+          <button class="mini-btn" data-act="abrir">Importar</button>
           <button class="mini-btn" data-act="borrar" style="background:#b00020;">Borrar</button>
         </div>
       </div>
     `;
 
     card.querySelector('[data-act="abrir"]').onclick = () => abrirBaseGuardada(nombre);
-    card.querySelector('[data-act="json"]').onclick = () => descargarBaseGuardadaComoJSON(nombre);
     card.querySelector('[data-act="borrar"]').onclick = () => borrarBaseGuardada(nombre);
 
     cont.appendChild(card);
-  });
-
-  if (count === 0) {
-    cont.innerHTML = `<div class="card"><b>Sin resultados</b><div style="opacity:.8;">Probá cambiar el filtro o escribir otra palabra.</div></div>`;
-  }
-}
-
-/** ==========================================
- *  Sugerencias buscador (3 letras)
- *  - Usa datalist para autocompletar por coincidencias
- *  - No rompe si el HTML no lo tiene
- *  ========================================== */
-function ensureBusquedaDatalist() {
-  const input = $("buscar-rapido");
-  if (!input) return;
-
-  let dl = $("lista-sugerencias-busqueda");
-  if (!dl) {
-    dl = document.createElement("datalist");
-    dl.id = "lista-sugerencias-busqueda";
-    document.body.appendChild(dl);
-  }
-  input.setAttribute("list", "lista-sugerencias-busqueda");
-}
-
-function updateBusquedaSuggestions(forceClear = false) {
-  const dl = $("lista-sugerencias-busqueda");
-  const input = $("buscar-rapido");
-  if (!dl || !input) return;
-
-  const q = normLite(input.value || "");
-  if (forceClear || q.length < 3) {
-    dl.innerHTML = "";
-    return;
-  }
-
-  const idx = getIndex();
-  const activeFields = getActiveFieldsForQuickSearch();
-
-  const set = new Set();
-
-  // armamos sugerencias “tipo lupa” a partir de datos guardados
-  for (const nombre of idx.slice(0, 4000)) { // límite defensivo
-    const raw = localStorage.getItem(baseKey(nombre));
-    if (!raw) continue;
-    let data;
-    try { data = JSON.parse(raw); } catch { continue; }
-
-    const map = {
-      nombre: nombre,
-      entidad: data.entidad || "",
-      sucursal: data.sucursal || "",
-      abonado: data.abonado || "",
-      central: data.central || "",
-      provincia: data.provincia || ""
-    };
-
-    const fieldsToCheck = activeFields.includes("all")
-      ? ["nombre", "entidad", "sucursal", "abonado", "central", "provincia"]
-      : activeFields;
-
-    for (const f of fieldsToCheck) {
-      const val = String(map[f] || "");
-      if (!val) continue;
-      if (normLite(val).includes(q)) {
-        // guardamos sugerencias “humanas”
-        if (f === "nombre") set.add(val);
-        else set.add(val);
-      }
-      if (set.size >= 40) break;
-    }
-    if (set.size >= 40) break;
-  }
-
-  dl.innerHTML = "";
-  Array.from(set).slice(0, 40).forEach(v => {
-    const opt = document.createElement("option");
-    opt.value = v;
-    dl.appendChild(opt);
   });
 }
 
@@ -1391,6 +1136,7 @@ function autosaveBase() {
 
 /** ==========================================
  *  Update banner (service worker)
+ *  (se mantiene como estaba)
  *  ========================================== */
 function setupUpdateBanner() {
   if (!("serviceWorker" in navigator)) return;
@@ -1436,8 +1182,10 @@ function setupUpdateBanner() {
 window.addEventListener("DOMContentLoaded", () => {
   if (!document.querySelector("#tabla-base")) return;
 
-  // ✅ Migrar a IndexedDB (si existe la función) sin romper si no está
-  try { migrateLocalStorageToIDB?.().catch?.(console.warn); } catch {}
+  // ✅ Migrar a IndexedDB sin tocar nada (silencioso)
+  if (typeof migrateLocalStorageToIDB === "function") {
+    migrateLocalStorageToIDB().catch(console.warn);
+  }
 
   poblarDatalistEntidades();
   setupUpdateBanner();
@@ -1449,66 +1197,13 @@ window.addEventListener("DOMContentLoaded", () => {
   if (raw) {
     try {
       const data = JSON.parse(raw);
-
-      $("entidad").value = data.entidad || "";
-      $("sucursal").value = data.sucursal || "";
-      $("abonado").value = data.abonado || "";
-      $("central").value = data.central || "";
-      $("provincia").value = data.provincia || "";
-
-      (data.zonas || []).forEach(zObj => {
-        const n = getZonaNumberFromText(zObj.zona);
-        if (!n || n < 1 || n > 24) return;
-
-        const tr = document.querySelector(`#tabla-base tbody tr[data-zona="${n}"]`);
-        if (!tr) return;
-        const celdas = tr.querySelectorAll("td");
-
-        const se = celdas[1].querySelector("select");
-        const ie = celdas[1].querySelector("input");
-        if (eventos.includes(zObj.evento)) {
-          se.value = zObj.evento;
-          ie.value = "";
-          ie.style.display = "none";
-        } else {
-          se.value = "Otros";
-          ie.value = zObj.evento || "";
-          ie.style.display = "inline-block";
-        }
-
-        const sa = celdas[2].querySelector("select");
-        const ia = celdas[2].querySelector("input");
-        if (areas.includes(zObj.area)) {
-          sa.value = zObj.area;
-          ia.value = "";
-          ia.style.display = "none";
-        } else {
-          sa.value = "Otros";
-          ia.value = zObj.area || "";
-          ia.style.display = "inline-block";
-        }
-
-        const sd = celdas[3].querySelector("select");
-        const id = celdas[3].querySelector("input");
-        if (dispositivos.includes(zObj.dispositivo)) {
-          sd.value = zObj.dispositivo;
-          id.value = "";
-          id.style.display = "none";
-        } else {
-          sd.value = "otros";
-          id.value = zObj.dispositivo || "";
-          id.style.display = "inline-block";
-        }
-
-        celdas[4].querySelector("input").value = zObj.descripcion || "";
-      });
-
-      aplicarDefaultsZonas123SiVacias();
-      aplicarBloqueoZonas123();
+      cargarDataEnPantalla(data);
+      // autosave no define nombre
+      setCurrentBaseName("");
     } catch { }
   }
 
   asignarEventosBase();
   renderBuscadorRapido();
-  updateBusquedaSuggestions(true);
+  renderBasesMini();
 });

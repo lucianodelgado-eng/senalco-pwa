@@ -85,76 +85,6 @@
       box-sizing: border-box;
     }
 
-    .botones {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      margin-top: 20px;
-    }
-
-    .botones button {
-      flex: 1 1 220px;
-      padding: 12px;
-      font-weight: bold;
-      cursor: pointer;
-      border: 0;
-      border-radius: 10px;
-      background: #1976d2;
-      color: #fff;
-    }
-
-    .botones button:hover {
-      opacity: .92;
-    }
-
-    .mini-btn {
-      padding: 10px 14px;
-      border-radius: 10px;
-      background: #444;
-      color: #fff;
-      border: 0;
-      cursor: pointer;
-      font-weight: bold;
-    }
-
-    .modal {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, .65);
-      z-index: 9999;
-      align-items: center;
-      justify-content: center;
-      padding: 16px;
-    }
-
-    .modal .box {
-      background: #fff;
-      color: #000;
-      width: min(95vw, 900px);
-      border-radius: 14px;
-      padding: 16px;
-      max-height: 85vh;
-      overflow: auto;
-    }
-
-    .modal .row {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .card {
-      border: 1px solid #ddd;
-      border-radius: 12px;
-      padding: 12px;
-      margin-bottom: 10px;
-      background: #fafafa;
-      color: #000;
-    }
-
     #logo-pdf {
       display: none;
     }
@@ -167,30 +97,78 @@
       box-shadow: 0 0 10px rgba(0, 0, 0, .5);
     }
 
-    /* ✅ Banner update */
-    #update-bar {
-      display: none;
-      position: sticky;
-      top: 0;
-      z-index: 99999;
-      background: #0f2a14;
-      border: 1px solid rgba(255, 255, 255, .15);
-      padding: 12px;
-      border-radius: 12px;
-      margin: 10px 0 14px;
-      gap: 10px;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    #update-bar .msg {
+    .mini-btn {
+      padding: 10px 14px;
+      border-radius: 10px;
+      background: #444;
+      color: #fff;
+      border: 0;
+      cursor: pointer;
       font-weight: bold;
     }
 
-    #update-bar .actions {
+    .mini-btn:hover {
+      opacity: .92;
+    }
+
+    /* ✅ Secciones plegables */
+    .section {
+      margin-top: 14px;
+      padding: 12px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, .06);
+      border: 1px solid rgba(255, 255, 255, .08);
+    }
+
+    .section-head {
       display: flex;
+      align-items: center;
+      justify-content: space-between;
       gap: 10px;
-      flex-wrap: wrap;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .section-title {
+      font-weight: bold;
+      font-size: 15px;
+    }
+
+    .section-body {
+      margin-top: 10px;
+      display: none;
+    }
+
+    .section.open .section-body {
+      display: block;
+    }
+
+    .btn-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+
+    @media (min-width: 700px) {
+      .btn-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    .bigbtn {
+      width: 100%;
+      padding: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      border: 0;
+      border-radius: 12px;
+      background: #1976d2;
+      color: #fff;
+      font-size: 15px;
+    }
+
+    .bigbtn:hover {
+      opacity: .92;
     }
 
     /* ✅ Buscador rápido afuera */
@@ -200,19 +178,6 @@
       border-radius: 14px;
       background: rgba(255, 255, 255, .06);
       border: 1px solid rgba(255, 255, 255, .08);
-    }
-
-    .buscador-grid {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 10px;
-      align-items: start;
-    }
-
-    @media (max-width: 700px) {
-      .buscador-grid {
-        grid-template-columns: 1fr;
-      }
     }
 
     .chips {
@@ -243,7 +208,60 @@
     #buscador-resultados .card {
       background: #fff;
       color: #000;
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 10px;
     }
+
+    /* ✅ Ventanita abajo: bases guardadas (scroll) */
+    .bases-window {
+      margin-top: 14px;
+      padding: 12px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, .06);
+      border: 1px solid rgba(255, 255, 255, .08);
+    }
+
+    .bases-window-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      user-select: none;
+      gap: 10px;
+    }
+
+    .bases-window-title {
+      font-weight: bold;
+      font-size: 15px;
+    }
+
+    .bases-window-body {
+      margin-top: 10px;
+      display: none;
+    }
+
+    .bases-window.open .bases-window-body {
+      display: block;
+    }
+
+    /* ⚙️ Esto es lo que pediste: 3 visibles aprox + scroll */
+    #lista-bases-inline {
+      max-height: 260px;          /* ~3 cards según tamaño */
+      overflow-y: auto;           /* scroll lateral */
+      padding-right: 6px;         /* deja lugar para “cursor” */
+    }
+
+    #lista-bases-inline .card {
+      background: #fff;
+      color: #000;
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 10px;
+    }
+
+    /* ❌ Nunca mostrar aviso de actualización */
+    #update-bar { display: none !important; }
   </style>
 </head>
 
@@ -257,7 +275,7 @@
 
   <h1>📊 Base de Datos - Señalco</h1>
 
-  <!-- ✅ Banner de actualización -->
+  <!-- (Se mantiene por compatibilidad, pero está apagado por CSS) -->
   <div id="update-bar">
     <div class="msg">⬆️ Hay una actualización disponible</div>
     <div class="actions">
@@ -295,73 +313,99 @@
     <tbody></tbody>
   </table>
 
-  <div class="botones">
-    <button id="btn-limpiar-base">🧹 Limpiar</button>
+  <!-- ✅ SECCIÓN 1: Importar (plegable / ocultable) -->
+  <div class="section" id="sec-importar">
+    <div class="section-head" onclick="toggleSection('sec-importar')">
+      <div class="section-title">📥 Importar</div>
+      <div style="opacity:.9;">⬇️</div>
+    </div>
 
-    <button id="btn-subir-excel">📂 Importar Excel</button>
-    <input id="input-excel-base" type="file"
-      accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-      style="position:absolute; left:-9999px; width:1px; height:1px;" />
+    <div class="section-body">
+      <div class="btn-grid">
+        <button class="bigbtn" id="btn-subir-excel">📂 Importar Excel</button>
+        <input id="input-excel-base" type="file"
+          accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          style="position:absolute; left:-9999px; width:1px; height:1px;" />
 
-    <button id="btn-importar-json-top">📤 Importar JSON</button>
-    <input id="input-json-base-top" type="file" accept="application/json,.json"
-      style="position:absolute; left:-9999px; width:1px; height:1px;" />
+        <button class="bigbtn" id="btn-importar-json-top">📤 Importar JSON</button>
+        <input id="input-json-base-top" type="file" accept="application/json,.json"
+          style="position:absolute; left:-9999px; width:1px; height:1px;" />
 
-    <button id="btn-importar-carpeta-top">📦 Importar carpeta (muchos JSON)</button>
-    <input id="input-json-folder-top" type="file" accept=".json,application/json" multiple webkitdirectory directory
-      style="position:absolute; left:-9999px; width:1px; height:1px;" />
+        <button class="bigbtn" id="btn-importar-carpeta-top">📦 Importar carpeta (muchos JSON)</button>
+        <input id="input-json-folder-top" type="file" accept=".json,application/json" multiple webkitdirectory directory
+          style="position:absolute; left:-9999px; width:1px; height:1px;" />
+      </div>
+    </div>
+  </div>
 
-    <button id="btn-guardar-rapido">💾 Guardar en Mis Bases + Backup</button>
-    <button id="btn-descargar-json-top">⬇️ Descargar JSON</button>
+  <!-- ✅ SECCIÓN 2: Acciones (plegable / ocultable) -->
+  <div class="section open" id="sec-acciones">
+    <div class="section-head" onclick="toggleSection('sec-acciones')">
+      <div class="section-title">⚙️ Acciones</div>
+      <div style="opacity:.9;">⬆️</div>
+    </div>
 
-    <button id="btn-previsualizar">👁️ Previsualizar</button>
+    <div class="section-body">
+      <div class="btn-grid">
+        <button class="bigbtn" id="btn-limpiar-base">🧹 Limpiar</button>
 
-    <button id="btn-generar-pdf-base">📄 Generar PDF</button>
-    <button id="btn-excel-base">📊 Exportar Excel</button>
+        <!-- ✅ Guardar + backup ya descarga JSON => NO ponemos Descargar JSON aparte -->
+        <button class="bigbtn" id="btn-guardar-rapido">💾 Guardar en Mis Bases + Backup</button>
 
-    <button id="btn-editar-zonas123">🔓 Editar Zonas 1-3</button>
-    <button id="btn-bloquear-zonas123" style="display:none;">🔒 Bloquear Zonas 1-3</button>
+        <button class="bigbtn" id="btn-previsualizar">👁️ Previsualizar</button>
 
-    <button id="btn-mis-bases">📁 Mis Bases</button>
-    <button onclick="cerrarSesion()">🔒 Cerrar sesión</button>
+        <button class="bigbtn" id="btn-generar-pdf-base">📄 Generar PDF</button>
+
+        <button class="bigbtn" id="btn-excel-base">📊 Exportar Excel</button>
+
+        <button class="bigbtn" id="btn-editar-zonas123">🔓 Editar Zonas 1-3</button>
+        <button class="bigbtn" id="btn-bloquear-zonas123" style="display:none;">🔒 Bloquear Zonas 1-3</button>
+
+        <button class="bigbtn" onclick="cerrarSesion()">🔒 Cerrar sesión</button>
+      </div>
+    </div>
   </div>
 
   <!-- ✅ BUSCADOR RÁPIDO -->
   <div class="buscador-wrap">
-    <h3 style="margin:0 0 8px;">🔎 Buscador rápido de Bases (en el teléfono)</h3>
+    <h3 style="margin:0 0 8px;">🔎 Buscador rápido de Bases</h3>
 
-    <div class="buscador-grid">
-      <input id="buscar-rapido" placeholder="Escribí 3 letras (ej: gal) y filtra al toque..." />
+    <input id="buscar-rapido" placeholder="Escribí 3 letras (ej: gal) y filtra al toque..." />
 
-      <div style="opacity:.9; font-size:13px; margin-top:4px;">
-        ✅ Elegí en qué campos buscar (tildás casillas):
-      </div>
+    <div style="opacity:.9; font-size:13px; margin-top:6px;">
+      ✅ Elegí en qué campos buscar (tildás casillas):
+    </div>
 
-      <!-- ✅ CASILLAS -->
-      <div class="chips" id="filtros-wrap">
-        <label class="chip"><input type="checkbox" class="filtro-check" value="entidad" checked>Entidad</label>
-        <label class="chip"><input type="checkbox" class="filtro-check" value="sucursal" checked>Sucursal</label>
-        <label class="chip"><input type="checkbox" class="filtro-check" value="abonado" checked>Abonado</label>
-        <label class="chip"><input type="checkbox" class="filtro-check" value="central" checked>Central</label>
-        <label class="chip"><input type="checkbox" class="filtro-check" value="provincia" checked>Provincia</label>
-        <label class="chip"><input type="checkbox" class="filtro-check" value="nombre" checked>Nombre</label>
-      </div>
-
-      <!-- ✅ COMPATIBILIDAD: tu java-base actual busca #filtro-campo (lo dejamos oculto) -->
-      <select id="filtro-campo" style="display:none;">
-        <option value="all" selected>Todos</option>
-      </select>
+    <div class="chips" id="filtros-wrap">
+      <label class="chip"><input type="checkbox" class="filtro-check" value="entidad" checked>Entidad</label>
+      <label class="chip"><input type="checkbox" class="filtro-check" value="sucursal" checked>Sucursal</label>
+      <label class="chip"><input type="checkbox" class="filtro-check" value="abonado" checked>Abonado</label>
+      <label class="chip"><input type="checkbox" class="filtro-check" value="central" checked>Central</label>
+      <label class="chip"><input type="checkbox" class="filtro-check" value="provincia" checked>Provincia</label>
+      <label class="chip"><input type="checkbox" class="filtro-check" value="nombre" checked>Nombre</label>
     </div>
 
     <div id="buscador-resultados" style="margin-top:12px;"></div>
 
     <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
-      <button class="mini-btn" id="btn-abrir-mis-bases">Abrir Mis Bases</button>
       <button class="mini-btn" id="btn-limpiar-buscador" style="background:#555;">Limpiar búsqueda</button>
     </div>
   </div>
 
-  <!-- MODAL: PREVISUALIZAR -->
+  <!-- ✅ Ventanita abajo (sin “Mis Bases” como opción) -->
+  <div class="bases-window open" id="bases-window">
+    <div class="bases-window-head" onclick="toggleBasesWindow()">
+      <div class="bases-window-title">📁 Bases guardadas (lista)</div>
+      <div id="bases-window-arrow" style="opacity:.9;">⬆️</div>
+    </div>
+
+    <div class="bases-window-body">
+      <!-- Acá renderiza la lista (máximo ~3 visibles + scroll) -->
+      <div id="lista-bases-inline"></div>
+    </div>
+  </div>
+
+  <!-- ✅ Modal Previsualizar (lo mantiene el JS) -->
   <div id="modal-prev" class="modal">
     <div class="box">
       <div class="row">
@@ -375,40 +419,27 @@
     </div>
   </div>
 
-  <!-- MODAL: MIS BASES -->
-  <div id="modal-bases" class="modal">
-    <div class="box">
-      <div class="row">
-        <h2 style="margin:0;">📁 Mis Bases (guardadas en el teléfono)</h2>
-        <button class="mini-btn" id="btn-cerrar-bases">Cerrar ✖</button>
-      </div>
-
-      <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
-        <input id="nombre-base" placeholder="Nombre (ej: Galicia_Suc123)"
-          style="flex:1; min-width:220px; padding:10px; border-radius:10px; border:1px solid #ddd;">
-        <button class="mini-btn" id="btn-guardar-como">Guardar como</button>
-
-        <button class="mini-btn" id="btn-descargar-json">Descargar JSON</button>
-        <button class="mini-btn" id="btn-importar-json">Importar JSON</button>
-        <input id="input-json-base" type="file" accept="application/json,.json"
-          style="position:absolute; left:-9999px; width:1px; height:1px;" />
-      </div>
-
-      <div style="margin-top:12px;">
-        <input id="filtro-bases" placeholder="Buscar dentro de Mis Bases..."
-          style="width:100%; padding:10px; border-radius:10px; border:1px solid #ddd;">
-      </div>
-
-      <hr style="margin:14px 0;">
-      <div id="lista-bases-json"></div>
-    </div>
-  </div>
-
   <script>
     function cerrarSesion() {
       localStorage.removeItem("logueado");
       localStorage.removeItem("perfil");
       window.location.href = "login.html";
+    }
+
+    function toggleSection(id) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.classList.toggle("open");
+      const arrow = el.querySelector(".section-head div:last-child");
+      if (arrow) arrow.textContent = el.classList.contains("open") ? "⬆️" : "⬇️";
+    }
+
+    function toggleBasesWindow() {
+      const el = document.getElementById("bases-window");
+      const arrow = document.getElementById("bases-window-arrow");
+      if (!el) return;
+      el.classList.toggle("open");
+      if (arrow) arrow.textContent = el.classList.contains("open") ? "⬆️" : "⬇️";
     }
   </script>
 
