@@ -72,60 +72,26 @@ function normKey(s) {
   return String(s || "")
     .trim()
     .toLowerCase()
-    .replace(/á/g, "a").replace(/é/g, "e").replace(/í/g, "i").replace(/ó/g, "o").replace(/ú/g, "u")
+    .replaceAll("á", "a").replaceAll("é", "e").replaceAll("í", "i").replaceAll("ó", "o").replaceAll("ú", "u")
     .replace(/\s+/g, " ");
 }
 
-function toStrCell(v) {
-  if (v === null || v === undefined) return "";
-  if (typeof v === "object") {
-    // ExcelJS puede devolver { richText }, { formula }, etc.
-    if ("text" in v) return String(v.text ?? "").trim();
-    if ("result" in v) return String(v.result ?? "").trim();
-    return String(v).trim();
-  }
-  return String(v).trim();
+function nowISO() {
+  return new Date().toISOString();
 }
 
-/** Lee metadatos del Excel aunque venga como:
- *  - A: "Entidad" | B: "Galicia"
- *  - A: "Entidad: Galicia" | B: vacío
- */
-function leerMetaDesdeExcel(ws) {
-  const meta = { entidad: "", sucursal: "", abonado: "", central: "", provincia: "" };
-  const max = Math.min(ws.rowCount, 80);
-
-  for (let r = 1; r <= max; r++) {
-    const row = ws.getRow(r);
-    const a = toStrCell(row.getCell(1).value);
-    const b = toStrCell(row.getCell(2).value);
-
-    if (!a && !b) continue;
-
-    // Caso A:"Entidad" B:"Galicia"
-    const k1 = normKey(a.replace(/:$/, ""));
-    if (k1 && b) {
-      if (k1 === "entidad") meta.entidad = b;
-      if (k1 === "sucursal") meta.sucursal = b;
-      if (k1 === "abonado") meta.abonado = b;
-      if (k1 === "central") meta.central = b;
-      if (k1 === "provincia") meta.provincia = b;
-    }
-
-    // Caso A:"Entidad: Galicia"
-    if (a.includes(":")) {
-      const parts = a.split(":");
-      const k2 = normKey(parts[0]);
-      const v2 = parts.slice(1).join(":").trim();
-      if (k2 === "entidad" && v2) meta.entidad = v2;
-      if (k2 === "sucursal" && v2) meta.sucursal = v2;
-      if (k2 === "abonado" && v2) meta.abonado = v2;
-      if (k2 === "central" && v2) meta.central = v2;
-      if (k2 === "provincia" && v2) meta.provincia = v2;
-    }
+function formatShort(dt) {
+  try {
+    const d = new Date(dt);
+    const dd = pad2(d.getDate());
+    const mm = pad2(d.getMonth() + 1);
+    const yyyy = d.getFullYear();
+    const hh = pad2(d.getHours());
+    const mi = pad2(d.getMinutes());
+    return `${dd}/${mm}/${yyyy} ${hh}:${mi}`;
+  } catch {
+    return "";
   }
-
-  return meta;
 }
 
 /** ==========================================
@@ -151,20 +117,47 @@ function asignarEventosBase() {
 
   // JSON (actual)
   $("btn-descargar-json")?.addEventListener("click", descargarJSONBase);
+  $("btn-descargar-json-rapido")?.addEventListener("click", descargarJSONBase);
+
+  // Importar JSON (multi)
   $("btn-importar-json")?.addEventListener("click", () => $("input-json-base")?.click());
-  $("input-json-base")?.addEventListener("change", (e) => {
-    const f = e.target.files?.[0];
-    if (f) importarJSONBase(f);
+  $("input-json-base")?.addEventListener("change", async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 1) {
+      // Si es 1, lo cargamos en pantalla (modo edición)
+      importarJSONBase(files[0]);
+    } else if (files.length > 1) {
+      // Si son muchos, los metemos a Mis Bases (catalogo)
+      await importarMultiplesJSONaMisBases(files);
+    }
+    e.target.value = "";
+  });
+
+  // Importar carpeta (PC)
+  $("btn-importar-carpeta")?.addEventListener("click", () => $("input-json-carpeta")?.click());
+  $("input-json-carpeta")?.addEventListener("change", async (e) => {
+    const files = Array.from(e.target.files || []).filter(f => f.name.toLowerCase().endsWith(".json"));
+    if (files.length) await importarMultiplesJSONaMisBases(files);
     e.target.value = "";
   });
 
   // Mis bases (modal)
   $("btn-mis-bases")?.addEventListener("click", abrirModalBases);
+  $("btn-abrir-mis-bases")?.addEventListener("click", abrirModalBases);
   $("btn-cerrar-bases")?.addEventListener("click", cerrarModalBases);
-  $("btn-guardar-como")?.addEventListener("click", guardarBaseComo);
 
-  // ✅ Buscador
+  // Guardar
+  $("btn-guardar-como")?.addEventListener("click", guardarBaseComo);
+  $("btn-guardar-rapido")?.addEventListener("click", guardarRapidoEnMisBases);
+
+  // ✅ Buscador (adentro)
   $("filtro-bases")?.addEventListener("input", renderBases);
+
+  // ✅ Buscador (afuera) -> setea el filtro del modal
+  $("buscador-rapido")?.addEventListener("input", () => {
+    const v = $("buscador-rapido").value || "";
+    if ($("filtro-bases")) $("filtro-bases").value = v;
+  });
 
   // Zonas 1-3 bloquear/desbloquear
   $("btn-editar-zonas123")?.addEventListener("click", () => {
@@ -507,8 +500,16 @@ function generarExcel() {
  *  JSON - Descargar / Importar
  *  ========================================== */
 function construirJSONBase() {
+  const old = (() => {
+    try { return JSON.parse(localStorage.getItem("senalco_base_autosave") || "null"); } catch { return null; }
+  })();
+
   const datos = {
-    meta: { generado: fechaGeneradoLocal() },
+    meta: {
+      creado: (old?.meta?.creado) || nowISO(),
+      modificado: nowISO(),
+      generado: fechaGeneradoLocal()
+    },
     entidad: $("entidad").value,
     sucursal: $("sucursal").value,
     abonado: $("abonado").value,
@@ -571,7 +572,7 @@ function importarJSONBase(file) {
     try {
       const data = JSON.parse(reader.result);
 
-      // ✅ SIEMPRE cabecera
+      // ✅ cabecera
       $("entidad").value = data.entidad || "";
       $("sucursal").value = data.sucursal || "";
       $("abonado").value = data.abonado || "";
@@ -633,9 +634,12 @@ function importarJSONBase(file) {
         celdas[4].querySelector("input").value = zObj.descripcion || "";
       });
 
+      // Guardar autosave con meta si vino
+      try { localStorage.setItem("senalco_base_autosave", JSON.stringify(data)); } catch { }
+
       aplicarBloqueoZonas123();
       autosaveBase();
-      alert("✅ JSON importado");
+      alert("✅ JSON cargado para editar");
     } catch (e) {
       alert("❌ JSON inválido");
     }
@@ -645,7 +649,7 @@ function importarJSONBase(file) {
 
 /** ==========================================
  *  Importar Excel
- *  ✅ FIX: toma cabecera + zonas
+ *  ✅ toma cabecera + zonas
  *  ========================================== */
 async function importarExcelBase(file) {
   try {
@@ -659,8 +663,21 @@ async function importarExcelBase(file) {
     // Asegurar tabla completa
     precargarZonas();
 
-    // 1) Meta robusta (A|B o "A: B")
-    const meta = leerMetaDesdeExcel(ws);
+    // 1) Detectar metadatos (filas tipo: "Entidad" | "Galicia")
+    const meta = { entidad: "", sucursal: "", abonado: "", central: "", provincia: "" };
+
+    for (let r = 1; r <= Math.min(ws.rowCount, 80); r++) {
+      const row = ws.getRow(r);
+      const k = normKey(row.getCell(1).value);
+      const v = String(row.getCell(2).value ?? "").trim();
+      if (!k || !v) continue;
+
+      if (k === "entidad") meta.entidad = v;
+      if (k === "sucursal") meta.sucursal = v;
+      if (k === "abonado") meta.abonado = v;
+      if (k === "central") meta.central = v;
+      if (k === "provincia") meta.provincia = v;
+    }
 
     if (meta.entidad) $("entidad").value = meta.entidad;
     if (meta.sucursal) $("sucursal").value = meta.sucursal;
@@ -668,7 +685,7 @@ async function importarExcelBase(file) {
     if (meta.central) $("central").value = meta.central;
     if (meta.provincia) $("provincia").value = meta.provincia;
 
-    // 2) Buscar encabezado Zona/Evento
+    // 2) Buscar encabezado "Zona"
     let headerRow = null;
     ws.eachRow((row, rowNumber) => {
       const vals = (row.values || []).map(v => String(v || "").trim().toLowerCase());
@@ -679,12 +696,11 @@ async function importarExcelBase(file) {
 
     for (let r = start; r <= ws.rowCount; r++) {
       const row = ws.getRow(r);
-
-      const A = toStrCell(row.getCell(1).value); // Zona
-      const B = toStrCell(row.getCell(2).value); // Evento
-      const C = toStrCell(row.getCell(3).value); // Área
-      const D = toStrCell(row.getCell(4).value); // Dispositivo
-      const E = toStrCell(row.getCell(5).value); // Desc
+      const A = String(row.getCell(1).value ?? "").trim(); // Zona
+      const B = String(row.getCell(2).value ?? "").trim(); // Evento
+      const C = String(row.getCell(3).value ?? "").trim(); // Área
+      const D = String(row.getCell(4).value ?? "").trim(); // Dispositivo
+      const E = String(row.getCell(5).value ?? "").trim(); // Desc
 
       if (!A && !B && !C && !D && !E) continue;
 
@@ -811,11 +827,11 @@ function cerrarPrevisualizacion() {
 
 function escapeHtml(s) {
   return String(s ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
 /** ==========================================
@@ -825,6 +841,18 @@ const INDEX_KEY = "senalco_bases_index";
 const BASE_PREFIX = "senalco_base_";
 
 function abrirModalBases() {
+  // ✅ Prefill del nombre con ENTIDAD (editable)
+  const ent = ($("entidad")?.value || "").trim();
+  const suc = ($("sucursal")?.value || "").trim();
+  const sug = safeName([ent, suc].filter(Boolean).join("_") || ent || "");
+  if ($("nombre-base")) {
+    if (!($("nombre-base").value || "").trim()) $("nombre-base").value = sug;
+  }
+
+  // ✅ pasar buscador rápido al filtro del modal
+  const v = ($("buscador-rapido")?.value || "").trim();
+  if ($("filtro-bases")) $("filtro-bases").value = v;
+
   $("modal-bases").style.display = "flex";
   renderBases();
 }
@@ -842,12 +870,36 @@ function setIndex(list) {
   localStorage.setItem(INDEX_KEY, JSON.stringify(list));
 }
 
+function buildModSuffix() {
+  // "(mod 11-02-2026 13-40)"
+  const d = new Date();
+  const dd = pad2(d.getDate());
+  const mm = pad2(d.getMonth() + 1);
+  const yyyy = d.getFullYear();
+  const hh = pad2(d.getHours());
+  const mi = pad2(d.getMinutes());
+  return `(mod ${dd}-${mm}-${yyyy} ${hh}-${mi})`;
+}
+
 function guardarBaseComo() {
-  const nombre = safeName($("nombre-base")?.value || "");
-  if (!nombre) return alert("Poné un nombre válido (ej: Galicia_1234)");
+  let nombre = safeName($("nombre-base")?.value || "");
+  if (!nombre) return alert("Poné un nombre válido (ej: Galicia_Suc123)");
+
+  const baseKey = BASE_PREFIX + nombre;
+  const existe = !!localStorage.getItem(baseKey);
+
+  const data = construirJSONBase();
+  // meta consistente
+  data.meta = data.meta || {};
+  data.meta.creado = data.meta.creado || nowISO();
+  data.meta.modificado = nowISO();
+
+  if (existe) {
+    // ✅ si existe, guardamos otra versión con sufijo mod
+    nombre = safeName(`${nombre} ${buildModSuffix()}`);
+  }
 
   const key = BASE_PREFIX + nombre;
-  const data = construirJSONBase();
   localStorage.setItem(key, JSON.stringify(data));
 
   const idx = getIndex();
@@ -855,7 +907,39 @@ function guardarBaseComo() {
   setIndex(idx);
 
   renderBases();
-  alert("✅ Base guardada: " + nombre);
+  alert(`✅ Base guardada: ${nombre}`);
+}
+
+function guardarRapidoEnMisBases() {
+  // Strategy: usa entidad+sucursal si no pusieron nombre
+  const ent = ($("entidad")?.value || "").trim();
+  const suc = ($("sucursal")?.value || "").trim();
+  const sug = safeName([ent, suc].filter(Boolean).join("_") || ent || "base");
+
+  if ($("nombre-base")) {
+    $("nombre-base").value = ($("nombre-base").value || "").trim() || sug;
+  }
+
+  // Guardar en base al nombre-base (aunque el modal esté cerrado)
+  let nombre = safeName(($("nombre-base")?.value || "").trim() || sug);
+  const baseKey = BASE_PREFIX + nombre;
+  const existe = !!localStorage.getItem(baseKey);
+
+  const data = construirJSONBase();
+  data.meta = data.meta || {};
+  data.meta.creado = data.meta.creado || nowISO();
+  data.meta.modificado = nowISO();
+
+  if (existe) nombre = safeName(`${nombre} ${buildModSuffix()}`);
+
+  const key = BASE_PREFIX + nombre;
+  localStorage.setItem(key, JSON.stringify(data));
+
+  const idx = getIndex();
+  if (!idx.includes(nombre)) idx.unshift(nombre);
+  setIndex(idx);
+
+  alert(`💾 Guardado en Mis Bases: ${nombre}`);
 }
 
 function renderBases() {
@@ -889,25 +973,34 @@ function renderBases() {
       data.provincia || ""
     ].join(" ").toLowerCase();
 
-    // “como Google”: apenas escribís 2-3 letras ya filtra
     if (filtro && !blobText.includes(filtro)) return;
 
     mostradas++;
 
+    const mod = data.meta?.modificado ? formatShort(data.meta.modificado) : "";
+    const cre = data.meta?.creado ? formatShort(data.meta.creado) : "";
+
     const card = document.createElement("div");
     card.className = "card";
     card.innerHTML = `
-      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between;">
+      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-start; justify-content:space-between;">
         <div>
           <div style="font-weight:bold;">${escapeHtml(nombre)}</div>
-          <div style="font-size:12px; opacity:.85;">
-            ${escapeHtml(data.entidad || "-")} • Suc: ${escapeHtml(data.sucursal || "-")} • Ab: ${escapeHtml(data.abonado || "-")} • ${escapeHtml(data.provincia || "-")}
+          <div style="font-size:12px; opacity:.85; margin-top:2px;">
+            ${escapeHtml(data.entidad || "-")}
+            • Suc: ${escapeHtml(data.sucursal || "-")}
+            • Ab: ${escapeHtml(data.abonado || "-")}
+            • ${escapeHtml(data.provincia || "-")}
+          </div>
+          <div style="font-size:12px; opacity:.8; margin-top:6px;">
+            ${cre ? `Creado: ${escapeHtml(cre)} • ` : ""}${mod ? `Modificado: ${escapeHtml(mod)}` : ""}
           </div>
         </div>
-        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+
+        <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
           <button class="mini-btn" data-act="abrir">Abrir</button>
           <button class="mini-btn" data-act="json">JSON</button>
-          <button class="mini-btn" data-act="borrar" style="background:#b00020;">Borrar</button>
+          <button class="mini-btn" data-act="borrar" style="background:#b00020;">🗑️</button>
         </div>
       </div>
     `;
@@ -931,12 +1024,14 @@ function abrirBaseGuardada(nombre) {
   try {
     const data = JSON.parse(raw);
 
-    // ✅ SIEMPRE cabecera
     $("entidad").value = data.entidad || "";
     $("sucursal").value = data.sucursal || "";
     $("abonado").value = data.abonado || "";
     $("central").value = data.central || "";
     $("provincia").value = data.provincia || "";
+
+    // sugerir nombre en el input de guardado
+    if ($("nombre-base")) $("nombre-base").value = nombre;
 
     precargarZonas();
 
@@ -989,6 +1084,9 @@ function abrirBaseGuardada(nombre) {
 
     aplicarDefaultsZonas123SiVacias();
     aplicarBloqueoZonas123();
+    // guardo autosave con meta para que no pierda creado/modificado
+    try { localStorage.setItem("senalco_base_autosave", JSON.stringify(data)); } catch { }
+
     autosaveBase();
     cerrarModalBases();
     alert("✅ Base cargada: " + nombre);
@@ -1012,9 +1110,57 @@ function descargarBaseGuardadaComoJSON(nombre) {
 }
 
 function borrarBaseGuardada(nombre) {
+  const ok = confirm(`¿Eliminar la base "${nombre}"?\n\nAceptar = borrar\nCancelar = no borrar`);
+  if (!ok) return;
+
   localStorage.removeItem(BASE_PREFIX + nombre);
   setIndex(getIndex().filter(x => x !== nombre));
   renderBases();
+}
+
+/** ==========================================
+ *  Importar múltiples JSON a Mis Bases
+ *  - NO abre uno por uno
+ *  - Los suma al catálogo
+ *  ========================================== */
+async function importarMultiplesJSONaMisBases(files) {
+  let ok = 0;
+  let bad = 0;
+
+  for (const f of files) {
+    try {
+      const text = await f.text();
+      const data = JSON.parse(text);
+
+      const ent = safeName((data.entidad || "").trim());
+      const suc = safeName((data.sucursal || "").trim());
+      const base = safeName([ent, suc].filter(Boolean).join("_") || f.name.replace(/\.json$/i, "") || "base");
+
+      // si ya existe ese nombre, lo versiono
+      let nombre = base;
+      if (localStorage.getItem(BASE_PREFIX + nombre)) {
+        nombre = safeName(`${nombre} ${buildModSuffix()}`);
+      }
+
+      // meta
+      data.meta = data.meta || {};
+      data.meta.creado = data.meta.creado || nowISO();
+      data.meta.modificado = nowISO();
+
+      localStorage.setItem(BASE_PREFIX + nombre, JSON.stringify(data));
+
+      const idx = getIndex();
+      if (!idx.includes(nombre)) idx.unshift(nombre);
+      setIndex(idx);
+
+      ok++;
+    } catch (e) {
+      bad++;
+    }
+  }
+
+  renderBases();
+  alert(`✅ Importación lista.\nOK: ${ok}\nFallidos: ${bad}`);
 }
 
 /** ==========================================
@@ -1039,7 +1185,6 @@ window.addEventListener("DOMContentLoaded", () => {
     try {
       const data = JSON.parse(raw);
 
-      // ✅ cabecera
       $("entidad").value = data.entidad || "";
       $("sucursal").value = data.sucursal || "";
       $("abonado").value = data.abonado || "";
