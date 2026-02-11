@@ -94,6 +94,14 @@ function escapeHtml(s) {
     .replaceAll("'", "&#039;");
 }
 
+function normLite(s) {
+  return String(s || "")
+    .toLowerCase()
+    .replaceAll("á", "a").replaceAll("é", "e").replaceAll("í", "i").replaceAll("ó", "o").replaceAll("ú", "u")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 /** ==========================================
  *  Entidades (datalist)
  *  ========================================== */
@@ -210,7 +218,7 @@ function asignarEventosBase() {
   $("btn-abrir-mis-bases")?.addEventListener("click", abrirModalBases);
   $("btn-cerrar-bases")?.addEventListener("click", cerrarModalBases);
 
-  // Guardar como (manual)
+  // Guardar como (manual)  ✅ (tu HTML llama a esta)
   $("btn-guardar-como")?.addEventListener("click", guardarBaseComoManual);
 
   // JSON modal
@@ -224,10 +232,29 @@ function asignarEventosBase() {
 
   // Buscadores
   $("filtro-bases")?.addEventListener("input", () => renderBasesModal());
-  $("buscar-rapido")?.addEventListener("input", () => renderBuscadorRapido());
-  $("filtro-campo")?.addEventListener("change", () => renderBuscadorRapido());
+  $("buscar-rapido")?.addEventListener("input", () => {
+    updateBusquedaSuggestions();   // ✅ sugerencias
+    renderBuscadorRapido();
+  });
+
+  $("filtro-campo")?.addEventListener("change", () => {
+    updateBusquedaSuggestions();
+    renderBuscadorRapido();
+  });
+
+  // ✅ Si existen checkboxes de filtros, también refrescan
+  [
+    "fchk-nombre", "fchk-entidad", "fchk-sucursal", "fchk-abonado", "fchk-central", "fchk-provincia"
+  ].forEach(id => {
+    $(id)?.addEventListener("change", () => {
+      updateBusquedaSuggestions();
+      renderBuscadorRapido();
+    });
+  });
+
   $("btn-limpiar-buscador")?.addEventListener("click", () => {
     if ($("buscar-rapido")) $("buscar-rapido").value = "";
+    updateBusquedaSuggestions(true);
     renderBuscadorRapido();
   });
 
@@ -256,6 +283,9 @@ function asignarEventosBase() {
   ["entidad", "sucursal", "abonado", "central", "provincia"].forEach(id => {
     $(id)?.addEventListener("input", autosaveBase);
   });
+
+  // ✅ asegurar datalist de sugerencias del buscador rápido (si no existe lo crea)
+  ensureBusquedaDatalist();
 }
 
 /** ==========================================
@@ -491,9 +521,6 @@ function descargarJSONBase() {
 
 /** ==========================================
  *  Guardar rápido en Mis Bases + Backup
- *  - genera nombre prolijo
- *  - si existe, agrega _mod_fecha
- *  - guarda localStorage y descarga JSON
  *  ========================================== */
 function generarNombreAuto() {
   const e = safeName($("entidad").value || "Entidad");
@@ -501,7 +528,6 @@ function generarNombreAuto() {
   const a = safeName($("abonado").value || "");
   const c = safeName($("central").value || "");
   const p = safeName($("provincia").value || "");
-  // nombre corto pero identificable
   const base = [e, s, a].filter(Boolean).join("_");
   const extra = [c, p].filter(Boolean).join("_");
   return extra ? `${base}__${extra}` : base;
@@ -511,7 +537,6 @@ function guardarRapidoConBackup() {
   const nombreBase = generarNombreAuto();
   let nombre = nombreBase || `Base_${fechaStamp()}`;
 
-  // si ya existe, mod_...
   if (localStorage.getItem(baseKey(nombre))) {
     nombre = `${nombre}_mod_${fechaStamp()}`;
   }
@@ -519,20 +544,31 @@ function guardarRapidoConBackup() {
   const data = construirJSONBase();
   localStorage.setItem(baseKey(nombre), JSON.stringify(data));
 
+  // ✅ también en IndexedDB (si existe la función, no rompe si no)
+  try { idbPutBase?.(baseKey(nombre), data)?.catch?.(console.warn); } catch {}
+
   const idx = getIndex();
   if (!idx.includes(nombre)) idx.unshift(nombre);
   setIndex(idx);
 
-  // ✅ descarga backup automático
   descargarBaseGuardadaComoJSON(nombre);
 
-  // refrescos
   renderBasesModal();
   renderBuscadorRapido();
-  // prefill en modal
+  updateBusquedaSuggestions(true);
+
   if ($("nombre-base")) $("nombre-base").value = nombre;
 
   alert("✅ Guardado en Mis Bases + Backup descargado\n" + nombre);
+}
+
+/** ==========================================
+ *  Guardar como (manual)
+ *  - tu UI usa guardarBaseComoManual(), lo definimos para que NO falle
+ *  ========================================== */
+function guardarBaseComoManual() {
+  // Wrapper seguro (no rompe tus botones)
+  return guardarBaseComo();
 }
 
 function guardarBaseComo() {
@@ -542,17 +578,19 @@ function guardarBaseComo() {
   const key = BASE_PREFIX + nombre;
   const data = construirJSONBase();
 
-  // Guarda en localStorage (como siempre)
   localStorage.setItem(key, JSON.stringify(data));
 
-  // ✅ NUEVO: también guardar en IndexedDB (silencioso)
-  idbPutBase(key, data).catch(console.warn);
+  // ✅ también guardar en IndexedDB (silencioso)
+  try { idbPutBase?.(key, data)?.catch?.(console.warn); } catch {}
 
   const idx = getIndex();
   if (!idx.includes(nombre)) idx.unshift(nombre);
   setIndex(idx);
 
-  renderBases();
+  renderBasesModal();       // ✅ antes llamaba a renderBases() que no existía
+  renderBuscadorRapido();
+  updateBusquedaSuggestions(true);
+
   alert("✅ Base guardada: " + nombre);
 }
 
@@ -565,7 +603,6 @@ function importarJSONBase(file) {
     try {
       const data = JSON.parse(reader.result);
 
-      // ✅ cabecera
       $("entidad").value = data.entidad || "";
       $("sucursal").value = data.sucursal || "";
       $("abonado").value = data.abonado || "";
@@ -630,6 +667,7 @@ function importarJSONBase(file) {
       aplicarDefaultsZonas123SiVacias();
       aplicarBloqueoZonas123();
       autosaveBase();
+      updateBusquedaSuggestions(true);
       alert("✅ JSON importado (cabecera + zonas)");
     } catch (e) {
       alert("❌ JSON inválido");
@@ -640,7 +678,6 @@ function importarJSONBase(file) {
 
 /** ==========================================
  *  Importar carpeta (muchos JSON)
- *  - Los guarda directo en Mis Bases
  *  ========================================== */
 async function importarMuchosJSON(files) {
   let ok = 0, bad = 0;
@@ -650,11 +687,14 @@ async function importarMuchosJSON(files) {
       const text = await f.text();
       const data = JSON.parse(text);
 
-      // nombre por archivo o por cabecera
       let nombre = safeName(f.name.replace(/\.json$/i, "")) || generarNombreAuto() || `Base_${fechaStamp()}`;
       if (localStorage.getItem(baseKey(nombre))) nombre = `${nombre}_mod_${fechaStamp()}`;
 
       localStorage.setItem(baseKey(nombre), JSON.stringify(data));
+
+      // ✅ también en IDB (si está)
+      try { idbPutBase?.(baseKey(nombre), data)?.catch?.(console.warn); } catch {}
+
       const idx = getIndex();
       if (!idx.includes(nombre)) idx.unshift(nombre);
       setIndex(idx);
@@ -667,13 +707,12 @@ async function importarMuchosJSON(files) {
 
   renderBasesModal();
   renderBuscadorRapido();
+  updateBusquedaSuggestions(true);
   alert(`✅ Importación masiva lista\nOK: ${ok}  •  Fallidos: ${bad}`);
 }
 
 /** ==========================================
  *  Importar Excel
- *  - Toma cabecera (Entidad/Sucursal/Abonado/Central/Provincia)
- *  - Zonas 1-3 NO se pisan
  *  ========================================== */
 async function importarExcelBase(file) {
   try {
@@ -684,10 +723,8 @@ async function importarExcelBase(file) {
     const ws = wb.worksheets[0];
     if (!ws) return alert("❌ El Excel no tiene hojas.");
 
-    // Asegurar tabla completa
     precargarZonas();
 
-    // 1) Detectar metadatos tipo: "Entidad" | "Galicia"
     const meta = { entidad: "", sucursal: "", abonado: "", central: "", provincia: "" };
 
     for (let r = 1; r <= Math.min(ws.rowCount, 50); r++) {
@@ -709,7 +746,6 @@ async function importarExcelBase(file) {
     if (meta.central) $("central").value = meta.central;
     if (meta.provincia) $("provincia").value = meta.provincia;
 
-    // 2) Buscar header "Zona"
     let headerRow = null;
     ws.eachRow((row, rowNumber) => {
       const vals = (row.values || []).map(v => String(v || "").trim().toLowerCase());
@@ -720,18 +756,17 @@ async function importarExcelBase(file) {
 
     for (let r = start; r <= ws.rowCount; r++) {
       const row = ws.getRow(r);
-      const A = String(row.getCell(1).value ?? "").trim(); // Zona
-      const B = String(row.getCell(2).value ?? "").trim(); // Evento
-      const C = String(row.getCell(3).value ?? "").trim(); // Área
-      const D = String(row.getCell(4).value ?? "").trim(); // Dispositivo
-      const E = String(row.getCell(5).value ?? "").trim(); // Desc
+      const A = String(row.getCell(1).value ?? "").trim();
+      const B = String(row.getCell(2).value ?? "").trim();
+      const C = String(row.getCell(3).value ?? "").trim();
+      const D = String(row.getCell(4).value ?? "").trim();
+      const E = String(row.getCell(5).value ?? "").trim();
 
       if (!A && !B && !C && !D && !E) continue;
 
       const n = getZonaNumberFromText(A);
       if (!n || n < 1 || n > 24) continue;
 
-      // ✅ IGNORAR zonas 1-3 siempre
       if ([1, 2, 3].includes(n)) continue;
 
       const tr = document.querySelector(`#tabla-base tbody tr[data-zona="${n}"]`);
@@ -778,13 +813,13 @@ async function importarExcelBase(file) {
         id.style.display = "inline-block";
       }
 
-      // Desc
       celdas[4].querySelector("input").value = E || "";
     }
 
     aplicarDefaultsZonas123SiVacias();
     aplicarBloqueoZonas123();
     autosaveBase();
+    updateBusquedaSuggestions(true);
     alert("✅ Excel importado (cabecera + zonas, 1-3 ignoradas)");
   } catch (e) {
     console.error(e);
@@ -904,7 +939,7 @@ function generarExcel() {
     const inputDispOtro = celdas[3].querySelector("input");
     const disp = (selectDisp.value === "otros" && inputDispOtro.value.trim())
       ? inputDispOtro.value.trim()
-      : selectDispositivo.value;
+      : selectDisp.value; // ✅ FIX: antes era selectDispositivo.value (variable inexistente)
 
     sheet.addRow([
       celdas[0].textContent,
@@ -987,7 +1022,6 @@ function cerrarPrevisualizacion() {
  *  Mis Bases (modal)
  *  ========================================== */
 function abrirModalBases() {
-  // Prefill nombre con entidad/sucursal
   if ($("nombre-base")) {
     const sug = generarNombreAuto();
     if (sug) $("nombre-base").value = sug;
@@ -1023,6 +1057,7 @@ function borrarBaseGuardada(nombre) {
   setIndex(getIndex().filter(x => x !== nombre));
   renderBasesModal();
   renderBuscadorRapido();
+  updateBusquedaSuggestions(true);
 }
 
 function abrirBaseGuardada(nombre) {
@@ -1090,6 +1125,7 @@ function abrirBaseGuardada(nombre) {
     aplicarBloqueoZonas123();
     autosaveBase();
     cerrarModalBases();
+    updateBusquedaSuggestions(true);
     alert("✅ Base cargada: " + nombre);
   } catch (e) {
     alert("❌ La base guardada está dañada");
@@ -1162,14 +1198,38 @@ function renderBasesModal() {
 
 /** ==========================================
  *  Buscador rápido (afuera) con filtros
+ *  - Compat: si existen checkboxes usa casillas
+ *  - Si no, usa el select #filtro-campo como antes
  *  ========================================== */
+function getActiveFieldsForQuickSearch() {
+  // ✅ modo casillas (si existen)
+  const anyChk =
+    $("fchk-nombre") || $("fchk-entidad") || $("fchk-sucursal") || $("fchk-abonado") || $("fchk-central") || $("fchk-provincia");
+
+  if (anyChk) {
+    const fields = [];
+    if ($("fchk-nombre")?.checked) fields.push("nombre");
+    if ($("fchk-entidad")?.checked) fields.push("entidad");
+    if ($("fchk-sucursal")?.checked) fields.push("sucursal");
+    if ($("fchk-abonado")?.checked) fields.push("abonado");
+    if ($("fchk-central")?.checked) fields.push("central");
+    if ($("fchk-provincia")?.checked) fields.push("provincia");
+    // si no marcó nada, default "all"
+    return fields.length ? fields : ["all"];
+  }
+
+  // ✅ modo viejo (select)
+  const campo = $("filtro-campo")?.value || "all";
+  return [campo];
+}
+
 function renderBuscadorRapido() {
   const cont = $("buscador-resultados");
   if (!cont) return;
   cont.innerHTML = "";
 
-  const q = ($("buscar-rapido")?.value || "").trim().toLowerCase();
-  const campo = $("filtro-campo")?.value || "all";
+  const qRaw = ($("buscar-rapido")?.value || "").trim();
+  const q = qRaw.toLowerCase();
   const idx = getIndex();
 
   if (!idx.length) {
@@ -1177,9 +1237,10 @@ function renderBuscadorRapido() {
     return;
   }
 
-  // Si escribió menos de 3 letras, mostramos solo las 8 últimas (modo “acceso rápido”)
   const modoCorto = q.length < 3;
   const nombres = modoCorto ? idx.slice(0, 8) : idx;
+
+  const activeFields = getActiveFieldsForQuickSearch();
 
   let count = 0;
 
@@ -1202,9 +1263,13 @@ function renderBuscadorRapido() {
     const blobAll = Object.values(map).join(" ").toLowerCase();
 
     let ok = true;
+
     if (!modoCorto) {
-      if (campo === "all") ok = blobAll.includes(q);
-      else ok = String(map[campo] || "").toLowerCase().includes(q);
+      if (activeFields.includes("all")) {
+        ok = blobAll.includes(q);
+      } else {
+        ok = activeFields.some(f => String(map[f] || "").toLowerCase().includes(q));
+      }
     }
 
     if (!ok) return;
@@ -1241,6 +1306,81 @@ function renderBuscadorRapido() {
 }
 
 /** ==========================================
+ *  Sugerencias buscador (3 letras)
+ *  - Usa datalist para autocompletar por coincidencias
+ *  - No rompe si el HTML no lo tiene
+ *  ========================================== */
+function ensureBusquedaDatalist() {
+  const input = $("buscar-rapido");
+  if (!input) return;
+
+  let dl = $("lista-sugerencias-busqueda");
+  if (!dl) {
+    dl = document.createElement("datalist");
+    dl.id = "lista-sugerencias-busqueda";
+    document.body.appendChild(dl);
+  }
+  input.setAttribute("list", "lista-sugerencias-busqueda");
+}
+
+function updateBusquedaSuggestions(forceClear = false) {
+  const dl = $("lista-sugerencias-busqueda");
+  const input = $("buscar-rapido");
+  if (!dl || !input) return;
+
+  const q = normLite(input.value || "");
+  if (forceClear || q.length < 3) {
+    dl.innerHTML = "";
+    return;
+  }
+
+  const idx = getIndex();
+  const activeFields = getActiveFieldsForQuickSearch();
+
+  const set = new Set();
+
+  // armamos sugerencias “tipo lupa” a partir de datos guardados
+  for (const nombre of idx.slice(0, 4000)) { // límite defensivo
+    const raw = localStorage.getItem(baseKey(nombre));
+    if (!raw) continue;
+    let data;
+    try { data = JSON.parse(raw); } catch { continue; }
+
+    const map = {
+      nombre: nombre,
+      entidad: data.entidad || "",
+      sucursal: data.sucursal || "",
+      abonado: data.abonado || "",
+      central: data.central || "",
+      provincia: data.provincia || ""
+    };
+
+    const fieldsToCheck = activeFields.includes("all")
+      ? ["nombre", "entidad", "sucursal", "abonado", "central", "provincia"]
+      : activeFields;
+
+    for (const f of fieldsToCheck) {
+      const val = String(map[f] || "");
+      if (!val) continue;
+      if (normLite(val).includes(q)) {
+        // guardamos sugerencias “humanas”
+        if (f === "nombre") set.add(val);
+        else set.add(val);
+      }
+      if (set.size >= 40) break;
+    }
+    if (set.size >= 40) break;
+  }
+
+  dl.innerHTML = "";
+  Array.from(set).slice(0, 40).forEach(v => {
+    const opt = document.createElement("option");
+    opt.value = v;
+    dl.appendChild(opt);
+  });
+}
+
+/** ==========================================
  *  Autosave
  *  ========================================== */
 function autosaveBase() {
@@ -1272,10 +1412,8 @@ function setupUpdateBanner() {
       }, { once: true });
     }
 
-    // Si ya hay waiting
     if (reg.waiting) showUpdate();
 
-    // Si aparece nuevo SW
     reg.addEventListener("updatefound", () => {
       const nw = reg.installing;
       if (!nw) return;
@@ -1286,7 +1424,6 @@ function setupUpdateBanner() {
       });
     });
 
-    // Cuando cambia controlador => recargar (sin tocar localStorage)
     navigator.serviceWorker.addEventListener("controllerchange", () => {
       window.location.reload();
     });
@@ -1299,8 +1436,8 @@ function setupUpdateBanner() {
 window.addEventListener("DOMContentLoaded", () => {
   if (!document.querySelector("#tabla-base")) return;
 
-  // ✅ 1) Migrar a IndexedDB sin tocar nada (silencioso)
-  migrateLocalStorageToIDB().catch(console.warn);
+  // ✅ Migrar a IndexedDB (si existe la función) sin romper si no está
+  try { migrateLocalStorageToIDB?.().catch?.(console.warn); } catch {}
 
   poblarDatalistEntidades();
   setupUpdateBanner();
@@ -1373,4 +1510,5 @@ window.addEventListener("DOMContentLoaded", () => {
 
   asignarEventosBase();
   renderBuscadorRapido();
+  updateBusquedaSuggestions(true);
 });
