@@ -535,29 +535,25 @@ function guardarRapidoConBackup() {
   alert("✅ Guardado en Mis Bases + Backup descargado\n" + nombre);
 }
 
-function guardarBaseComoManual() {
-  const nombreInput = safeName($("nombre-base")?.value || "");
-  if (!nombreInput) return alert("Poné un nombre válido (ej: Galicia_1234)");
+function guardarBaseComo() {
+  const nombre = safeName($("nombre-base")?.value || "");
+  if (!nombre) return alert("Poné un nombre válido (ej: Galicia_1234)");
 
-  let nombre = nombreInput;
-  if (localStorage.getItem(baseKey(nombre))) {
-    nombre = `${nombre}_mod_${fechaStamp()}`;
-  }
-
+  const key = BASE_PREFIX + nombre;
   const data = construirJSONBase();
-  localStorage.setItem(baseKey(nombre), JSON.stringify(data));
+
+  // Guarda en localStorage (como siempre)
+  localStorage.setItem(key, JSON.stringify(data));
+
+  // ✅ NUEVO: también guardar en IndexedDB (silencioso)
+  idbPutBase(key, data).catch(console.warn);
 
   const idx = getIndex();
   if (!idx.includes(nombre)) idx.unshift(nombre);
   setIndex(idx);
 
-  descargarBaseGuardadaComoJSON(nombre);
-
-  renderBasesModal();
-  renderBuscadorRapido();
-  $("nombre-base").value = nombre;
-
-  alert("✅ Base guardada + Backup descargado: " + nombre);
+  renderBases();
+  alert("✅ Base guardada: " + nombre);
 }
 
 /** ==========================================
@@ -1302,6 +1298,9 @@ function setupUpdateBanner() {
  *  ========================================== */
 window.addEventListener("DOMContentLoaded", () => {
   if (!document.querySelector("#tabla-base")) return;
+
+  // ✅ 1) Migrar a IndexedDB sin tocar nada (silencioso)
+  migrateLocalStorageToIDB().catch(console.warn);
 
   poblarDatalistEntidades();
   setupUpdateBanner();
