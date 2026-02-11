@@ -152,6 +152,7 @@
       padding: 12px;
       margin-bottom: 10px;
       background: #fafafa;
+      color: #000;
     }
 
     #logo-pdf {
@@ -203,9 +204,9 @@
 
     .buscador-grid {
       display: grid;
-      grid-template-columns: 180px 1fr;
+      grid-template-columns: 1fr;
       gap: 10px;
-      align-items: center;
+      align-items: start;
     }
 
     @media (max-width: 700px) {
@@ -214,8 +215,34 @@
       }
     }
 
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .chip {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+      padding: 8px 10px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, .08);
+      border: 1px solid rgba(255, 255, 255, .12);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .chip input {
+      width: auto;
+      margin: 0;
+      transform: scale(1.1);
+    }
+
     #buscador-resultados .card {
       background: #fff;
+      color: #000;
     }
   </style>
 </head>
@@ -240,8 +267,7 @@
   </div>
 
   <label>Entidad</label>
-  <!-- ✅ input + datalist (lista abanico de entidades) -->
-  <input type="text" id="entidad" list="lista-entidades" placeholder="Ej: Galicia" />
+  <input type="text" id="entidad" list="lista-entidades" placeholder="Ej: Banco Galicia" />
   <datalist id="lista-entidades"></datalist>
 
   <label>Sucursal</label>
@@ -300,22 +326,31 @@
     <button onclick="cerrarSesion()">🔒 Cerrar sesión</button>
   </div>
 
-  <!-- ✅ BUSCADOR RÁPIDO (afuera del modal) -->
+  <!-- ✅ BUSCADOR RÁPIDO -->
   <div class="buscador-wrap">
     <h3 style="margin:0 0 8px;">🔎 Buscador rápido de Bases (en el teléfono)</h3>
 
     <div class="buscador-grid">
-      <select id="filtro-campo">
-        <option value="all">Todos</option>
-        <option value="entidad">Entidad</option>
-        <option value="sucursal">Sucursal</option>
-        <option value="abonado">Abonado</option>
-        <option value="central">Central</option>
-        <option value="provincia">Provincia</option>
-        <option value="nombre">Nombre</option>
-      </select>
+      <input id="buscar-rapido" placeholder="Escribí 3 letras (ej: gal) y filtra al toque..." />
 
-      <input id="buscar-rapido" placeholder="Escribí 3 letras y te filtra al toque..." />
+      <div style="opacity:.9; font-size:13px; margin-top:4px;">
+        ✅ Elegí en qué campos buscar (tildás casillas):
+      </div>
+
+      <!-- ✅ CASILLAS -->
+      <div class="chips" id="filtros-wrap">
+        <label class="chip"><input type="checkbox" class="filtro-check" value="entidad" checked>Entidad</label>
+        <label class="chip"><input type="checkbox" class="filtro-check" value="sucursal" checked>Sucursal</label>
+        <label class="chip"><input type="checkbox" class="filtro-check" value="abonado" checked>Abonado</label>
+        <label class="chip"><input type="checkbox" class="filtro-check" value="central" checked>Central</label>
+        <label class="chip"><input type="checkbox" class="filtro-check" value="provincia" checked>Provincia</label>
+        <label class="chip"><input type="checkbox" class="filtro-check" value="nombre" checked>Nombre</label>
+      </div>
+
+      <!-- ✅ COMPATIBILIDAD: tu java-base actual busca #filtro-campo (lo dejamos oculto) -->
+      <select id="filtro-campo" style="display:none;">
+        <option value="all" selected>Todos</option>
+      </select>
     </div>
 
     <div id="buscador-resultados" style="margin-top:12px;"></div>
@@ -359,10 +394,8 @@
           style="position:absolute; left:-9999px; width:1px; height:1px;" />
       </div>
 
-      <!-- ✅ Buscador dentro del modal (opcional, queda) -->
       <div style="margin-top:12px;">
-        <input id="filtro-bases"
-          placeholder="Buscar dentro de Mis Bases..."
+        <input id="filtro-bases" placeholder="Buscar dentro de Mis Bases..."
           style="width:100%; padding:10px; border-radius:10px; border:1px solid #ddd;">
       </div>
 
@@ -378,8 +411,9 @@
       window.location.href = "login.html";
     }
   </script>
+
+  <!-- ✅ IMPORTANTE: orden correcto -->
   <script src="idb-base.js"></script>
-  <!-- ✅ TU JS -->
   <script src="java-base.js"></script>
 
 </body>
