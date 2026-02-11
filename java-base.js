@@ -7,8 +7,13 @@
  *  Listas
  *  ========================= */
 const eventos = [
-  "- Sin tipo definido -", "Alarma", "Robo", "Asalto",
-  "clave", "Sabotaje", "Apertura de Equipo", "Puls. Remoto - Falla Red", "ALM + 4 HS", "Asalto Clave Falsa",
+  "- Sin tipo definido -",
+  "Avería de linea",           // ✅ Default zona 1
+  "Averia de linea",           // ✅ variante (por si viene sin tilde)
+  "Falta de 220V",             // ✅ Default zona 3
+  "Alarma", "Robo", "Asalto",
+  "clave", "Sabotaje", "Apertura de Equipo",
+  "Puls. Remoto - Falla Red", "ALM + 4 HS", "Asalto Clave Falsa",
   "Falla activador portátil", "Falla cent. Policial. GPRS OK", "Falla Comunicación GPRS",
   "Falla de Conexión al Servidor GPRS", "Falla de PT", "Falla Enlace Red PT",
   "Incendio", "Otros",
@@ -58,6 +63,10 @@ function fechaGeneradoLocal() {
   const d = new Date();
   return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 }
+function fechaStamp() {
+  const d = new Date();
+  return `${d.getFullYear()}${pad2(d.getMonth() + 1)}${pad2(d.getDate())}_${pad2(d.getHours())}${pad2(d.getMinutes())}${pad2(d.getSeconds())}`;
+}
 
 function safeName(s) {
   return (s || "base").toString().trim().replace(/\s+/g, "_").replace(/[^\w\-]/g, "_");
@@ -76,23 +85,82 @@ function normKey(s) {
     .replace(/\s+/g, " ");
 }
 
-function nowISO() {
-  return new Date().toISOString();
+function escapeHtml(s) {
+  return String(s ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
-function formatShort(dt) {
-  try {
-    const d = new Date(dt);
-    const dd = pad2(d.getDate());
-    const mm = pad2(d.getMonth() + 1);
-    const yyyy = d.getFullYear();
-    const hh = pad2(d.getHours());
-    const mi = pad2(d.getMinutes());
-    return `${dd}/${mm}/${yyyy} ${hh}:${mi}`;
-  } catch {
-    return "";
-  }
+/** ==========================================
+ *  Entidades (datalist)
+ *  ========================================== */
+const ENTIDADES_AR = [
+  "Banco de la Nación Argentina",
+  "Banco de la Provincia de Buenos Aires",
+  "Banco Ciudad",
+  "Banco Santander Río",
+  "Banco Galicia",
+  "BBVA Argentina",
+  "Banco Macro",
+  "Banco Comafi",
+  "Banco Patagonia",
+  "Banco Hipotecario",
+  "Banco Supervielle",
+  "Banco Itaú (operación migrada)",
+  "Banco Credicoop",
+  "Banco ICBC",
+  "Banco Provincia de Córdoba",
+  "Banco de Santa Fe",
+  "Banco de Entre Ríos",
+  "Banco San Juan",
+  "Banco Santa Cruz",
+  "Banco del Chubut",
+  "Banco del Neuquén",
+  "Banco Corrientes",
+  "Banco Bica",
+  "Banco Industrial",
+  "Banco CMF",
+  "Banco del Sol",
+  "Banco Dino",
+  "Banco de Formosa",
+  "Banco de La Pampa",
+  "Banco de Tierra del Fuego",
+  "Musimundo",
+  "Otros"
+];
+
+function poblarDatalistEntidades() {
+  const dl = $("lista-entidades");
+  if (!dl) return;
+  dl.innerHTML = "";
+  ENTIDADES_AR.forEach(n => {
+    const opt = document.createElement("option");
+    opt.value = n;
+    dl.appendChild(opt);
+  });
 }
+
+/** ==========================================
+ *  LocalStorage Keys
+ *  ========================================== */
+const INDEX_KEY = "senalco_bases_index";
+const BASE_PREFIX = "senalco_base_";
+const AUTOSAVE_KEY = "senalco_base_autosave";
+
+/** ==========================================
+ *  Index helpers
+ *  ========================================== */
+function getIndex() {
+  try { return JSON.parse(localStorage.getItem(INDEX_KEY) || "[]"); }
+  catch { return []; }
+}
+function setIndex(list) {
+  localStorage.setItem(INDEX_KEY, JSON.stringify(list));
+}
+function baseKey(nombre) { return BASE_PREFIX + nombre; }
 
 /** ==========================================
  *  DOM Bindings
@@ -102,7 +170,7 @@ function asignarEventosBase() {
   $("btn-generar-pdf-base")?.addEventListener("click", generarPDF);
   $("btn-excel-base")?.addEventListener("click", generarExcel);
 
-  // Cargar Excel
+  // Import Excel
   $("btn-subir-excel")?.addEventListener("click", () => $("input-excel-base")?.click());
   $("input-excel-base")?.addEventListener("change", async (e) => {
     const f = e.target.files?.[0];
@@ -110,53 +178,57 @@ function asignarEventosBase() {
     e.target.value = "";
   });
 
+  // Import JSON top
+  $("btn-importar-json-top")?.addEventListener("click", () => $("input-json-base-top")?.click());
+  $("input-json-base-top")?.addEventListener("change", (e) => {
+    const f = e.target.files?.[0];
+    if (f) importarJSONBase(f);
+    e.target.value = "";
+  });
+
+  // Import folder top (muchos JSON)
+  $("btn-importar-carpeta-top")?.addEventListener("click", () => $("input-json-folder-top")?.click());
+  $("input-json-folder-top")?.addEventListener("change", async (e) => {
+    const files = Array.from(e.target.files || []).filter(f => (f.name || "").toLowerCase().endsWith(".json"));
+    if (files.length) await importarMuchosJSON(files);
+    e.target.value = "";
+  });
+
+  // Guardar rápido + backup
+  $("btn-guardar-rapido")?.addEventListener("click", guardarRapidoConBackup);
+
+  // Descargar JSON actual
+  $("btn-descargar-json-top")?.addEventListener("click", descargarJSONBase);
+
   // Previsualizar
   $("btn-previsualizar")?.addEventListener("click", abrirPrevisualizacion);
   $("btn-cerrar-prev")?.addEventListener("click", cerrarPrevisualizacion);
   $("btn-descargar-pdf-prev")?.addEventListener("click", generarPDF);
 
-  // JSON (actual)
-  $("btn-descargar-json")?.addEventListener("click", descargarJSONBase);
-  $("btn-descargar-json-rapido")?.addEventListener("click", descargarJSONBase);
-
-  // Importar JSON (multi)
-  $("btn-importar-json")?.addEventListener("click", () => $("input-json-base")?.click());
-  $("input-json-base")?.addEventListener("change", async (e) => {
-    const files = Array.from(e.target.files || []);
-    if (files.length === 1) {
-      // Si es 1, lo cargamos en pantalla (modo edición)
-      importarJSONBase(files[0]);
-    } else if (files.length > 1) {
-      // Si son muchos, los metemos a Mis Bases (catalogo)
-      await importarMultiplesJSONaMisBases(files);
-    }
-    e.target.value = "";
-  });
-
-  // Importar carpeta (PC)
-  $("btn-importar-carpeta")?.addEventListener("click", () => $("input-json-carpeta")?.click());
-  $("input-json-carpeta")?.addEventListener("change", async (e) => {
-    const files = Array.from(e.target.files || []).filter(f => f.name.toLowerCase().endsWith(".json"));
-    if (files.length) await importarMultiplesJSONaMisBases(files);
-    e.target.value = "";
-  });
-
-  // Mis bases (modal)
+  // Modal Mis bases
   $("btn-mis-bases")?.addEventListener("click", abrirModalBases);
   $("btn-abrir-mis-bases")?.addEventListener("click", abrirModalBases);
   $("btn-cerrar-bases")?.addEventListener("click", cerrarModalBases);
 
-  // Guardar
-  $("btn-guardar-como")?.addEventListener("click", guardarBaseComo);
-  $("btn-guardar-rapido")?.addEventListener("click", guardarRapidoEnMisBases);
+  // Guardar como (manual)
+  $("btn-guardar-como")?.addEventListener("click", guardarBaseComoManual);
 
-  // ✅ Buscador (adentro)
-  $("filtro-bases")?.addEventListener("input", renderBases);
+  // JSON modal
+  $("btn-descargar-json")?.addEventListener("click", descargarJSONBase);
+  $("btn-importar-json")?.addEventListener("click", () => $("input-json-base")?.click());
+  $("input-json-base")?.addEventListener("change", (e) => {
+    const f = e.target.files?.[0];
+    if (f) importarJSONBase(f);
+    e.target.value = "";
+  });
 
-  // ✅ Buscador (afuera) -> setea el filtro del modal
-  $("buscador-rapido")?.addEventListener("input", () => {
-    const v = $("buscador-rapido").value || "";
-    if ($("filtro-bases")) $("filtro-bases").value = v;
+  // Buscadores
+  $("filtro-bases")?.addEventListener("input", () => renderBasesModal());
+  $("buscar-rapido")?.addEventListener("input", () => renderBuscadorRapido());
+  $("filtro-campo")?.addEventListener("change", () => renderBuscadorRapido());
+  $("btn-limpiar-buscador")?.addEventListener("click", () => {
+    if ($("buscar-rapido")) $("buscar-rapido").value = "";
+    renderBuscadorRapido();
   });
 
   // Zonas 1-3 bloquear/desbloquear
@@ -176,28 +248,25 @@ function asignarEventosBase() {
   $("modal-prev")?.addEventListener("click", (e) => {
     if (e.target.id === "modal-prev") cerrarPrevisualizacion();
   });
-
   $("modal-bases")?.addEventListener("click", (e) => {
     if (e.target.id === "modal-bases") cerrarModalBases();
   });
 
-  // Autosave liviano
+  // Autosave cabecera
   ["entidad", "sucursal", "abonado", "central", "provincia"].forEach(id => {
     $(id)?.addEventListener("input", autosaveBase);
   });
 }
 
 /** ==========================================
- *  Construcción de tabla - ZONAS 1..24
+ *  Tabla zonas 1..24
  *  ========================================== */
 function precargarZonas() {
   const tbody = document.querySelector("#tabla-base tbody");
   if (!tbody) return;
   tbody.innerHTML = "";
 
-  for (let i = 1; i <= 24; i++) {
-    tbody.appendChild(crearFilaZona(i));
-  }
+  for (let i = 1; i <= 24; i++) tbody.appendChild(crearFilaZona(i));
 
   aplicarDefaultsZonas123SiVacias();
   aplicarBloqueoZonas123();
@@ -286,8 +355,15 @@ function crearFilaZona(numeroZona) {
   return fila;
 }
 
+/** ✅ Defaults y bloqueo zonas 1..3 */
 function aplicarDefaultsZonas123SiVacias() {
   const filas = document.querySelectorAll("#tabla-base tbody tr");
+
+  const defaults = {
+    1: "Avería de linea",
+    2: "Apertura de Equipo",
+    3: "Falta de 220V"
+  };
 
   [1, 2, 3].forEach(z => {
     const tr = Array.from(filas).find(r => r.dataset.zona === String(z));
@@ -298,23 +374,25 @@ function aplicarDefaultsZonas123SiVacias() {
     const selDisp = tr.querySelector("td:nth-child(4) select");
     const desc = tr.querySelector("td:nth-child(5) input");
 
-    if (z === 1) {
-      selEvento.value = "Avería de linea";
-    }
+    const vacia =
+      (!selEvento?.value || selEvento.value === "- Sin tipo definido -") &&
+      (!selArea?.value || selArea.value === "-") &&
+      (!selDisp?.value || selDisp.value === "-") &&
+      !(desc?.value || "").trim();
 
-    if (z === 2) {
-      selEvento.value = "Apertura de Equipo";
-    }
+    if (!vacia) return;
 
-    if (z === 3) {
-      selEvento.value = "Falta de 220V";
-    }
+    // Evento default
+    const ev = defaults[z];
+    if (selEvento) selEvento.value = eventos.includes(ev) ? ev : "- Sin tipo definido -";
 
-    selArea.value = "-";
-    selDisp.value = "-";
-    desc.value = "";
+    // resto
+    if (selArea) selArea.value = "-";
+    if (selDisp) selDisp.value = "-";
+    if (desc) desc.value = "";
   });
 }
+
 function aplicarBloqueoZonas123() {
   const filas = document.querySelectorAll("#tabla-base tbody tr");
   filas.forEach(tr => {
@@ -347,158 +425,11 @@ function limpiarBase() {
 }
 
 /** ==========================================
- *  PDF
- *  ========================================== */
-function generarPDF() {
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF();
-  doc.setFontSize(14);
-  doc.text("Base de Datos - Señalco", 14, 14);
-
-  try {
-    const logoImg = document.getElementById('logo-pdf');
-    if (logoImg && logoImg.complete) {
-      const canvas = document.createElement('canvas');
-      canvas.width = logoImg.naturalWidth;
-      canvas.height = logoImg.naturalHeight;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(logoImg, 0, 0);
-      const dataURL = canvas.toDataURL('image/jpeg');
-      doc.addImage(dataURL, 'JPEG', 160, 10, 40, 20);
-    }
-  } catch (e) {
-    console.warn("⚠️ No se pudo cargar el logo en el PDF:", e);
-  }
-
-  const entidad = $("entidad").value;
-  const sucursal = $("sucursal").value;
-  const abonado = $("abonado").value;
-  const central = $("central").value;
-  const provincia = $("provincia")?.value || "";
-  const generado = fechaGeneradoLocal();
-
-  doc.setFontSize(11);
-  doc.text(`Entidad: ${entidad}`, 14, 28);
-  doc.text(`Sucursal: ${sucursal}`, 14, 36);
-  doc.text(`Abonado: ${abonado}`, 100, 28);
-  doc.text(`Central: ${central}`, 100, 36);
-  doc.text(`Provincia: ${provincia}`, 14, 44);
-  doc.text(`Generado: ${generado}`, 14, 52);
-
-  const columnas = ["Zona", "Evento", "Área", "Dispositivo", "Descripción"];
-  const filas = [];
-  const filasTabla = document.querySelectorAll("#tabla-base tbody tr");
-  filasTabla.forEach(fila => {
-    const celdas = fila.querySelectorAll("td");
-
-    const selectEvento = celdas[1].querySelector("select");
-    const inputEventoOtro = celdas[1].querySelector("input");
-    const evento = (selectEvento.value === "Otros" && inputEventoOtro.value.trim())
-      ? inputEventoOtro.value.trim()
-      : selectEvento.value;
-
-    const selectArea = celdas[2].querySelector("select");
-    const inputAreaOtro = celdas[2].querySelector("input");
-    const area = (selectArea.value === "Otros" && inputAreaOtro.value.trim())
-      ? inputAreaOtro.value.trim()
-      : selectArea.value;
-
-    const selectDisp = celdas[3].querySelector("select");
-    const inputDispOtro = celdas[3].querySelector("input");
-    const disp = (selectDisp.value === "otros" && inputDispOtro.value.trim())
-      ? inputDispOtro.value.trim()
-      : selectDisp.value;
-
-    filas.push([
-      celdas[0].textContent,
-      evento,
-      area,
-      disp,
-      celdas[4].querySelector("input").value
-    ]);
-  });
-
-  doc.autoTable({ head: [columnas], body: filas, startY: 60 });
-
-  const nombreArchivo = `base_${entidad}_${sucursal}_${safeName(generado)}.pdf`.replace(/\s+/g, "_");
-  doc.save(nombreArchivo);
-}
-
-/** ==========================================
- *  Excel EXPORT
- *  ========================================== */
-function generarExcel() {
-  const workbook = new ExcelJS.Workbook();
-  const sheet = workbook.addWorksheet("Base");
-
-  sheet.addRow(["Entidad", $("entidad").value || ""]);
-  sheet.addRow(["Sucursal", $("sucursal").value || ""]);
-  sheet.addRow(["Abonado", $("abonado").value || ""]);
-  sheet.addRow(["Central", $("central").value || ""]);
-  sheet.addRow(["Provincia", $("provincia").value || ""]);
-  sheet.addRow(["Generado", fechaGeneradoLocal()]);
-  sheet.addRow([]);
-
-  sheet.addRow(["Zona", "Evento", "Área", "Dispositivo", "Descripción"]);
-
-  const filas = document.querySelectorAll("#tabla-base tbody tr");
-  filas.forEach(fila => {
-    const celdas = fila.querySelectorAll("td");
-
-    const selectEvento = celdas[1].querySelector("select");
-    const inputEventoOtro = celdas[1].querySelector("input");
-    const evento = (selectEvento.value === "Otros" && inputEventoOtro.value.trim())
-      ? inputEventoOtro.value.trim()
-      : selectEvento.value;
-
-    const selectArea = celdas[2].querySelector("select");
-    const inputAreaOtro = celdas[2].querySelector("input");
-    const area = (selectArea.value === "Otros" && inputAreaOtro.value.trim())
-      ? inputAreaOtro.value.trim()
-      : selectArea.value;
-
-    const selectDisp = celdas[3].querySelector("select");
-    const inputDispOtro = celdas[3].querySelector("input");
-    const disp = (selectDisp.value === "otros" && inputDispOtro.value.trim())
-      ? inputDispOtro.value.trim()
-      : selectDisp.value;
-
-    sheet.addRow([
-      celdas[0].textContent,
-      evento,
-      area,
-      disp,
-      celdas[4].querySelector("input").value
-    ]);
-  });
-
-  workbook.xlsx.writeBuffer().then(buffer => {
-    const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    const entidad = $("entidad").value || "base";
-    const suc = $("sucursal").value || "";
-    a.href = url;
-    a.download = `base_${safeName(entidad)}_${safeName(suc)}_${safeName(fechaGeneradoLocal())}.xlsx`;
-    a.click();
-    URL.revokeObjectURL(url);
-  });
-}
-
-/** ==========================================
- *  JSON - Descargar / Importar
+ *  Construir JSON Base
  *  ========================================== */
 function construirJSONBase() {
-  const old = (() => {
-    try { return JSON.parse(localStorage.getItem("senalco_base_autosave") || "null"); } catch { return null; }
-  })();
-
   const datos = {
-    meta: {
-      creado: (old?.meta?.creado) || nowISO(),
-      modificado: nowISO(),
-      generado: fechaGeneradoLocal()
-    },
+    meta: { generado: fechaGeneradoLocal() },
     entidad: $("entidad").value,
     sucursal: $("sucursal").value,
     abonado: $("abonado").value,
@@ -541,6 +472,9 @@ function construirJSONBase() {
   return datos;
 }
 
+/** ==========================================
+ *  Descargar JSON (actual)
+ *  ========================================== */
 function descargarJSONBase() {
   const data = construirJSONBase();
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
@@ -550,11 +484,85 @@ function descargarJSONBase() {
   const entidad = $("entidad").value || "base";
   const suc = $("sucursal").value || "";
   a.href = url;
-  a.download = `base_${safeName(entidad)}_${safeName(suc)}_${safeName(fechaGeneradoLocal())}.json`;
+  a.download = `base_${safeName(entidad)}_${safeName(suc)}_${safeName(fechaStamp())}.json`;
   a.click();
   URL.revokeObjectURL(url);
 }
 
+/** ==========================================
+ *  Guardar rápido en Mis Bases + Backup
+ *  - genera nombre prolijo
+ *  - si existe, agrega _mod_fecha
+ *  - guarda localStorage y descarga JSON
+ *  ========================================== */
+function generarNombreAuto() {
+  const e = safeName($("entidad").value || "Entidad");
+  const s = safeName($("sucursal").value || "Suc");
+  const a = safeName($("abonado").value || "");
+  const c = safeName($("central").value || "");
+  const p = safeName($("provincia").value || "");
+  // nombre corto pero identificable
+  const base = [e, s, a].filter(Boolean).join("_");
+  const extra = [c, p].filter(Boolean).join("_");
+  return extra ? `${base}__${extra}` : base;
+}
+
+function guardarRapidoConBackup() {
+  const nombreBase = generarNombreAuto();
+  let nombre = nombreBase || `Base_${fechaStamp()}`;
+
+  // si ya existe, mod_...
+  if (localStorage.getItem(baseKey(nombre))) {
+    nombre = `${nombre}_mod_${fechaStamp()}`;
+  }
+
+  const data = construirJSONBase();
+  localStorage.setItem(baseKey(nombre), JSON.stringify(data));
+
+  const idx = getIndex();
+  if (!idx.includes(nombre)) idx.unshift(nombre);
+  setIndex(idx);
+
+  // ✅ descarga backup automático
+  descargarBaseGuardadaComoJSON(nombre);
+
+  // refrescos
+  renderBasesModal();
+  renderBuscadorRapido();
+  // prefill en modal
+  if ($("nombre-base")) $("nombre-base").value = nombre;
+
+  alert("✅ Guardado en Mis Bases + Backup descargado\n" + nombre);
+}
+
+function guardarBaseComoManual() {
+  const nombreInput = safeName($("nombre-base")?.value || "");
+  if (!nombreInput) return alert("Poné un nombre válido (ej: Galicia_1234)");
+
+  let nombre = nombreInput;
+  if (localStorage.getItem(baseKey(nombre))) {
+    nombre = `${nombre}_mod_${fechaStamp()}`;
+  }
+
+  const data = construirJSONBase();
+  localStorage.setItem(baseKey(nombre), JSON.stringify(data));
+
+  const idx = getIndex();
+  if (!idx.includes(nombre)) idx.unshift(nombre);
+  setIndex(idx);
+
+  descargarBaseGuardadaComoJSON(nombre);
+
+  renderBasesModal();
+  renderBuscadorRapido();
+  $("nombre-base").value = nombre;
+
+  alert("✅ Base guardada + Backup descargado: " + nombre);
+}
+
+/** ==========================================
+ *  Importar JSON (1)
+ *  ========================================== */
 function importarJSONBase(file) {
   const reader = new FileReader();
   reader.onload = () => {
@@ -623,12 +631,10 @@ function importarJSONBase(file) {
         celdas[4].querySelector("input").value = zObj.descripcion || "";
       });
 
-      // Guardar autosave con meta si vino
-      try { localStorage.setItem("senalco_base_autosave", JSON.stringify(data)); } catch { }
-
+      aplicarDefaultsZonas123SiVacias();
       aplicarBloqueoZonas123();
       autosaveBase();
-      alert("✅ JSON cargado para editar");
+      alert("✅ JSON importado (cabecera + zonas)");
     } catch (e) {
       alert("❌ JSON inválido");
     }
@@ -637,8 +643,41 @@ function importarJSONBase(file) {
 }
 
 /** ==========================================
+ *  Importar carpeta (muchos JSON)
+ *  - Los guarda directo en Mis Bases
+ *  ========================================== */
+async function importarMuchosJSON(files) {
+  let ok = 0, bad = 0;
+
+  for (const f of files) {
+    try {
+      const text = await f.text();
+      const data = JSON.parse(text);
+
+      // nombre por archivo o por cabecera
+      let nombre = safeName(f.name.replace(/\.json$/i, "")) || generarNombreAuto() || `Base_${fechaStamp()}`;
+      if (localStorage.getItem(baseKey(nombre))) nombre = `${nombre}_mod_${fechaStamp()}`;
+
+      localStorage.setItem(baseKey(nombre), JSON.stringify(data));
+      const idx = getIndex();
+      if (!idx.includes(nombre)) idx.unshift(nombre);
+      setIndex(idx);
+
+      ok++;
+    } catch {
+      bad++;
+    }
+  }
+
+  renderBasesModal();
+  renderBuscadorRapido();
+  alert(`✅ Importación masiva lista\nOK: ${ok}  •  Fallidos: ${bad}`);
+}
+
+/** ==========================================
  *  Importar Excel
- *  ✅ toma cabecera + zonas
+ *  - Toma cabecera (Entidad/Sucursal/Abonado/Central/Provincia)
+ *  - Zonas 1-3 NO se pisan
  *  ========================================== */
 async function importarExcelBase(file) {
   try {
@@ -652,10 +691,10 @@ async function importarExcelBase(file) {
     // Asegurar tabla completa
     precargarZonas();
 
-    // 1) Detectar metadatos (filas tipo: "Entidad" | "Galicia")
+    // 1) Detectar metadatos tipo: "Entidad" | "Galicia"
     const meta = { entidad: "", sucursal: "", abonado: "", central: "", provincia: "" };
 
-    for (let r = 1; r <= Math.min(ws.rowCount, 80); r++) {
+    for (let r = 1; r <= Math.min(ws.rowCount, 50); r++) {
       const row = ws.getRow(r);
       const k = normKey(row.getCell(1).value);
       const v = String(row.getCell(2).value ?? "").trim();
@@ -674,7 +713,7 @@ async function importarExcelBase(file) {
     if (meta.central) $("central").value = meta.central;
     if (meta.provincia) $("provincia").value = meta.provincia;
 
-    // 2) Buscar encabezado "Zona"
+    // 2) Buscar header "Zona"
     let headerRow = null;
     ws.eachRow((row, rowNumber) => {
       const vals = (row.values || []).map(v => String(v || "").trim().toLowerCase());
@@ -758,6 +797,140 @@ async function importarExcelBase(file) {
 }
 
 /** ==========================================
+ *  PDF
+ *  ========================================== */
+function generarPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  doc.setFontSize(14);
+  doc.text("Base de Datos - Señalco", 14, 14);
+
+  try {
+    const logoImg = document.getElementById('logo-pdf');
+    if (logoImg && logoImg.complete) {
+      const canvas = document.createElement('canvas');
+      canvas.width = logoImg.naturalWidth;
+      canvas.height = logoImg.naturalHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(logoImg, 0, 0);
+      const dataURL = canvas.toDataURL('image/jpeg');
+      doc.addImage(dataURL, 'JPEG', 160, 10, 40, 20);
+    }
+  } catch {}
+
+  const entidad = $("entidad").value;
+  const sucursal = $("sucursal").value;
+  const abonado = $("abonado").value;
+  const central = $("central").value;
+  const provincia = $("provincia")?.value || "";
+  const generado = fechaGeneradoLocal();
+
+  doc.setFontSize(11);
+  doc.text(`Entidad: ${entidad}`, 14, 28);
+  doc.text(`Sucursal: ${sucursal}`, 14, 36);
+  doc.text(`Abonado: ${abonado}`, 100, 28);
+  doc.text(`Central: ${central}`, 100, 36);
+  doc.text(`Provincia: ${provincia}`, 14, 44);
+  doc.text(`Generado: ${generado}`, 14, 52);
+
+  const columnas = ["Zona", "Evento", "Área", "Dispositivo", "Descripción"];
+  const filas = [];
+
+  const filasTabla = document.querySelectorAll("#tabla-base tbody tr");
+  filasTabla.forEach(fila => {
+    const celdas = fila.querySelectorAll("td");
+
+    const selectEvento = celdas[1].querySelector("select");
+    const inputEventoOtro = celdas[1].querySelector("input");
+    const evento = (selectEvento.value === "Otros" && inputEventoOtro.value.trim())
+      ? inputEventoOtro.value.trim()
+      : selectEvento.value;
+
+    const selectArea = celdas[2].querySelector("select");
+    const inputAreaOtro = celdas[2].querySelector("input");
+    const area = (selectArea.value === "Otros" && inputAreaOtro.value.trim())
+      ? inputAreaOtro.value.trim()
+      : selectArea.value;
+
+    const selectDisp = celdas[3].querySelector("select");
+    const inputDispOtro = celdas[3].querySelector("input");
+    const disp = (selectDisp.value === "otros" && inputDispOtro.value.trim())
+      ? inputDispOtro.value.trim()
+      : selectDisp.value;
+
+    filas.push([
+      celdas[0].textContent,
+      evento,
+      area,
+      disp,
+      celdas[4].querySelector("input").value
+    ]);
+  });
+
+  doc.autoTable({ head: [columnas], body: filas, startY: 60 });
+  doc.save(`base_${safeName(entidad)}_${safeName(sucursal)}_${safeName(fechaStamp())}.pdf`);
+}
+
+/** ==========================================
+ *  Excel EXPORT
+ *  ========================================== */
+function generarExcel() {
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet("Base");
+
+  sheet.addRow(["Entidad", $("entidad").value || ""]);
+  sheet.addRow(["Sucursal", $("sucursal").value || ""]);
+  sheet.addRow(["Abonado", $("abonado").value || ""]);
+  sheet.addRow(["Central", $("central").value || ""]);
+  sheet.addRow(["Provincia", $("provincia").value || ""]);
+  sheet.addRow(["Generado", fechaGeneradoLocal()]);
+  sheet.addRow([]);
+
+  sheet.addRow(["Zona", "Evento", "Área", "Dispositivo", "Descripción"]);
+
+  const filas = document.querySelectorAll("#tabla-base tbody tr");
+  filas.forEach(fila => {
+    const celdas = fila.querySelectorAll("td");
+
+    const selectEvento = celdas[1].querySelector("select");
+    const inputEventoOtro = celdas[1].querySelector("input");
+    const evento = (selectEvento.value === "Otros" && inputEventoOtro.value.trim())
+      ? inputEventoOtro.value.trim()
+      : selectEvento.value;
+
+    const selectArea = celdas[2].querySelector("select");
+    const inputAreaOtro = celdas[2].querySelector("input");
+    const area = (selectArea.value === "Otros" && inputAreaOtro.value.trim())
+      ? inputAreaOtro.value.trim()
+      : selectArea.value;
+
+    const selectDisp = celdas[3].querySelector("select");
+    const inputDispOtro = celdas[3].querySelector("input");
+    const disp = (selectDisp.value === "otros" && inputDispOtro.value.trim())
+      ? inputDispOtro.value.trim()
+      : selectDispositivo.value;
+
+    sheet.addRow([
+      celdas[0].textContent,
+      evento,
+      area,
+      disp,
+      celdas[4].querySelector("input").value
+    ]);
+  });
+
+  workbook.xlsx.writeBuffer().then(buffer => {
+    const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `base_${safeName($("entidad").value || "base")}_${safeName($("sucursal").value || "")}_${safeName(fechaStamp())}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+}
+
+/** ==========================================
  *  Previsualización
  *  ========================================== */
 function abrirPrevisualizacion() {
@@ -814,202 +987,51 @@ function cerrarPrevisualizacion() {
   if (modal) modal.style.display = "none";
 }
 
-function escapeHtml(s) {
-  return String(s ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
-
 /** ==========================================
- *  Mis Bases (guardar en teléfono)
+ *  Mis Bases (modal)
  *  ========================================== */
-const INDEX_KEY = "senalco_bases_index";
-const BASE_PREFIX = "senalco_base_";
-
 function abrirModalBases() {
-  // ✅ Prefill del nombre con ENTIDAD (editable)
-  const ent = ($("entidad")?.value || "").trim();
-  const suc = ($("sucursal")?.value || "").trim();
-  const sug = safeName([ent, suc].filter(Boolean).join("_") || ent || "");
+  // Prefill nombre con entidad/sucursal
   if ($("nombre-base")) {
-    if (!($("nombre-base").value || "").trim()) $("nombre-base").value = sug;
+    const sug = generarNombreAuto();
+    if (sug) $("nombre-base").value = sug;
   }
-
-  // ✅ pasar buscador rápido al filtro del modal
-  const v = ($("buscador-rapido")?.value || "").trim();
-  if ($("filtro-bases")) $("filtro-bases").value = v;
-
   $("modal-bases").style.display = "flex";
-  renderBases();
+  renderBasesModal();
 }
-
 function cerrarModalBases() {
   $("modal-bases").style.display = "none";
 }
 
-function getIndex() {
-  try { return JSON.parse(localStorage.getItem(INDEX_KEY) || "[]"); }
-  catch { return []; }
+function descargarBaseGuardadaComoJSON(nombre) {
+  const raw = localStorage.getItem(baseKey(nombre));
+  if (!raw) return;
+
+  const blob = new Blob([raw], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `base_${safeName(nombre)}_${safeName(fechaStamp())}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
-function setIndex(list) {
-  localStorage.setItem(INDEX_KEY, JSON.stringify(list));
+function confirmarBorrado(nombre) {
+  return confirm(`🗑️ ¿Seguro que querés eliminar esta base?\n\n${nombre}\n\nAceptar = borrar / Cancelar = no borrar`);
 }
 
-function buildModSuffix() {
-  // "(mod 11-02-2026 13-40)"
-  const d = new Date();
-  const dd = pad2(d.getDate());
-  const mm = pad2(d.getMonth() + 1);
-  const yyyy = d.getFullYear();
-  const hh = pad2(d.getHours());
-  const mi = pad2(d.getMinutes());
-  return `(mod ${dd}-${mm}-${yyyy} ${hh}-${mi})`;
-}
-
-function guardarBaseComo() {
-  let nombre = safeName($("nombre-base")?.value || "");
-  if (!nombre) return alert("Poné un nombre válido (ej: Galicia_Suc123)");
-
-  const baseKey = BASE_PREFIX + nombre;
-  const existe = !!localStorage.getItem(baseKey);
-
-  const data = construirJSONBase();
-  // meta consistente
-  data.meta = data.meta || {};
-  data.meta.creado = data.meta.creado || nowISO();
-  data.meta.modificado = nowISO();
-
-  if (existe) {
-    // ✅ si existe, guardamos otra versión con sufijo mod
-    nombre = safeName(`${nombre} ${buildModSuffix()}`);
-  }
-
-  const key = BASE_PREFIX + nombre;
-  localStorage.setItem(key, JSON.stringify(data));
-
-  const idx = getIndex();
-  if (!idx.includes(nombre)) idx.unshift(nombre);
-  setIndex(idx);
-
-  renderBases();
-  alert(`✅ Base guardada: ${nombre}`);
-}
-
-function guardarRapidoEnMisBases() {
-  // Strategy: usa entidad+sucursal si no pusieron nombre
-  const ent = ($("entidad")?.value || "").trim();
-  const suc = ($("sucursal")?.value || "").trim();
-  const sug = safeName([ent, suc].filter(Boolean).join("_") || ent || "base");
-
-  if ($("nombre-base")) {
-    $("nombre-base").value = ($("nombre-base").value || "").trim() || sug;
-  }
-
-  // Guardar en base al nombre-base (aunque el modal esté cerrado)
-  let nombre = safeName(($("nombre-base")?.value || "").trim() || sug);
-  const baseKey = BASE_PREFIX + nombre;
-  const existe = !!localStorage.getItem(baseKey);
-
-  const data = construirJSONBase();
-  data.meta = data.meta || {};
-  data.meta.creado = data.meta.creado || nowISO();
-  data.meta.modificado = nowISO();
-
-  if (existe) nombre = safeName(`${nombre} ${buildModSuffix()}`);
-
-  const key = BASE_PREFIX + nombre;
-  localStorage.setItem(key, JSON.stringify(data));
-
-  const idx = getIndex();
-  if (!idx.includes(nombre)) idx.unshift(nombre);
-  setIndex(idx);
-
-  alert(`💾 Guardado en Mis Bases: ${nombre}`);
-}
-
-function renderBases() {
-  const cont = $("lista-bases-json");
-  if (!cont) return;
-  cont.innerHTML = "";
-
-  const idx = getIndex();
-  const filtro = ($("filtro-bases")?.value || "").trim().toLowerCase();
-
-  if (!idx.length) {
-    cont.innerHTML = `<p style="opacity:.75;">No hay bases guardadas todavía.</p>`;
-    return;
-  }
-
-  let mostradas = 0;
-
-  idx.forEach(nombre => {
-    const raw = localStorage.getItem(BASE_PREFIX + nombre);
-    if (!raw) return;
-
-    let data;
-    try { data = JSON.parse(raw); } catch { return; }
-
-    const blobText = [
-      nombre,
-      data.entidad || "",
-      data.sucursal || "",
-      data.abonado || "",
-      data.central || "",
-      data.provincia || ""
-    ].join(" ").toLowerCase();
-
-    if (filtro && !blobText.includes(filtro)) return;
-
-    mostradas++;
-
-    const mod = data.meta?.modificado ? formatShort(data.meta.modificado) : "";
-    const cre = data.meta?.creado ? formatShort(data.meta.creado) : "";
-
-    const card = document.createElement("div");
-    card.className = "card";
-    card.innerHTML = `
-      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-start; justify-content:space-between;">
-        <div>
-          <div style="font-weight:bold;">${escapeHtml(nombre)}</div>
-          <div style="font-size:12px; opacity:.85; margin-top:2px;">
-            ${escapeHtml(data.entidad || "-")}
-            • Suc: ${escapeHtml(data.sucursal || "-")}
-            • Ab: ${escapeHtml(data.abonado || "-")}
-            • ${escapeHtml(data.provincia || "-")}
-          </div>
-          <div style="font-size:12px; opacity:.8; margin-top:6px;">
-            ${cre ? `Creado: ${escapeHtml(cre)} • ` : ""}${mod ? `Modificado: ${escapeHtml(mod)}` : ""}
-          </div>
-        </div>
-
-        <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
-          <button class="mini-btn" data-act="abrir">Abrir</button>
-          <button class="mini-btn" data-act="json">JSON</button>
-          <button class="mini-btn" data-act="borrar" style="background:#b00020;">🗑️</button>
-        </div>
-      </div>
-    `;
-
-    card.querySelector('[data-act="abrir"]').onclick = () => abrirBaseGuardada(nombre);
-    card.querySelector('[data-act="json"]').onclick = () => descargarBaseGuardadaComoJSON(nombre);
-    card.querySelector('[data-act="borrar"]').onclick = () => borrarBaseGuardada(nombre);
-
-    cont.appendChild(card);
-  });
-
-  if (!mostradas) {
-    cont.innerHTML = `<p style="opacity:.75;">No hay resultados con ese filtro.</p>`;
-  }
+function borrarBaseGuardada(nombre) {
+  if (!confirmarBorrado(nombre)) return;
+  localStorage.removeItem(baseKey(nombre));
+  setIndex(getIndex().filter(x => x !== nombre));
+  renderBasesModal();
+  renderBuscadorRapido();
 }
 
 function abrirBaseGuardada(nombre) {
-  const raw = localStorage.getItem(BASE_PREFIX + nombre);
+  const raw = localStorage.getItem(baseKey(nombre));
   if (!raw) return alert("❌ No se encontró la base");
-
   try {
     const data = JSON.parse(raw);
 
@@ -1018,9 +1040,6 @@ function abrirBaseGuardada(nombre) {
     $("abonado").value = data.abonado || "";
     $("central").value = data.central || "";
     $("provincia").value = data.provincia || "";
-
-    // sugerir nombre en el input de guardado
-    if ($("nombre-base")) $("nombre-base").value = nombre;
 
     precargarZonas();
 
@@ -1073,9 +1092,6 @@ function abrirBaseGuardada(nombre) {
 
     aplicarDefaultsZonas123SiVacias();
     aplicarBloqueoZonas123();
-    // guardo autosave con meta para que no pierda creado/modificado
-    try { localStorage.setItem("senalco_base_autosave", JSON.stringify(data)); } catch { }
-
     autosaveBase();
     cerrarModalBases();
     alert("✅ Base cargada: " + nombre);
@@ -1084,72 +1100,148 @@ function abrirBaseGuardada(nombre) {
   }
 }
 
-function descargarBaseGuardadaComoJSON(nombre) {
-  const raw = localStorage.getItem(BASE_PREFIX + nombre);
-  if (!raw) return;
+/** Render modal */
+function renderBasesModal() {
+  const cont = $("lista-bases-json");
+  if (!cont) return;
+  cont.innerHTML = "";
 
-  const blob = new Blob([raw], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
+  const idx = getIndex();
+  const filtro = ($("filtro-bases")?.value || "").trim().toLowerCase();
 
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `base_${safeName(nombre)}_${safeName(fechaGeneradoLocal())}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
+  if (!idx.length) {
+    cont.innerHTML = `<p style="opacity:.75;">No hay bases guardadas todavía.</p>`;
+    return;
+  }
 
-function borrarBaseGuardada(nombre) {
-  const ok = confirm(`¿Eliminar la base "${nombre}"?\n\nAceptar = borrar\nCancelar = no borrar`);
-  if (!ok) return;
+  let mostradas = 0;
 
-  localStorage.removeItem(BASE_PREFIX + nombre);
-  setIndex(getIndex().filter(x => x !== nombre));
-  renderBases();
+  idx.forEach(nombre => {
+    const raw = localStorage.getItem(baseKey(nombre));
+    if (!raw) return;
+
+    let data;
+    try { data = JSON.parse(raw); } catch { return; }
+
+    const blobText = [
+      nombre,
+      data.entidad || "",
+      data.sucursal || "",
+      data.abonado || "",
+      data.central || "",
+      data.provincia || ""
+    ].join(" ").toLowerCase();
+
+    if (filtro && !blobText.includes(filtro)) return;
+
+    mostradas++;
+
+    const card = document.createElement("div");
+    card.className = "card";
+    card.innerHTML = `
+      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between;">
+        <div>
+          <div style="font-weight:bold;">${escapeHtml(nombre)}</div>
+          <div style="font-size:12px; opacity:.85;">
+            ${escapeHtml(data.entidad || "-")} • Suc: ${escapeHtml(data.sucursal || "-")} • Ab: ${escapeHtml(data.abonado || "-")} • ${escapeHtml(data.provincia || "-")}
+          </div>
+        </div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="mini-btn" data-act="abrir">Abrir</button>
+          <button class="mini-btn" data-act="json">JSON</button>
+          <button class="mini-btn" data-act="borrar" style="background:#b00020;">Borrar</button>
+        </div>
+      </div>
+    `;
+
+    card.querySelector('[data-act="abrir"]').onclick = () => abrirBaseGuardada(nombre);
+    card.querySelector('[data-act="json"]').onclick = () => descargarBaseGuardadaComoJSON(nombre);
+    card.querySelector('[data-act="borrar"]').onclick = () => borrarBaseGuardada(nombre);
+
+    cont.appendChild(card);
+  });
+
+  if (!mostradas) cont.innerHTML = `<p style="opacity:.75;">No hay resultados con ese filtro.</p>`;
 }
 
 /** ==========================================
- *  Importar múltiples JSON a Mis Bases
- *  - NO abre uno por uno
- *  - Los suma al catálogo
+ *  Buscador rápido (afuera) con filtros
  *  ========================================== */
-async function importarMultiplesJSONaMisBases(files) {
-  let ok = 0;
-  let bad = 0;
+function renderBuscadorRapido() {
+  const cont = $("buscador-resultados");
+  if (!cont) return;
+  cont.innerHTML = "";
 
-  for (const f of files) {
-    try {
-      const text = await f.text();
-      const data = JSON.parse(text);
+  const q = ($("buscar-rapido")?.value || "").trim().toLowerCase();
+  const campo = $("filtro-campo")?.value || "all";
+  const idx = getIndex();
 
-      const ent = safeName((data.entidad || "").trim());
-      const suc = safeName((data.sucursal || "").trim());
-      const base = safeName([ent, suc].filter(Boolean).join("_") || f.name.replace(/\.json$/i, "") || "base");
-
-      // si ya existe ese nombre, lo versiono
-      let nombre = base;
-      if (localStorage.getItem(BASE_PREFIX + nombre)) {
-        nombre = safeName(`${nombre} ${buildModSuffix()}`);
-      }
-
-      // meta
-      data.meta = data.meta || {};
-      data.meta.creado = data.meta.creado || nowISO();
-      data.meta.modificado = nowISO();
-
-      localStorage.setItem(BASE_PREFIX + nombre, JSON.stringify(data));
-
-      const idx = getIndex();
-      if (!idx.includes(nombre)) idx.unshift(nombre);
-      setIndex(idx);
-
-      ok++;
-    } catch (e) {
-      bad++;
-    }
+  if (!idx.length) {
+    cont.innerHTML = `<div class="card"><b>Sin bases todavía</b><div style="opacity:.8;">Guardá una base y te aparece acá.</div></div>`;
+    return;
   }
 
-  renderBases();
-  alert(`✅ Importación lista.\nOK: ${ok}\nFallidos: ${bad}`);
+  // Si escribió menos de 3 letras, mostramos solo las 8 últimas (modo “acceso rápido”)
+  const modoCorto = q.length < 3;
+  const nombres = modoCorto ? idx.slice(0, 8) : idx;
+
+  let count = 0;
+
+  nombres.forEach(nombre => {
+    const raw = localStorage.getItem(baseKey(nombre));
+    if (!raw) return;
+
+    let data;
+    try { data = JSON.parse(raw); } catch { return; }
+
+    const map = {
+      nombre: nombre,
+      entidad: (data.entidad || ""),
+      sucursal: (data.sucursal || ""),
+      abonado: (data.abonado || ""),
+      central: (data.central || ""),
+      provincia: (data.provincia || "")
+    };
+
+    const blobAll = Object.values(map).join(" ").toLowerCase();
+
+    let ok = true;
+    if (!modoCorto) {
+      if (campo === "all") ok = blobAll.includes(q);
+      else ok = String(map[campo] || "").toLowerCase().includes(q);
+    }
+
+    if (!ok) return;
+    count++;
+
+    const card = document.createElement("div");
+    card.className = "card";
+    card.innerHTML = `
+      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between;">
+        <div>
+          <div style="font-weight:bold;">${escapeHtml(nombre)}</div>
+          <div style="font-size:12px; opacity:.85;">
+            ${escapeHtml(data.entidad || "-")} • Suc: ${escapeHtml(data.sucursal || "-")} • Ab: ${escapeHtml(data.abonado || "-")} • Central: ${escapeHtml(data.central || "-")} • ${escapeHtml(data.provincia || "-")}
+          </div>
+        </div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="mini-btn" data-act="abrir">Abrir</button>
+          <button class="mini-btn" data-act="json">JSON</button>
+          <button class="mini-btn" data-act="borrar" style="background:#b00020;">Borrar</button>
+        </div>
+      </div>
+    `;
+
+    card.querySelector('[data-act="abrir"]').onclick = () => abrirBaseGuardada(nombre);
+    card.querySelector('[data-act="json"]').onclick = () => descargarBaseGuardadaComoJSON(nombre);
+    card.querySelector('[data-act="borrar"]').onclick = () => borrarBaseGuardada(nombre);
+
+    cont.appendChild(card);
+  });
+
+  if (count === 0) {
+    cont.innerHTML = `<div class="card"><b>Sin resultados</b><div style="opacity:.8;">Probá cambiar el filtro o escribir otra palabra.</div></div>`;
+  }
 }
 
 /** ==========================================
@@ -1157,8 +1249,52 @@ async function importarMultiplesJSONaMisBases(files) {
  *  ========================================== */
 function autosaveBase() {
   try {
-    localStorage.setItem("senalco_base_autosave", JSON.stringify(construirJSONBase()));
+    localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(construirJSONBase()));
   } catch { }
+}
+
+/** ==========================================
+ *  Update banner (service worker)
+ *  ========================================== */
+function setupUpdateBanner() {
+  if (!("serviceWorker" in navigator)) return;
+
+  navigator.serviceWorker.register("./sw.js").then((reg) => {
+    const bar = $("update-bar");
+    const btnUpd = $("btn-actualizar-app");
+    const btnLater = $("btn-ignorar-update");
+
+    function showUpdate() {
+      if (!bar) return;
+      bar.style.display = "flex";
+      btnUpd?.addEventListener("click", () => {
+        if (reg.waiting) reg.waiting.postMessage({ type: "SKIP_WAITING" });
+      }, { once: true });
+
+      btnLater?.addEventListener("click", () => {
+        bar.style.display = "none";
+      }, { once: true });
+    }
+
+    // Si ya hay waiting
+    if (reg.waiting) showUpdate();
+
+    // Si aparece nuevo SW
+    reg.addEventListener("updatefound", () => {
+      const nw = reg.installing;
+      if (!nw) return;
+      nw.addEventListener("statechange", () => {
+        if (nw.state === "installed" && navigator.serviceWorker.controller) {
+          showUpdate();
+        }
+      });
+    });
+
+    // Cuando cambia controlador => recargar (sin tocar localStorage)
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      window.location.reload();
+    });
+  }).catch(console.warn);
 }
 
 /** ==========================================
@@ -1167,9 +1303,13 @@ function autosaveBase() {
 window.addEventListener("DOMContentLoaded", () => {
   if (!document.querySelector("#tabla-base")) return;
 
+  poblarDatalistEntidades();
+  setupUpdateBanner();
+
   precargarZonas();
 
-  const raw = localStorage.getItem("senalco_base_autosave");
+  // recuperar autosave
+  const raw = localStorage.getItem(AUTOSAVE_KEY);
   if (raw) {
     try {
       const data = JSON.parse(raw);
@@ -1233,4 +1373,5 @@ window.addEventListener("DOMContentLoaded", () => {
   }
 
   asignarEventosBase();
+  renderBuscadorRapido();
 });

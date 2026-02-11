@@ -165,6 +165,58 @@
       border-radius: 8px;
       box-shadow: 0 0 10px rgba(0, 0, 0, .5);
     }
+
+    /* ✅ Banner update */
+    #update-bar {
+      display: none;
+      position: sticky;
+      top: 0;
+      z-index: 99999;
+      background: #0f2a14;
+      border: 1px solid rgba(255, 255, 255, .15);
+      padding: 12px;
+      border-radius: 12px;
+      margin: 10px 0 14px;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    #update-bar .msg {
+      font-weight: bold;
+    }
+
+    #update-bar .actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    /* ✅ Buscador rápido afuera */
+    .buscador-wrap {
+      margin-top: 14px;
+      padding: 12px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, .06);
+      border: 1px solid rgba(255, 255, 255, .08);
+    }
+
+    .buscador-grid {
+      display: grid;
+      grid-template-columns: 180px 1fr;
+      gap: 10px;
+      align-items: center;
+    }
+
+    @media (max-width: 700px) {
+      .buscador-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    #buscador-resultados .card {
+      background: #fff;
+    }
   </style>
 </head>
 
@@ -178,8 +230,19 @@
 
   <h1>📊 Base de Datos - Señalco</h1>
 
+  <!-- ✅ Banner de actualización -->
+  <div id="update-bar">
+    <div class="msg">⬆️ Hay una actualización disponible</div>
+    <div class="actions">
+      <button class="mini-btn" id="btn-actualizar-app">Actualizar</button>
+      <button class="mini-btn" id="btn-ignorar-update" style="background:#555;">Más tarde</button>
+    </div>
+  </div>
+
   <label>Entidad</label>
-  <input type="text" id="entidad" placeholder="Ej: Galicia" />
+  <!-- ✅ input + datalist (lista abanico de entidades) -->
+  <input type="text" id="entidad" list="lista-entidades" placeholder="Ej: Galicia" />
+  <datalist id="lista-entidades"></datalist>
 
   <label>Sucursal</label>
   <input type="text" id="sucursal" placeholder="Ej: 1234" />
@@ -214,18 +277,53 @@
       accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
       style="position:absolute; left:-9999px; width:1px; height:1px;" />
 
+    <button id="btn-importar-json-top">📤 Importar JSON</button>
+    <input id="input-json-base-top" type="file" accept="application/json,.json"
+      style="position:absolute; left:-9999px; width:1px; height:1px;" />
+
+    <button id="btn-importar-carpeta-top">📦 Importar carpeta (muchos JSON)</button>
+    <input id="input-json-folder-top" type="file" accept=".json,application/json" multiple webkitdirectory directory
+      style="position:absolute; left:-9999px; width:1px; height:1px;" />
+
+    <button id="btn-guardar-rapido">💾 Guardar en Mis Bases + Backup</button>
+    <button id="btn-descargar-json-top">⬇️ Descargar JSON</button>
+
     <button id="btn-previsualizar">👁️ Previsualizar</button>
 
     <button id="btn-generar-pdf-base">📄 Generar PDF</button>
     <button id="btn-excel-base">📊 Exportar Excel</button>
 
-    <!-- ✅ IMPORTANTE: este botón es el que abre el modal (si no está, no hay buscador visible) -->
-    <button id="btn-mis-bases">📁 Mis Bases</button>
-
     <button id="btn-editar-zonas123">🔓 Editar Zonas 1-3</button>
     <button id="btn-bloquear-zonas123" style="display:none;">🔒 Bloquear Zonas 1-3</button>
 
+    <button id="btn-mis-bases">📁 Mis Bases</button>
     <button onclick="cerrarSesion()">🔒 Cerrar sesión</button>
+  </div>
+
+  <!-- ✅ BUSCADOR RÁPIDO (afuera del modal) -->
+  <div class="buscador-wrap">
+    <h3 style="margin:0 0 8px;">🔎 Buscador rápido de Bases (en el teléfono)</h3>
+
+    <div class="buscador-grid">
+      <select id="filtro-campo">
+        <option value="all">Todos</option>
+        <option value="entidad">Entidad</option>
+        <option value="sucursal">Sucursal</option>
+        <option value="abonado">Abonado</option>
+        <option value="central">Central</option>
+        <option value="provincia">Provincia</option>
+        <option value="nombre">Nombre</option>
+      </select>
+
+      <input id="buscar-rapido" placeholder="Escribí 3 letras y te filtra al toque..." />
+    </div>
+
+    <div id="buscador-resultados" style="margin-top:12px;"></div>
+
+    <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
+      <button class="mini-btn" id="btn-abrir-mis-bases">Abrir Mis Bases</button>
+      <button class="mini-btn" id="btn-limpiar-buscador" style="background:#555;">Limpiar búsqueda</button>
+    </div>
   </div>
 
   <!-- MODAL: PREVISUALIZAR -->
@@ -261,10 +359,10 @@
           style="position:absolute; left:-9999px; width:1px; height:1px;" />
       </div>
 
-      <!-- ✅ BUSCADOR -->
+      <!-- ✅ Buscador dentro del modal (opcional, queda) -->
       <div style="margin-top:12px;">
         <input id="filtro-bases"
-          placeholder="Buscar: entidad / sucursal / abonado / central / provincia / nombre..."
+          placeholder="Buscar dentro de Mis Bases..."
           style="width:100%; padding:10px; border-radius:10px; border:1px solid #ddd;">
       </div>
 
