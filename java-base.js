@@ -288,6 +288,7 @@ function crearFilaZona(numeroZona) {
 
 function aplicarDefaultsZonas123SiVacias() {
   const filas = document.querySelectorAll("#tabla-base tbody tr");
+
   [1, 2, 3].forEach(z => {
     const tr = Array.from(filas).find(r => r.dataset.zona === String(z));
     if (!tr) return;
@@ -297,35 +298,23 @@ function aplicarDefaultsZonas123SiVacias() {
     const selDisp = tr.querySelector("td:nth-child(4) select");
     const desc = tr.querySelector("td:nth-child(5) input");
 
-    const vacia =
-      (selEvento?.value === "- Sin tipo definido -" || !selEvento?.value) &&
-      (selArea?.value === "-" || !selArea?.value) &&
-      (selDisp?.value === "-" || !selDisp?.value) &&
-      !(desc?.value || "").trim();
-
-    if (vacia) {
-      if (z === 1) {
-        selEvento.value = "- Sin tipo definido -";
-        selArea.value = "-";
-        selDisp.value = "-";
-        desc.value = "";
-      }
-      if (z === 2) {
-        selEvento.value = "Apertura de Equipo";
-        selArea.value = "-";
-        selDisp.value = "-";
-        desc.value = "";
-      }
-      if (z === 3) {
-        selEvento.value = "- Sin tipo definido -";
-        selArea.value = "-";
-        selDisp.value = "-";
-        desc.value = "";
-      }
+    if (z === 1) {
+      selEvento.value = "Avería de linea";
     }
+
+    if (z === 2) {
+      selEvento.value = "Apertura de Equipo";
+    }
+
+    if (z === 3) {
+      selEvento.value = "Falta de 220V";
+    }
+
+    selArea.value = "-";
+    selDisp.value = "-";
+    desc.value = "";
   });
 }
-
 function aplicarBloqueoZonas123() {
   const filas = document.querySelectorAll("#tabla-base tbody tr");
   filas.forEach(tr => {
