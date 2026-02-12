@@ -8,8 +8,10 @@
   <link rel="stylesheet" href="estilo.css" />
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#0b1b2a">
-  <script defer src="login.js?v=20260212_1"></script>
 
+  <script defer src="login.js"></script>
+
+  <!-- CSS SOLO login (no pisa el resto) -->
   <style>
     .login-shell{
       min-height:100vh;
@@ -17,30 +19,78 @@
       background: radial-gradient(1200px 700px at 20% 10%, rgba(45,125,255,.25), transparent 60%),
                   radial-gradient(900px 600px at 90% 30%, rgba(247,37,133,.22), transparent 55%),
                   linear-gradient(to bottom right, #0d1b2a, #1b263b);
-      display:flex; flex-direction:column; gap:14px; box-sizing:border-box;
+      display:flex;
+      flex-direction:column;
+      gap:14px;
+      box-sizing:border-box;
     }
     .login-topbar{
       display:flex; align-items:center; justify-content:space-between;
-      padding:14px 16px; border:1px solid rgba(255,255,255,.14);
-      border-radius:16px; background: rgba(0,0,0,.18); backdrop-filter: blur(10px);
+      padding:14px 16px;
+      border:1px solid rgba(255,255,255,.14);
+      border-radius:16px;
+      background: rgba(0,0,0,.18);
+      backdrop-filter: blur(10px);
     }
     .login-brand{display:flex;align-items:center;gap:12px}
     .login-brand__logo{
       width:44px;height:44px;border-radius:14px;
       background: rgba(255,255,255,.12);
-      display:grid;place-items:center;font-weight:900;
+      display:grid;place-items:center;
+      font-weight:900;
       box-shadow: 0 10px 30px rgba(0,0,0,.25);
     }
     .login-brand__title{font-weight:900;letter-spacing:.2px}
     .login-brand__sub{font-size:12px;opacity:.8}
 
-    .login-layout{width:100%;max-width:900px;margin:0 auto;}
-    .login-main{
+    .login-layout{
+      width:100%;
+      max-width:1100px;
+      margin:0 auto;
+      display:grid;
+      grid-template-columns: 1fr;
+      gap:14px;
+    }
+
+    .login-card{
       border:1px solid rgba(255,255,255,.14);
       border-radius:16px;
       background: rgba(0,0,0,.18);
       backdrop-filter: blur(10px);
       padding:14px;
+    }
+
+    .login-row{display:grid; grid-template-columns:1fr 1fr; gap:12px}
+    @media (max-width:700px){.login-row{grid-template-columns:1fr}}
+
+    .login-field{margin:10px 0}
+    .login-label{display:block;font-size:12px;opacity:.85;margin-bottom:6px}
+    .login-input{
+      width:100%;
+      padding:12px 12px;
+      border-radius:14px;
+      border:1px solid rgba(255,255,255,.18);
+      background: rgba(0,0,0,.25);
+      color:#fff;
+      box-sizing:border-box;
+      outline:none;
+    }
+    .login-input:focus{border-color: rgba(45,125,255,.7)}
+
+    .login-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+    .login-btn{
+      padding:11px 14px;
+      border-radius:14px;
+      border:0;
+      cursor:pointer;
+      font-weight:900;
+      background:#2d7dff;
+      color:#fff;
+    }
+    .login-btn:hover{opacity:.93}
+    .login-btn.ghost{
+      background: transparent;
+      border:1px solid rgba(255,255,255,.18);
     }
 
     .login-panel{
@@ -53,25 +103,27 @@
     }
     .login-panel.active{display:block}
 
-    .login-field{margin:10px 0}
-    .login-label{display:block;font-size:12px;opacity:.85;margin-bottom:6px}
-    .login-input{
-      width:100%; padding:12px 12px; border-radius:14px;
-      border:1px solid rgba(255,255,255,.18);
-      background: rgba(0,0,0,.25); color:#fff; box-sizing:border-box; outline:none;
-    }
-    .login-input:focus{border-color: rgba(45,125,255,.7)}
+    .mini-note{font-size:12px;opacity:.8;margin-top:10px}
 
-    .login-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
-    .login-btn{
-      padding:11px 14px; border-radius:14px; border:0; cursor:pointer;
-      font-weight:900; background:#2d7dff; color:#fff;
+    .app-btn{
+      width:100%;
+      padding:14px;
+      border-radius:14px;
+      border:0;
+      cursor:pointer;
+      font-weight:900;
+      margin-top:10px;
+      background:#2d7dff;
+      color:#fff;
+      text-align:center;
     }
-    .login-btn:hover{opacity:.93}
-    .login-btn.ghost{background: transparent; border:1px solid rgba(255,255,255,.18);}
+    .app-btn.alt{
+      background: rgba(255,255,255,.08);
+      border:1px solid rgba(255,255,255,.16);
+      color:#fff;
+    }
 
-    .login-grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-    @media (max-width: 520px){.login-grid2{grid-template-columns:1fr}}
+    .hr{height:1px;background:rgba(255,255,255,.14);margin:12px 0}
   </style>
 </head>
 
@@ -85,59 +137,62 @@
           <div class="login-brand__sub">Ingreso al sistema</div>
         </div>
       </div>
-      <img src="images/logo_blanco.jpg" alt="Logo Señalco" style="height:42px;border-radius:10px;box-shadow:0 0 10px rgba(0,0,0,.35)">
+      <img src="images/logo_blanco.jpg" alt="Logo Señalco"
+           style="height:42px;border-radius:10px;box-shadow:0 0 10px rgba(0,0,0,.35)">
     </header>
 
     <main class="login-layout">
-      <section class="login-main">
-        <h1 style="margin:0;font-size:22px">Acceso</h1>
-        <p style="margin:6px 0 0 0;opacity:.85">Ingresá una vez y elegí tu planilla de trabajo.</p>
+      <!-- LOGIN ÚNICO -->
+      <section class="login-card">
+        <h1 style="margin:0;font-size:22px;">Login único</h1>
+        <p style="margin:6px 0 0 0;opacity:.85;">
+          Entrás una vez. Después ves solo lo habilitado (Alarmas / CCTV / Monitoreo).
+        </p>
 
-        <!-- PANEL ÚNICO DE LOGIN -->
-        <section id="login-unico" class="login-panel active">
-          <h2 style="margin:0 0 10px 0;font-size:18px;">🔐 Login</h2>
-
+        <div class="login-row">
           <div class="login-field">
             <span class="login-label">Usuario</span>
-            <input class="login-input" type="text" id="usuario" placeholder="admin / tecnico1" autocomplete="username">
+            <input class="login-input" type="text" id="usuario" placeholder="admin o tecnico" autocomplete="username">
           </div>
 
           <div class="login-field">
             <span class="login-label">Clave</span>
             <input class="login-input" type="password" id="clave" placeholder="••••••••" autocomplete="current-password">
           </div>
+        </div>
 
-          <div class="login-actions">
-            <button class="login-btn" type="button" onclick="loginUnico()">Entrar</button>
-          </div>
-        </section>
+        <div class="login-actions">
+          <button class="login-btn" type="button" id="btn-login">Entrar</button>
+          <button class="login-btn ghost" type="button" id="btn-cerrar-sesion" style="display:none;">Cerrar sesión</button>
+          <button class="login-btn ghost" type="button" id="btn-continuar" style="display:none;">Continuar sesión</button>
+          <button class="login-btn ghost" type="button" id="btn-actualizar-app">🔄 Actualizar app</button>
+        </div>
 
-        <!-- DASHBOARD -->
-        <section id="dashboard" class="login-panel">
-          <h2 style="margin:0 0 10px 0;font-size:18px;">🧭 Panel de trabajo</h2>
+        <div class="mini-note" id="estado-login"></div>
 
-          <div class="login-grid2">
-            <button class="login-btn ghost" id="btn-relevamiento" type="button">📋 Relevamiento Alarmas</button>
-            <button class="login-btn" id="btn-base" type="button">📊 Base de Datos</button>
-          </div>
+        <!-- PANEL APP (botones según permisos) -->
+        <section id="seleccion-planillas" class="login-panel">
+          <h2 style="margin:0 0 6px 0;font-size:18px;">📌 Accesos</h2>
+          <div style="opacity:.8;font-size:12px;">Se muestran según permisos del usuario.</div>
 
-          <div class="login-grid2" style="margin-top:10px;">
-            <button class="login-btn ghost" id="btn-cctv" type="button">🎥 Relevamiento CCTV</button>
-            <button class="login-btn" id="btn-monitoreo-web" type="button" style="background:#37a0ff;">🖥️ Monitoreo Web</button>
-          </div>
+          <button class="app-btn alt" id="btn-relevamiento" type="button" style="display:none;">📋 Relevamiento Alarmas</button>
+          <button class="app-btn" id="btn-base" type="button" style="display:none;">📊 Base de Datos</button>
+          <button class="app-btn alt" id="btn-cctv" type="button" style="display:none;">🎥 Relevamiento CCTV</button>
 
-          <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
-            <button class="login-btn ghost" type="button" onclick="logout()">🔒 Cerrar sesión</button>
-          </div>
+          <button class="app-btn" id="btn-monitoreo-web" type="button" style="display:none; background:#5aa7ff;">
+            🖥️ Monitoreo Web
+          </button>
 
-          <!-- Hook para gestión admin -->
+          <div class="hr"></div>
+
+          <!-- 👇 HOOK admin (acá aparece la gestión) -->
           <div id="admin-manager-hook"></div>
         </section>
-
       </section>
     </main>
   </div>
 
+  <!-- Service Worker -->
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
