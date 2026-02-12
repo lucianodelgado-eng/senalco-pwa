@@ -94,7 +94,6 @@
 
     .login-status{margin-top:10px;opacity:.85;font-size:12px}
 
-    /* Panel accesos (oculto al inicio) */
     .login-panel{
       margin-top:14px;
       padding:14px;
@@ -138,37 +137,38 @@
     </header>
 
     <main class="login-main">
-      <div class="login-h1">Login único</div>
-      <div class="login-p">
-        Entrás una vez. Después ves solo lo habilitado (Alarmas / CCTV / Monitoreo).
+
+      <!-- ✅ TODO el login dentro de este contenedor -->
+      <div id="login-block">
+        <div class="login-h1">Login único</div>
+        <div class="login-p">
+          Entrás una vez. Después ves solo lo habilitado (Alarmas / CCTV / Monitoreo).
+        </div>
+
+        <div class="login-field">
+          <span class="login-label">Usuario</span>
+          <input class="login-input" type="text" id="usuario" placeholder="admin o tecnico" autocomplete="username">
+        </div>
+
+        <div class="login-field">
+          <span class="login-label">Clave</span>
+          <input class="login-input" type="password" id="clave" placeholder="••••••••" autocomplete="current-password">
+        </div>
+
+        <div class="login-actions">
+          <button class="login-btn" id="btn-login" type="button">Entrar</button>
+          <button class="login-btn ghost" id="btn-actualizar-app" type="button">🔄 Actualizar app</button>
+        </div>
       </div>
 
-      <div class="login-field">
-        <span class="login-label">Usuario</span>
-        <input class="login-input" type="text" id="usuario" placeholder="admin o tecnico" autocomplete="username">
-      </div>
-
-      <div class="login-field">
-        <span class="login-label">Clave</span>
-        <input class="login-input" type="password" id="clave" placeholder="••••••••" autocomplete="current-password">
-      </div>
-
-      <div class="login-actions">
-        <button class="login-btn" id="btn-login" type="button">Entrar</button>
-        <button class="login-btn ghost" id="btn-cerrar-sesion" type="button" style="display:none;">Cerrar sesión</button>
-      </div>
-
-      <button class="btn-full ghost" id="btn-continuar" type="button" style="display:none;">
-        Continuar sesión
+      <!-- ✅ Botón cerrar sesión siempre visible (si hay sesión) -->
+      <button class="btn-full ghost" id="btn-cerrar-sesion" type="button" style="display:none;">
+        🔒 Cerrar sesión
       </button>
 
-      <button class="btn-full ghost" id="btn-actualizar-app" type="button">
-        🔄 Actualizar app
-      </button>
+      <div class="login-status" id="estado-login">Cargando…</div>
 
-      <div class="login-status" id="estado-login">Sesión cerrada.</div>
-
-      <!-- ✅ PANEL DE ACCESOS (ESTO ERA LO QUE FALTABA) -->
+      <!-- ✅ PANEL DE ACCESOS -->
       <section id="seleccion-planillas" class="login-panel">
         <h3 style="margin:0 0 8px 0;">📌 Accesos</h3>
 
@@ -177,7 +177,6 @@
         <button class="btn-full ghost" id="btn-cctv" type="button">🎥 Relevamiento CCTV</button>
         <button class="btn-full" id="btn-monitoreo-web" type="button">🖥️ Monitoreo Web</button>
 
-        <!-- ✅ Panel admin (solo si role=admin) -->
         <div id="admin-manager-hook" style="margin-top:12px;"></div>
       </section>
     </main>

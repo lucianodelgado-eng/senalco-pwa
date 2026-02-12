@@ -1,10 +1,10 @@
-Parque industrial Burzaco		instalacion 2 ATM	22/02/* login.js - Señalco (Login único + permisos + usuarios.json + update app) */
+/* login.js - Señalco (Login único + permisos + usuarios.json + update app) */
 
 const USERS_JSON_URL = "./usuarios.json";
 const SESSION_KEY = "senalco_session_v2";
 const USERS_CACHE_KEY = "senalco_users_cache_v2";
 
-// ⏳ Expiración de sesión (evita “se quedó admin logueado para siempre”)
+// ⏳ Expiración de sesión
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 días
 
 const MONITOREO_URL = "https://itsenalco.com/monitoreo/web/";
@@ -44,11 +44,92 @@ function defaultPerms(){
   return p;
 }
 
+/* =========================
+   SHA-256 universal
+   - usa crypto.subtle si está
+   - si no, usa JS puro (para teléfonos “problemáticos”)
+   ========================= */
+function rotr(n, x){ return (x >>> n) | (x << (32 - n)); }
+function sha256PureJS(ascii){
+  const maxWord = Math.pow(2, 32);
+  let result = "";
+
+  const words = [];
+  const asciiBitLength = ascii.length * 8;
+
+  const hash = sha256PureJS.h = sha256PureJS.h || [];
+  const k = sha256PureJS.k = sha256PureJS.k || [];
+  let primeCounter = k.length;
+
+  const isComposite = {};
+  for (let candidate = 2; primeCounter < 64; candidate++) {
+    if (!isComposite[candidate]) {
+      for (let i = 0; i < 313; i += candidate) isComposite[i] = candidate;
+      hash[primeCounter] = (Math.pow(candidate, .5) * maxWord) | 0;
+      k[primeCounter++] = (Math.pow(candidate, 1/3) * maxWord) | 0;
+    }
+  }
+
+  ascii += "\x80";
+  while (ascii.length % 64 - 56) ascii += "\x00";
+  for (let i = 0; i < ascii.length; i++) {
+    const j = ascii.charCodeAt(i);
+    words[i >> 2] |= j << ((3 - i) % 4) * 8;
+  }
+  words[words.length] = (asciiBitLength / maxWord) | 0;
+  words[words.length] = (asciiBitLength) | 0;
+
+  for (let j = 0; j < words.length;) {
+    const w = words.slice(j, j += 16);
+    const oldHash = hash.slice(0);
+
+    for (let i = 0; i < 64; i++) {
+      const w15 = w[i - 15], w2 = w[i - 2];
+
+      const a = hash[0], e = hash[4];
+      const temp1 = (hash[7]
+        + (rotr(6, e) ^ rotr(11, e) ^ rotr(25, e))
+        + ((e & hash[5]) ^ (~e & hash[6]))
+        + k[i]
+        + (w[i] = (i < 16) ? w[i] : (
+            w[i - 16]
+            + (rotr(7, w15) ^ rotr(18, w15) ^ (w15 >>> 3))
+            + w[i - 7]
+            + (rotr(17, w2) ^ rotr(19, w2) ^ (w2 >>> 10))
+          ) | 0)
+      ) | 0;
+
+      const temp2 = ((rotr(2, a) ^ rotr(13, a) ^ rotr(22, a))
+        + ((a & hash[1]) ^ (a & hash[2]) ^ (hash[1] & hash[2]))
+      ) | 0;
+
+      hash.unshift((temp1 + temp2) | 0);
+      hash[4] = (hash[4] + temp1) | 0;
+      hash.pop();
+    }
+
+    for (let i = 0; i < 8; i++) hash[i] = (hash[i] + oldHash[i]) | 0;
+  }
+
+  for (let i = 0; i < 8; i++) {
+    for (let j = 3; j + 1; j--) {
+      const b = (hash[i] >> (j * 8)) & 255;
+      result += (b < 16 ? "0" : "") + b.toString(16);
+    }
+  }
+  return result;
+}
+
 async function sha256Hex(text){
-  const enc = new TextEncoder().encode(text);
-  const buf = await crypto.subtle.digest("SHA-256", enc);
-  const arr = Array.from(new Uint8Array(buf));
-  return arr.map(b => b.toString(16).padStart(2, "0")).join("");
+  try {
+    if (globalThis.crypto?.subtle) {
+      const enc = new TextEncoder().encode(text);
+      const buf = await crypto.subtle.digest("SHA-256", enc);
+      const arr = Array.from(new Uint8Array(buf));
+      return arr.map(b => b.toString(16).padStart(2, "0")).join("");
+    }
+  } catch {}
+  return sha256PureJS(String(text));
 }
 
 // ---- Sesión
@@ -60,27 +141,18 @@ function getSessionValidated(){
 
   const ts = Number(s.ts || 0);
   if (!ts || (Date.now() - ts) > SESSION_TTL_MS){
-    // Expiró
     localStorage.removeItem(SESSION_KEY);
     return null;
   }
   return s;
 }
 
-function setSession(sess){
-  lsSet(SESSION_KEY, sess);
-}
-function clearSession(){
-  localStorage.removeItem(SESSION_KEY);
-}
+function setSession(sess){ lsSet(SESSION_KEY, sess); }
+function clearSession(){ localStorage.removeItem(SESSION_KEY); }
 
 // ---- Users cache
-function getUsersCache(){
-  return lsGet(USERS_CACHE_KEY, { version: 1, updatedAt: 0, users: [] });
-}
-function setUsersCache(data){
-  lsSet(USERS_CACHE_KEY, data);
-}
+function getUsersCache(){ return lsGet(USERS_CACHE_KEY, { version: 1, updatedAt: 0, users: [] }); }
+function setUsersCache(data){ lsSet(USERS_CACHE_KEY, data); }
 
 async function fetchUsersFromRepo(){
   const url = `${USERS_JSON_URL}?ts=${Date.now()}`;
@@ -91,38 +163,17 @@ async function fetchUsersFromRepo(){
   return data;
 }
 
-// ---- UI: mostrar/ocultar bloques (login vs accesos)
+/* =========================
+   UI: ocultar login / mostrar accesos
+   ========================= */
 function setUIState(isLogged){
-  // Elementos del bloque login
-  const loginFields = document.querySelectorAll(".login-field");
-  const loginActions = document.querySelector(".login-actions");
-  const btnLogin = $("btn-login");
-  const btnActualizar = $("btn-actualizar-app");
-  const titulo = document.querySelector(".login-h1");
-  const texto = document.querySelector(".login-p");
-
-  // Elementos del bloque accesos
+  const loginBlock = $("login-block");
   const panelAccesos = $("seleccion-planillas");
+  const btnLogout = $("btn-cerrar-sesion");
 
-  if (isLogged){
-    loginFields.forEach(el => el.style.display = "none");
-    if (loginActions) loginActions.style.display = "none";
-    if (btnLogin) btnLogin.style.display = "none";
-    if (btnActualizar) btnActualizar.style.display = "none";
-    if (titulo) titulo.style.display = "none";
-    if (texto) texto.style.display = "none";
-
-    if (panelAccesos) panelAccesos.classList.add("active");
-  } else {
-    loginFields.forEach(el => el.style.display = "");
-    if (loginActions) loginActions.style.display = "";
-    if (btnLogin) btnLogin.style.display = "";
-    if (btnActualizar) btnActualizar.style.display = "";
-    if (titulo) titulo.style.display = "";
-    if (texto) texto.style.display = "";
-
-    if (panelAccesos) panelAccesos.classList.remove("active");
-  }
+  if (loginBlock) loginBlock.style.display = isLogged ? "none" : "block";
+  if (panelAccesos) panelAccesos.classList.toggle("active", !!isLogged);
+  if (btnLogout) btnLogout.style.display = isLogged ? "block" : "none";
 }
 
 function applyPermButtons(perms){
@@ -150,23 +201,9 @@ function applyPermButtons(perms){
   }
 }
 
-function syncSessionButtons(){
-  const s = getSessionValidated();
-  const btnLogout = $("btn-cerrar-sesion");
-  const btnCont = $("btn-continuar");
-
-  if (!btnLogout || !btnCont) return;
-
-  if (s){
-    btnLogout.style.display = "inline-block";
-    btnCont.style.display = "none"; // ✅ ya no hace falta “continuar”: entra directo
-  } else {
-    btnLogout.style.display = "none";
-    btnCont.style.display = "none";
-  }
-}
-
-// ---- Admin manager
+/* =========================
+   Admin: gestión usuarios → descarga usuarios.json
+   ========================= */
 function ensureAdminManagerUI(){
   const hook = $("admin-manager-hook");
   if (!hook) return;
@@ -278,7 +315,7 @@ async function adminCreateOrUpdateUser(){
   if ($("adm-new-pass")) $("adm-new-pass").value = "";
 
   adminRenderUsers();
-  alert("✅ Usuario guardado (en cache local). Descargá usuarios.json y subilo al repo.");
+  alert("✅ Usuario guardado (local). Descargá usuarios.json y subilo al repo.");
 }
 
 function adminDeleteUser(user){
@@ -345,14 +382,14 @@ function adminDownloadUsersJson(){
   alert("✅ Descargado: usuarios.json\nSubilo al repo reemplazando el anterior.");
 }
 
-// ---- Render principal
+/* =========================
+   Render principal
+   ========================= */
 function renderFromSession(){
   const s = getSessionValidated();
 
   if (!s){
     setUIState(false);
-    syncSessionButtons();
-    // limpiar panel admin si quedó
     const hook = $("admin-manager-hook");
     if (hook) hook.innerHTML = "";
     setStatus("Sesión cerrada.");
@@ -361,7 +398,6 @@ function renderFromSession(){
 
   setUIState(true);
   applyPermButtons(s.perms || defaultPerms());
-  syncSessionButtons();
 
   if (s.role === "admin"){
     ensureAdminManagerUI();
@@ -373,7 +409,9 @@ function renderFromSession(){
   }
 }
 
-// ---- Login
+/* =========================
+   Login / Logout
+   ========================= */
 async function loginGeneral(){
   const usuario = norm($("usuario")?.value).toLowerCase();
   const clave = norm($("clave")?.value);
@@ -418,7 +456,9 @@ function logout(){
   renderFromSession();
 }
 
-// ---- Actualizar app
+/* =========================
+   Update app
+   ========================= */
 async function updateApp(){
   try {
     if (!("serviceWorker" in navigator)) { window.location.reload(); return; }
@@ -430,30 +470,34 @@ async function updateApp(){
   } catch (e) {
     console.warn("updateApp error:", e);
   } finally {
-    // reload “duro”
     window.location.reload();
   }
 }
 
-// ---- Boot
+/* =========================
+   Boot
+   ========================= */
 document.addEventListener("DOMContentLoaded", async () => {
-  $("btn-login")?.addEventListener("click", loginGeneral);
-  $("btn-cerrar-sesion")?.addEventListener("click", logout);
-  $("btn-actualizar-app")?.addEventListener("click", updateApp);
-
-  $("clave")?.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") loginGeneral();
-  });
-
-  // precarga cache users (no rompe si falla)
   try {
-    const data = await fetchUsersFromRepo();
-    setUsersCache(data);
-  } catch {}
+    $("btn-login")?.addEventListener("click", loginGeneral);
+    $("btn-cerrar-sesion")?.addEventListener("click", logout);
+    $("btn-actualizar-app")?.addEventListener("click", updateApp);
 
-  // ✅ Render real al abrir: si hay sesión → muestra accesos; si no → muestra login
-  renderFromSession();
+    $("clave")?.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") loginGeneral();
+    });
+
+    // precarga cache users
+    try {
+      const data = await fetchUsersFromRepo();
+      setUsersCache(data);
+    } catch {}
+
+    renderFromSession();
+  } catch (e) {
+    console.error(e);
+    setStatus("❌ Error en login.js: " + (e?.message || e));
+  }
 });
 
-// Exponer para botones inline del admin
 window.adminDeleteUser = adminDeleteUser;
