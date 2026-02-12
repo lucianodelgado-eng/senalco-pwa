@@ -1,322 +1,338 @@
-/*******************************
- * Señalco - Login + Users DB  *
- *******************************/
-const USERS_KEY = "senalco_users_v1";
+/* login.js - Señalco (con permisos por botones) */
 
-/**
- * Estructura:
- * {
- *   version: 1,
- *   users: [
- *     { username, password, role: "admin"|"user", enabled: true, modules: { alarmas:true, cctv:true } }
- *   ]
- * }
- */
+const SENALCO_USERS_KEY = "senalco_users_v1";
+const SENALCO_PERMS_KEY = "senalco_perms_active_v1";
 
-function loadUsersDB() {
+// ✅ Botones / features (futuro: sumás uno acá y aparece en el admin)
+const FEATURES = [
+  { id: "base",        label: "📊 Base de Datos",       default: true },
+  { id: "relev",       label: "📋 Relevamiento Alarmas", default: true },
+  { id: "cctv",        label: "🎥 Relevamiento CCTV",    default: true },
+  { id: "monitoreo",   label: "🖥️ Monitoreo Web",        default: true }, // ✅ SIEMPRE true por defecto
+];
+
+// ✅ Link de monitoreo web
+const MONITOREO_URL = "https://itsenalco.com/monitoreo/web/";
+
+// ✅ Credenciales fijas del admin (solo este es admin)
+const ADMIN_USER = "admin";
+const ADMIN_PASS = "Senalco2025";
+
+// ✅ Claves fijas “perfil” legacy (si querés seguir usando alarmas/cctv)
+const LEGACY_CLAVES = { alarmas: "Senalco2025", cctv: "CCTV2025" };
+
+function lsGet(key, fallback) {
   try {
-    const raw = localStorage.getItem(USERS_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw);
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
   } catch {
-    return null;
+    return fallback;
   }
 }
-
-function saveUsersDB(db) {
-  localStorage.setItem(USERS_KEY, JSON.stringify(db));
+function lsSet(key, value) {
+  localStorage.setItem(key, JSON.stringify(value));
+}
+function norm(s) {
+  return String(s || "").trim();
 }
 
-function ensureUsersDB() {
-  let db = loadUsersDB();
-  if (db && Array.isArray(db.users)) return db;
-
-  db = {
-    version: 1,
-    users: [
-      {
-        username: "admin",
-        password: "LSenalco2025",
-        role: "admin",
-        enabled: true,
-        modules: { alarmas: true, cctv: true }
-      }
-    ]
-  };
-  saveUsersDB(db);
-  return db;
+function getUsers() {
+  return lsGet(SENALCO_USERS_KEY, []);
+}
+function setUsers(list) {
+  lsSet(SENALCO_USERS_KEY, list);
 }
 
-function findUser(username) {
-  const db = ensureUsersDB();
-  return db.users.find(u => (u.username || "").toLowerCase() === (username || "").toLowerCase()) || null;
+function defaultPerms() {
+  const p = {};
+  FEATURES.forEach(f => p[f.id] = !!f.default);
+  return p;
 }
 
-function validateUser(username, password, perfil) {
-  const u = findUser(username);
-  if (!u) return { ok: false, msg: "Usuario no habilitado" };
-  if (!u.enabled) return { ok: false, msg: "Usuario deshabilitado" };
-  if (String(u.password || "") !== String(password || "")) return { ok: false, msg: "Clave incorrecta" };
-  if (!u.modules || u.modules[perfil] !== true) return { ok: false, msg: "Sin permiso para este módulo" };
-  return { ok: true, user: u };
+function buildPermsFromForm(container) {
+  const p = defaultPerms();
+  if (!container) return p;
+  container.querySelectorAll("input[data-perm]").forEach(chk => {
+    p[chk.dataset.perm] = !!chk.checked;
+  });
+  // ✅ Monitoreo siempre permitido por defecto (si querés que sea “obligatorio”)
+  if (typeof p.monitoreo !== "boolean") p.monitoreo = true;
+  return p;
 }
 
-/** =========================
- * UI helpers
- * ========================= */
+function saveActivePerms(perms) {
+  lsSet(SENALCO_PERMS_KEY, perms || defaultPerms());
+}
+function getActivePerms() {
+  return lsGet(SENALCO_PERMS_KEY, defaultPerms());
+}
+
+function isAdminLogged() {
+  return localStorage.getItem("logueado") === "true" && localStorage.getItem("perfil") === "admin";
+}
+
+/* ===========================
+   UI helpers (no rompe nada)
+   =========================== */
+
+function $(id) { return document.getElementById(id); }
+
 function ocultarTodo() {
-  document.getElementById("login-alarmas")?.classList.remove("active");
-  document.getElementById("login-cctv")?.classList.remove("active");
-  document.getElementById("seleccion-planillas")?.classList.remove("active");
-  document.getElementById("panel-admin")?.classList.remove("active");
+  $("login-alarmas")?.classList.remove("active");
+  $("login-cctv")?.classList.remove("active");
+  $("seleccion-planillas")?.classList.remove("active");
+  $("admin-panel")?.classList.remove("active");
 }
 
 function mostrarLogin(perfil) {
   ocultarTodo();
-  if (perfil === "alarmas") document.getElementById("login-alarmas")?.classList.add("active");
-  if (perfil === "cctv") document.getElementById("login-cctv")?.classList.add("active");
+  if (perfil === "alarmas") $("login-alarmas")?.classList.add("active");
+  if (perfil === "cctv") $("login-cctv")?.classList.add("active");
+  if (perfil === "admin") $("admin-panel")?.classList.add("active");
 }
 
-/** =========================
- * Login flow
- * ========================= */
+/* ===========================
+   Login principal
+   =========================== */
+
 function validarLogin(perfil) {
-  ensureUsersDB();
+  const usuario = norm($(`usuario-${perfil}`)?.value);
+  const clave = norm($(`clave-${perfil}`)?.value);
 
-  const usuario = document.getElementById(`usuario-${perfil}`)?.value?.trim() || "";
-  const clave = document.getElementById(`clave-${perfil}`)?.value?.trim() || "";
-
-  const res = validateUser(usuario, clave, perfil);
-  if (!res.ok) {
-    alert(res.msg || "No autorizado");
+  // ✅ Admin fijo
+  if (usuario === ADMIN_USER && clave === ADMIN_PASS) {
+    localStorage.setItem("logueado", "true");
+    localStorage.setItem("perfil", "admin");
+    saveActivePerms(defaultPerms()); // admin ve todo
+    ocultarTodo();
+    $("seleccion-planillas")?.classList.add("active");
+    setupPlanillasUI();
+    ensureAdminManagerUI(); // crea panel admin si existe hook
     return;
   }
 
-  const u = res.user;
+  // ✅ Login legacy (perfil alarmas/cctv) como venía
+  if (usuario === "admin" && clave === LEGACY_CLAVES[perfil]) {
+    localStorage.setItem("logueado", "true");
+    localStorage.setItem("perfil", perfil);
 
-  localStorage.setItem("logueado", "true");
-  localStorage.setItem("perfil", perfil);
-  localStorage.setItem("usuario", u.username);
-  localStorage.setItem("rol", u.role);
+    // permisos por defecto: todo ok
+    saveActivePerms(defaultPerms());
 
-  // CCTV directo
-  if (perfil === "cctv") {
-    window.location.href = "index2.html";
-    return;
-  }
-
-  // Alarmas => selector de planillas
-  ocultarTodo();
-  document.getElementById("seleccion-planillas")?.classList.add("active");
-
-  document.getElementById("btn-relevamiento").onclick = () => {
-    window.location.href = "relevamiento1.html";
-  };
-  document.getElementById("btn-base").onclick = () => {
-    window.location.href = "index-base.html";
-  };
-
-  // Si es admin, mostramos botón de gestión
-  if (u.role === "admin") {
-    injectAdminPanelOnce();
-    document.getElementById("btn-abrir-admin")?.classList.remove("hidden");
-  } else {
-    document.getElementById("btn-abrir-admin")?.classList.add("hidden");
-  }
-}
-
-/** =========================
- * Admin Panel (CRUD users)
- * Se inyecta sin romper tu HTML
- * ========================= */
-function injectAdminPanelOnce() {
-  if (document.getElementById("panel-admin")) return;
-
-  const sel = document.getElementById("seleccion-planillas");
-  if (!sel) return;
-
-  // Botonera extra (Monitoreo + Remito + Admin)
-  const extra = document.createElement("div");
-  extra.style.marginTop = "12px";
-  extra.innerHTML = `
-    <div style="display:grid; gap:10px;">
-      <button id="btn-monitoreo-web" style="padding:14px;border-radius:14px;border:0;font-weight:900;cursor:pointer;background:#25a244;color:#fff;font-size:16px;">
-        🌐 Monitoreo Web
-      </button>
-
-      <button id="btn-remito-app" style="padding:14px;border-radius:14px;border:0;font-weight:900;cursor:pointer;background:#f4a261;color:#000;font-size:16px;">
-        🧾 Remito (APK)
-      </button>
-
-      <button id="btn-abrir-admin" class="hidden" style="padding:14px;border-radius:14px;border:1px solid rgba(255,255,255,.18);font-weight:900;cursor:pointer;background:transparent;color:#fff;font-size:15px;">
-        👤 Gestión de usuarios
-      </button>
-    </div>
-  `;
-  sel.appendChild(extra);
-
-  document.getElementById("btn-monitoreo-web")?.addEventListener("click", () => {
-    window.open("https://itsenalco.com/monitoreo/web/", "_blank");
-  });
-
-  // Esto requiere que subas remito.apk al repo (misma carpeta que index.html)
-  document.getElementById("btn-remito-app")?.addEventListener("click", () => {
-    window.open("./remito.apk", "_blank");
-  });
-
-  document.getElementById("btn-abrir-admin")?.addEventListener("click", () => {
-    ocultarTodo();
-    document.getElementById("panel-admin")?.classList.add("active");
-    renderUsersList();
-  });
-
-  // Panel admin
-  const adminPanel = document.createElement("section");
-  adminPanel.id = "panel-admin";
-  adminPanel.className = "login-panel"; // usa tu CSS login-panel
-  adminPanel.innerHTML = `
-    <h2 style="margin:0 0 10px 0;font-size:18px;">👤 Gestión de usuarios</h2>
-
-    <div style="display:grid; gap:10px; margin-bottom:12px;">
-      <div>
-        <div style="font-size:12px;opacity:.85;margin-bottom:6px;">Usuario</div>
-        <input id="adm-username" class="login-input" placeholder="ej: fernando" />
-      </div>
-
-      <div>
-        <div style="font-size:12px;opacity:.85;margin-bottom:6px;">Clave</div>
-        <input id="adm-password" class="login-input" placeholder="clave" />
-      </div>
-
-      <div style="display:flex; gap:10px; flex-wrap:wrap;">
-        <label style="display:flex;align-items:center;gap:8px;">
-          <input type="checkbox" id="adm-mod-alarmas" checked> Alarmas
-        </label>
-        <label style="display:flex;align-items:center;gap:8px;">
-          <input type="checkbox" id="adm-mod-cctv"> CCTV
-        </label>
-        <label style="display:flex;align-items:center;gap:8px;">
-          <input type="checkbox" id="adm-role-admin"> Admin
-        </label>
-      </div>
-
-      <button id="adm-create" class="login-btn" type="button">➕ Crear / Actualizar</button>
-    </div>
-
-    <div style="border-top:1px solid rgba(255,255,255,.14); padding-top:12px;">
-      <div style="font-size:12px;opacity:.85;margin-bottom:8px;">Usuarios:</div>
-      <div id="adm-users-list" style="display:grid; gap:10px;"></div>
-    </div>
-
-    <div class="login-actions" style="margin-top:12px;">
-      <button class="login-btn ghost" type="button" id="adm-back">Volver</button>
-    </div>
-  `;
-  sel.parentElement?.appendChild(adminPanel);
-
-  document.getElementById("adm-back")?.addEventListener("click", () => {
-    ocultarTodo();
-    document.getElementById("seleccion-planillas")?.classList.add("active");
-  });
-
-  document.getElementById("adm-create")?.addEventListener("click", () => {
-    const username = document.getElementById("adm-username")?.value?.trim();
-    const password = document.getElementById("adm-password")?.value?.trim();
-    const modAlarmas = !!document.getElementById("adm-mod-alarmas")?.checked;
-    const modCctv = !!document.getElementById("adm-mod-cctv")?.checked;
-    const isAdmin = !!document.getElementById("adm-role-admin")?.checked;
-
-    if (!username || username.length < 3) return alert("Usuario mínimo 3 caracteres.");
-    if (!password || password.length < 3) return alert("Clave mínima 3 caracteres.");
-    if (!modAlarmas && !modCctv) return alert("Elegí al menos 1 módulo.");
-
-    const db = ensureUsersDB();
-    const existing = db.users.find(u => (u.username || "").toLowerCase() === username.toLowerCase());
-
-    const userObj = {
-      username,
-      password,
-      role: isAdmin ? "admin" : "user",
-      enabled: true,
-      modules: { alarmas: modAlarmas, cctv: modCctv }
-    };
-
-    if (existing) {
-      Object.assign(existing, userObj);
-    } else {
-      db.users.push(userObj);
+    if (perfil === "cctv") {
+      window.location.href = "index2.html";
+      return;
     }
 
-    saveUsersDB(db);
-    renderUsersList();
-    alert("✅ Usuario guardado");
-  });
+    ocultarTodo();
+    $("seleccion-planillas")?.classList.add("active");
+    setupPlanillasUI();
+    return;
+  }
+
+  // ✅ Login por usuarios creados (técnicos)
+  const users = getUsers();
+  const u = users.find(x => x.user === usuario);
+  if (!u) {
+    alert("Credenciales incorrectas");
+    return;
+  }
+  if (u.pass !== clave) {
+    alert("Credenciales incorrectas");
+    return;
+  }
+
+  localStorage.setItem("logueado", "true");
+  localStorage.setItem("perfil", "user"); // ✅ nunca admin
+  saveActivePerms(u.perms || defaultPerms());
+
+  ocultarTodo();
+  $("seleccion-planillas")?.classList.add("active");
+  setupPlanillasUI();
 }
 
-function renderUsersList() {
-  const box = document.getElementById("adm-users-list");
-  if (!box) return;
+/* ===========================
+   Planillas / Botones
+   =========================== */
 
-  const db = ensureUsersDB();
-  const users = (db.users || []).slice().sort((a, b) => (a.username || "").localeCompare(b.username || ""));
+function setupPlanillasUI() {
+  const perms = getActivePerms();
 
-  box.innerHTML = "";
+  // botones existentes
+  const btnRelev = $("btn-relevamiento");
+  const btnBase = $("btn-base");
 
-  users.forEach(u => {
-    const row = document.createElement("div");
-    row.style.border = "1px solid rgba(255,255,255,.14)";
-    row.style.borderRadius = "14px";
-    row.style.padding = "12px";
-    row.style.background = "rgba(255,255,255,.06)";
+  if (btnRelev) {
+    btnRelev.style.display = perms.relev ? "inline-block" : "none";
+    btnRelev.onclick = () => window.location.href = "relevamiento1.html";
+  }
+  if (btnBase) {
+    btnBase.style.display = perms.base ? "inline-block" : "none";
+    btnBase.onclick = () => window.location.href = "index-base.html";
+  }
 
-    const mods = [];
-    if (u.modules?.alarmas) mods.push("Alarmas");
-    if (u.modules?.cctv) mods.push("CCTV");
+  // ✅ Botón Monitoreo Web: SIEMPRE visible por defecto
+  ensureMonitoreoButton(perms);
 
-    row.innerHTML = `
-      <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+  // (opcional) botón CCTV desde selección (si alguna vez lo agregás ahí)
+  const btnCctv = $("btn-cctv");
+  if (btnCctv) {
+    btnCctv.style.display = perms.cctv ? "inline-block" : "none";
+    btnCctv.onclick = () => window.location.href = "index2.html";
+  }
+}
+
+function ensureMonitoreoButton(perms) {
+  const panel = $("seleccion-planillas");
+  if (!panel) return;
+
+  let btn = $("btn-monitoreo-web");
+  if (!btn) {
+    // lo creamos sin tocar tu HTML
+    btn = document.createElement("button");
+    btn.type = "button";
+    btn.id = "btn-monitoreo-web";
+    btn.textContent = "🖥️ Monitoreo Web";
+    // estilo safe inline (no pisa tu CSS)
+    btn.style.width = "100%";
+    btn.style.padding = "14px";
+    btn.style.borderRadius = "14px";
+    btn.style.border = "0";
+    btn.style.cursor = "pointer";
+    btn.style.fontWeight = "900";
+    btn.style.marginTop = "10px";
+    btn.style.background = "#2d7dff"; // más claro
+    btn.style.color = "#fff";
+
+    // lo metemos dentro del panel, al final
+    panel.appendChild(btn);
+  }
+
+  // si en el futuro lo querés restringir: perms.monitoreo
+  const can = (typeof perms?.monitoreo === "boolean") ? perms.monitoreo : true;
+  btn.style.display = can ? "block" : "none";
+  btn.onclick = () => window.open(MONITOREO_URL, "_blank");
+}
+
+/* ===========================
+   Admin: Gestión de usuarios
+   (NO rompe nada: solo aparece si existe hook)
+   =========================== */
+
+function ensureAdminManagerUI() {
+  // Si querés panel admin: poné un <div id="admin-manager-hook"></div> en login.html
+  const hook = $("admin-manager-hook");
+  if (!hook) return;
+
+  // Evitar duplicar
+  if ($("admin-manager")) return;
+
+  const box = document.createElement("div");
+  box.id = "admin-manager";
+  box.style.marginTop = "14px";
+  box.style.padding = "14px";
+  box.style.borderRadius = "16px";
+  box.style.border = "1px solid rgba(255,255,255,.14)";
+  box.style.background = "rgba(0,0,0,.18)";
+  box.style.backdropFilter = "blur(10px)";
+  box.style.color = "#fff";
+
+  box.innerHTML = `
+    <h3 style="margin:0 0 10px 0;">👤 Gestión de usuarios</h3>
+
+    <div style="display:grid; gap:10px; max-width:520px;">
+      <input id="adm-new-user" class="login-input" placeholder="Usuario (ej: tecnico1)" />
+      <input id="adm-new-pass" class="login-input" placeholder="Clave" />
+
+      <div id="adm-perms" style="display:grid; gap:8px; padding:10px; border-radius:14px; border:1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.06);">
+        <div style="font-weight:900; margin-bottom:2px;">Permisos</div>
+        ${FEATURES.map(f => `
+          <label style="display:flex; gap:10px; align-items:center;">
+            <input type="checkbox" data-perm="${f.id}" ${f.default ? "checked" : ""} />
+            <span>${f.label}</span>
+          </label>
+        `).join("")}
+      </div>
+
+      <button id="adm-btn-create" class="login-btn" type="button">➕ Crear / Actualizar usuario</button>
+      <div id="adm-users-list" style="margin-top:8px;"></div>
+    </div>
+  `;
+
+  hook.appendChild(box);
+
+  $("adm-btn-create").onclick = () => adminCreateOrUpdateUser();
+  adminRenderUsers();
+}
+
+function adminCreateOrUpdateUser() {
+  const user = norm($("adm-new-user")?.value).toLowerCase();
+  const pass = norm($("adm-new-pass")?.value);
+  const perms = buildPermsFromForm($("adm-perms"));
+
+  if (!user || user.length < 3) return alert("Usuario inválido (mínimo 3 caracteres).");
+  if (!pass || pass.length < 4) return alert("Clave inválida (mínimo 4 caracteres).");
+  if (user === ADMIN_USER) return alert("Ese usuario está reservado.");
+
+  const users = getUsers();
+  const i = users.findIndex(x => x.user === user);
+
+  const payload = { user, pass, perms, updatedAt: Date.now() };
+
+  if (i >= 0) users[i] = payload;
+  else users.push(payload);
+
+  setUsers(users);
+
+  // Limpio inputs
+  if ($("adm-new-user")) $("adm-new-user").value = "";
+  if ($("adm-new-pass")) $("adm-new-pass").value = "";
+
+  adminRenderUsers();
+  alert("✅ Usuario guardado");
+}
+
+function adminDeleteUser(user) {
+  if (!confirm(`🗑️ ¿Borrar usuario?\n\n${user}`)) return;
+  const users = getUsers().filter(x => x.user !== user);
+  setUsers(users);
+  adminRenderUsers();
+}
+
+function adminRenderUsers() {
+  const cont = $("adm-users-list");
+  if (!cont) return;
+  const users = getUsers();
+
+  if (!users.length) {
+    cont.innerHTML = `<div style="opacity:.85;">No hay usuarios creados todavía.</div>`;
+    return;
+  }
+
+  cont.innerHTML = users.map(u => {
+    const perms = u.perms || {};
+    const resumen = FEATURES
+      .filter(f => perms[f.id])
+      .map(f => f.label.replace(/^.. /, "")) // limpia emoji para compacto
+      .join(" • ") || "Sin permisos";
+
+    return `
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px; border-radius:14px; border:1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.06); margin-top:8px;">
         <div>
-          <div style="font-weight:900">${u.username}</div>
-          <div style="font-size:12px;opacity:.85">
-            Rol: ${u.role || "user"} • Estado: ${u.enabled ? "✅ habilitado" : "⛔ deshabilitado"} • Módulos: ${mods.join(", ") || "-"}
-          </div>
+          <div style="font-weight:900;">${u.user}</div>
+          <div style="font-size:12px; opacity:.85;">${resumen}</div>
         </div>
-        <div style="display:flex; gap:8px; flex-wrap:wrap;">
-          <button class="login-btn ghost" type="button" data-act="toggle">${u.enabled ? "Deshabilitar" : "Habilitar"}</button>
-          <button class="login-btn ghost" type="button" data-act="edit">Editar</button>
-          <button class="login-btn" type="button" data-act="del" style="background:#b00020">Borrar</button>
-        </div>
+        <button type="button" class="login-btn ghost" onclick="adminDeleteUser('${u.user.replace(/'/g, "\\'")}')">🗑️ Borrar</button>
       </div>
     `;
-
-    row.querySelector('[data-act="toggle"]').addEventListener("click", () => {
-      const db2 = ensureUsersDB();
-      const uu = db2.users.find(x => x.username === u.username);
-      if (!uu) return;
-      if (uu.username === "admin") return alert("No se puede deshabilitar admin.");
-      uu.enabled = !uu.enabled;
-      saveUsersDB(db2);
-      renderUsersList();
-    });
-
-    row.querySelector('[data-act="edit"]').addEventListener("click", () => {
-      document.getElementById("adm-username").value = u.username || "";
-      document.getElementById("adm-password").value = u.password || "";
-      document.getElementById("adm-mod-alarmas").checked = !!u.modules?.alarmas;
-      document.getElementById("adm-mod-cctv").checked = !!u.modules?.cctv;
-      document.getElementById("adm-role-admin").checked = (u.role === "admin");
-    });
-
-    row.querySelector('[data-act="del"]').addEventListener("click", () => {
-      if (u.username === "admin") return alert("No se puede borrar admin.");
-      if (!confirm(`¿Borrar usuario "${u.username}"?`)) return;
-
-      const db2 = ensureUsersDB();
-      db2.users = db2.users.filter(x => x.username !== u.username);
-      saveUsersDB(db2);
-      renderUsersList();
-    });
-
-    box.appendChild(row);
-  });
+  }).join("");
 }
+
+/* ===========================
+   Exponer funciones globales
+   (porque tu HTML llama onclick=...)
+   =========================== */
+window.ocultarTodo = ocultarTodo;
+window.mostrarLogin = mostrarLogin;
+window.validarLogin = validarLogin;
+window.adminDeleteUser = adminDeleteUser;
