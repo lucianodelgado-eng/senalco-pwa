@@ -36,7 +36,7 @@ function ensureUsersDB() {
     users: [
       {
         username: "admin",
-        password: "Senalco2025",
+        password: "LSenalco2025",
         role: "admin",
         enabled: true,
         modules: { alarmas: true, cctv: true }
