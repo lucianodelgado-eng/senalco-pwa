@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": 1770916615131,
+  "updatedAt": 1770917756883,
   "users": [
     {
       "user": "luciod",
@@ -133,6 +133,17 @@
         "monitoreo": true
       },
       "updatedAt": 1770916592899
+    },
+    {
+      "user": "alejandrog",
+      "passHash": "193bf6613717ef4c8b4c038d1a108fa8ee047a611928c450070a1909c773d0e4",
+      "perms": {
+        "relev": true,
+        "base": true,
+        "cctv": true,
+        "monitoreo": true
+      },
+      "updatedAt": 1770917625029
     }
   ]
 }
