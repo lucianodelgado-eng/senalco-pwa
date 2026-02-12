@@ -6,12 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Formulario de Relevamiento/preventivo CCTV</title>
     <link rel="stylesheet" href="estilo.css" />
-    <script>
-        // Verifica si está logueado, si no, redirige al login
-        if (localStorage.getItem("logueado") !== "true") {
-            window.location.href = "login.html";
-        }
-    </script>
+
+    <script src="auth-guard.js"></script>
 </head>
 
 <body>

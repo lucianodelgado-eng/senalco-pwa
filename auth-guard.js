@@ -12,6 +12,6 @@
 
   const s = getSession();
   if (!s || !s.user || !s.role) {
-    window.location.replace("login.html");
+    window.location.replace("index.html");
   }
 })();
