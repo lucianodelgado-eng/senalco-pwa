@@ -1,15 +1,4 @@
-/* login.js - Señalco
-   ✅ Login ÚNICO
-   ✅ Usuarios desde usuarios.json (repo)
-   ✅ Admin descarga usuarios.json (vos lo subís al repo)
-   ✅ Permisos por botón (base/relev/cctv/monitoreo)
-   ✅ NO auto-entrar solo por sesión, pero:
-      - Entrar SIEMPRE entra y muestra accesos
-      - Continuar sesión muestra accesos
-   ✅ Botón Actualizar app: update SW + reload
-*/
-
-const USERS_JSON_URL = "./usuarios.json"; // en el repo (GitHub Pages)
+const USERS_JSON_URL = "./usuarios.json";
 const SESSION_KEY = "senalco_session_v2";
 const USERS_CACHE_KEY = "senalco_users_cache_v2";
 
@@ -22,11 +11,11 @@ const FEATURES = [
   { id: "monitoreo", label: "🖥️ Monitoreo Web",        default: true }
 ];
 
-// Admin fijo (sin backend NO hay secreto real)
 const ADMIN_USER = "admin";
 const ADMIN_PASS = "Senalco2025";
 
 function $(id){ return document.getElementById(id); }
+function norm(s){ return String(s || "").trim(); }
 
 function safeJsonParse(raw, fallback){
   try { return JSON.parse(raw); } catch { return fallback; }
@@ -38,7 +27,11 @@ function lsGet(key, fallback){
 function lsSet(key, value){
   localStorage.setItem(key, JSON.stringify(value));
 }
-function norm(s){ return String(s || "").trim(); }
+
+function setStatus(msg){
+  const el = $("estado-login");
+  if (el) el.textContent = msg || "";
+}
 
 function defaultPerms(){
   const p = {};
@@ -46,7 +39,6 @@ function defaultPerms(){
   return p;
 }
 
-// ---- Hash (WebCrypto) para no guardar claves en texto plano en usuarios.json
 async function sha256Hex(text){
   const enc = new TextEncoder().encode(text);
   const buf = await crypto.subtle.digest("SHA-256", enc);
@@ -55,41 +47,30 @@ async function sha256Hex(text){
 }
 
 // ---- Sesión
-function getSession(){
-  return lsGet(SESSION_KEY, null);
-}
-function setSession(sess){
-  lsSet(SESSION_KEY, sess);
-}
-function clearSession(){
-  localStorage.removeItem(SESSION_KEY);
-}
+function getSession(){ return lsGet(SESSION_KEY, null); }
+function setSession(sess){ lsSet(SESSION_KEY, sess); }
+function clearSession(){ localStorage.removeItem(SESSION_KEY); }
 
-// ---- Users: fetch desde repo + fallback cache local
+// ---- Users cache
+function getUsersCache(){ return lsGet(USERS_CACHE_KEY, { version: 1, updatedAt: 0, users: [] }); }
+function setUsersCache(data){ lsSet(USERS_CACHE_KEY, data); }
+
 async function fetchUsersFromRepo(){
-  const url = `${USERS_JSON_URL}?ts=${Date.now()}`; // cache bust
+  const url = `${USERS_JSON_URL}?ts=${Date.now()}`;
   const res = await fetch(url, { cache: "no-store" });
   if (!res.ok) throw new Error("No se pudo leer usuarios.json");
   const data = await res.json();
   if (!data || !Array.isArray(data.users)) throw new Error("usuarios.json inválido");
   return data;
 }
-function getUsersCache(){
-  return lsGet(USERS_CACHE_KEY, { version: 1, updatedAt: 0, users: [] });
-}
-function setUsersCache(data){
-  lsSet(USERS_CACHE_KEY, data);
-}
 
-// ---- UI estado
-function setStatus(msg){
-  const el = $("estado-login");
-  if (el) el.textContent = msg || "";
-}
-
+// ---- UI
 function showPanelAccesos(show){
   const p = $("seleccion-planillas");
-  if (!p) return;
+  if (!p){
+    setStatus("⚠️ No encuentro el panel de accesos (#seleccion-planillas). Revisá login.html.");
+    return;
+  }
   p.classList.toggle("active", !!show);
 }
 
@@ -118,7 +99,24 @@ function applyPermButtons(perms){
   }
 }
 
-// ---- Admin manager UI (se monta en #admin-manager-hook)
+function syncSessionButtons(){
+  const s = getSession();
+  const btnLogout = $("btn-cerrar-sesion");
+  const btnCont = $("btn-continuar");
+  if (!btnLogout || !btnCont) return;
+
+  if (s){
+    btnLogout.style.display = "inline-block";
+    btnCont.style.display = "inline-block";
+    setStatus(`Sesión detectada: ${s.user} (${s.role}). Tocá “Continuar sesión” o “Cerrar sesión”.`);
+  } else {
+    btnLogout.style.display = "none";
+    btnCont.style.display = "none";
+    setStatus("Sesión cerrada.");
+  }
+}
+
+// ---- Admin manager
 function ensureAdminManagerUI(){
   const hook = $("admin-manager-hook");
   if (!hook) return;
@@ -137,7 +135,7 @@ function ensureAdminManagerUI(){
   box.innerHTML = `
     <h3 style="margin:0 0 10px 0;">👤 Gestión de usuarios (Admin)</h3>
     <div style="opacity:.85;font-size:12px;margin-bottom:10px;">
-      Los usuarios salen de <b>usuarios.json</b> del repo. Acá armás la lista y descargás el JSON para subirlo.
+      Creás usuarios → descargás <b>usuarios.json</b> → lo subís al repo.
     </div>
 
     <div style="display:grid; gap:10px; max-width:520px;">
@@ -235,12 +233,10 @@ async function adminCreateOrUpdateUser(){
 
 function adminDeleteUser(user){
   if (!confirm(`🗑️ ¿Borrar usuario?\n\n${user}`)) return;
-
   const data = adminGetWorkingUsers();
   data.users = (data.users || []).filter(x => x.user !== user);
   data.updatedAt = Date.now();
   adminSetWorkingUsers(data);
-
   adminRenderUsers();
 }
 
@@ -252,7 +248,7 @@ function adminRenderUsers(){
   const users = data.users || [];
 
   if (!users.length){
-    cont.innerHTML = `<div style="opacity:.85;">No hay usuarios cargados en la lista todavía.</div>`;
+    cont.innerHTML = `<div style="opacity:.85;">No hay usuarios en la lista todavía.</div>`;
     return;
   }
 
@@ -300,7 +296,7 @@ function adminDownloadUsersJson(){
 }
 
 // ---- Mostrar accesos
-function showAfterLogin(forceOpen = false){
+function showAfterLogin(forceOpen=false){
   const s = getSession();
   if (!s) return;
 
@@ -308,10 +304,8 @@ function showAfterLogin(forceOpen = false){
 
   applyPermButtons(s.perms || defaultPerms());
 
-  if (s.role === "admin"){
-    ensureAdminManagerUI();
-    // el admin manager aparece SOLO si el panel está abierto
-  } else {
+  if (s.role === "admin") ensureAdminManagerUI();
+  else {
     const hook = $("admin-manager-hook");
     if (hook) hook.innerHTML = "";
   }
@@ -329,20 +323,13 @@ async function loginGeneral(){
     return;
   }
 
-  // Admin fijo
   if (usuario === ADMIN_USER && clave === ADMIN_PASS){
-    setSession({
-      user: ADMIN_USER,
-      role: "admin",
-      perms: defaultPerms(),
-      ts: Date.now()
-    });
+    setSession({ user: ADMIN_USER, role: "admin", perms: defaultPerms(), ts: Date.now() });
     setStatus("✅ Sesión iniciada: admin");
-    showAfterLogin(true); // ✅ ABRIR panel sí o sí
+    showAfterLogin(true);
     return;
   }
 
-  // Técnico: buscar users desde repo (y si falla, cache)
   let data;
   try {
     data = await fetchUsersFromRepo();
@@ -354,68 +341,31 @@ async function loginGeneral(){
 
   const users = (data && Array.isArray(data.users)) ? data.users : [];
   const found = users.find(u => (u.user || "").toLowerCase() === usuario);
-  if (!found){
-    alert("Credenciales incorrectas");
-    return;
-  }
+  if (!found){ alert("Credenciales incorrectas"); return; }
 
   const passHash = await sha256Hex(clave);
-  if (found.passHash !== passHash){
-    alert("Credenciales incorrectas");
-    return;
-  }
+  if (found.passHash !== passHash){ alert("Credenciales incorrectas"); return; }
 
-  setSession({
-    user: usuario,
-    role: "user",
-    perms: found.perms || defaultPerms(),
-    ts: Date.now()
-  });
-
+  setSession({ user: usuario, role: "user", perms: found.perms || defaultPerms(), ts: Date.now() });
   setStatus(`✅ Sesión iniciada: ${usuario}`);
-  showAfterLogin(true); // ✅ ABRIR panel sí o sí
+  showAfterLogin(true);
 }
 
 function logout(){
   clearSession();
   showPanelAccesos(false);
-  setStatus("Sesión cerrada.");
   if ($("usuario")) $("usuario").value = "";
   if ($("clave")) $("clave").value = "";
   syncSessionButtons();
 }
 
-function syncSessionButtons(){
-  const s = getSession();
-  const btnLogout = $("btn-cerrar-sesion");
-  const btnCont = $("btn-continuar");
-
-  if (!btnLogout || !btnCont) return;
-
-  if (s){
-    btnLogout.style.display = "inline-block";
-    btnCont.style.display = "inline-block";
-    setStatus(`Sesión detectada: ${s.user} (${s.role}). Tocá “Continuar sesión” o “Cerrar sesión”.`);
-  } else {
-    btnLogout.style.display = "none";
-    btnCont.style.display = "none";
-  }
-}
-
-// ---- Actualizar app
 async function updateApp(){
   try {
-    if (!("serviceWorker" in navigator)) {
-      window.location.reload();
-      return;
-    }
-
+    if (!("serviceWorker" in navigator)) { window.location.reload(); return; }
     const reg = await navigator.serviceWorker.getRegistration();
     if (reg) {
       await reg.update();
-      if (reg.waiting) {
-        reg.waiting.postMessage({ type: "SKIP_WAITING" });
-      }
+      if (reg.waiting) reg.waiting.postMessage({ type: "SKIP_WAITING" });
     }
   } catch (e) {
     console.warn("updateApp error:", e);
@@ -426,13 +376,10 @@ async function updateApp(){
 
 // ---- Boot
 document.addEventListener("DOMContentLoaded", async () => {
-  $("btn-login")?.addEventListener("click", () => loginGeneral());
-  $("btn-cerrar-sesion")?.addEventListener("click", () => logout());
-
-  // ✅ Continuar ahora ABRE el panel
+  $("btn-login")?.addEventListener("click", loginGeneral);
+  $("btn-cerrar-sesion")?.addEventListener("click", logout);
   $("btn-continuar")?.addEventListener("click", () => showAfterLogin(true));
-
-  $("btn-actualizar-app")?.addEventListener("click", () => updateApp());
+  $("btn-actualizar-app")?.addEventListener("click", updateApp);
 
   $("clave")?.addEventListener("keydown", (e) => {
     if (e.key === "Enter") loginGeneral();
@@ -440,7 +387,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   syncSessionButtons();
 
-  // precargar cache
   try {
     const data = await fetchUsersFromRepo();
     setUsersCache(data);

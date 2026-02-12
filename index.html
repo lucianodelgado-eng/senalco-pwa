@@ -11,7 +11,6 @@
 
   <script defer src="login.js"></script>
 
-  <!-- CSS SOLO login (no pisa el resto) -->
   <style>
     .login-shell{
       min-height:100vh;
@@ -23,9 +22,13 @@
       flex-direction:column;
       gap:14px;
       box-sizing:border-box;
+      color:#fff;
     }
+
     .login-topbar{
-      display:flex; align-items:center; justify-content:space-between;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
       padding:14px 16px;
       border:1px solid rgba(255,255,255,.14);
       border-radius:16px;
@@ -43,27 +46,21 @@
     .login-brand__title{font-weight:900;letter-spacing:.2px}
     .login-brand__sub{font-size:12px;opacity:.8}
 
-    .login-layout{
+    .login-main{
       width:100%;
-      max-width:1100px;
+      max-width:560px;
       margin:0 auto;
-      display:grid;
-      grid-template-columns: 1fr;
-      gap:14px;
-    }
-
-    .login-card{
       border:1px solid rgba(255,255,255,.14);
       border-radius:16px;
       background: rgba(0,0,0,.18);
       backdrop-filter: blur(10px);
-      padding:14px;
+      padding:16px;
     }
 
-    .login-row{display:grid; grid-template-columns:1fr 1fr; gap:12px}
-    @media (max-width:700px){.login-row{grid-template-columns:1fr}}
+    .login-h1{margin:6px 0 0 0;font-size:22px;font-weight:900}
+    .login-p{margin:8px 0 0 0;opacity:.85;font-size:13px;line-height:1.35}
 
-    .login-field{margin:10px 0}
+    .login-field{margin:12px 0}
     .login-label{display:block;font-size:12px;opacity:.85;margin-bottom:6px}
     .login-input{
       width:100%;
@@ -77,7 +74,7 @@
     }
     .login-input:focus{border-color: rgba(45,125,255,.7)}
 
-    .login-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+    .login-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
     .login-btn{
       padding:11px 14px;
       border-radius:14px;
@@ -86,6 +83,8 @@
       font-weight:900;
       background:#2d7dff;
       color:#fff;
+      flex:1;
+      min-width:140px;
     }
     .login-btn:hover{opacity:.93}
     .login-btn.ghost{
@@ -93,8 +92,11 @@
       border:1px solid rgba(255,255,255,.18);
     }
 
+    .login-status{margin-top:10px;opacity:.85;font-size:12px}
+
+    /* Panel accesos (oculto al inicio) */
     .login-panel{
-      margin-top:12px;
+      margin-top:14px;
       padding:14px;
       border-radius:16px;
       border:1px solid rgba(255,255,255,.14);
@@ -103,9 +105,7 @@
     }
     .login-panel.active{display:block}
 
-    .mini-note{font-size:12px;opacity:.8;margin-top:10px}
-
-    .app-btn{
+    .btn-full{
       width:100%;
       padding:14px;
       border-radius:14px;
@@ -115,15 +115,11 @@
       margin-top:10px;
       background:#2d7dff;
       color:#fff;
-      text-align:center;
     }
-    .app-btn.alt{
-      background: rgba(255,255,255,.08);
-      border:1px solid rgba(255,255,255,.16);
-      color:#fff;
+    .btn-full.ghost{
+      background: transparent;
+      border:1px solid rgba(255,255,255,.18);
     }
-
-    .hr{height:1px;background:rgba(255,255,255,.14);margin:12px 0}
   </style>
 </head>
 
@@ -141,58 +137,52 @@
            style="height:42px;border-radius:10px;box-shadow:0 0 10px rgba(0,0,0,.35)">
     </header>
 
-    <main class="login-layout">
-      <!-- LOGIN ÚNICO -->
-      <section class="login-card">
-        <h1 style="margin:0;font-size:22px;">Login único</h1>
-        <p style="margin:6px 0 0 0;opacity:.85;">
-          Entrás una vez. Después ves solo lo habilitado (Alarmas / CCTV / Monitoreo).
-        </p>
+    <main class="login-main">
+      <div class="login-h1">Login único</div>
+      <div class="login-p">
+        Entrás una vez. Después ves solo lo habilitado (Alarmas / CCTV / Monitoreo).
+      </div>
 
-        <div class="login-row">
-          <div class="login-field">
-            <span class="login-label">Usuario</span>
-            <input class="login-input" type="text" id="usuario" placeholder="admin o tecnico" autocomplete="username">
-          </div>
+      <div class="login-field">
+        <span class="login-label">Usuario</span>
+        <input class="login-input" type="text" id="usuario" placeholder="admin o tecnico" autocomplete="username">
+      </div>
 
-          <div class="login-field">
-            <span class="login-label">Clave</span>
-            <input class="login-input" type="password" id="clave" placeholder="••••••••" autocomplete="current-password">
-          </div>
-        </div>
+      <div class="login-field">
+        <span class="login-label">Clave</span>
+        <input class="login-input" type="password" id="clave" placeholder="••••••••" autocomplete="current-password">
+      </div>
 
-        <div class="login-actions">
-          <button class="login-btn" type="button" id="btn-login">Entrar</button>
-          <button class="login-btn ghost" type="button" id="btn-cerrar-sesion" style="display:none;">Cerrar sesión</button>
-          <button class="login-btn ghost" type="button" id="btn-continuar" style="display:none;">Continuar sesión</button>
-          <button class="login-btn ghost" type="button" id="btn-actualizar-app">🔄 Actualizar app</button>
-        </div>
+      <div class="login-actions">
+        <button class="login-btn" id="btn-login" type="button">Entrar</button>
+        <button class="login-btn ghost" id="btn-cerrar-sesion" type="button" style="display:none;">Cerrar sesión</button>
+      </div>
 
-        <div class="mini-note" id="estado-login"></div>
+      <button class="btn-full ghost" id="btn-continuar" type="button" style="display:none;">
+        Continuar sesión
+      </button>
 
-        <!-- PANEL APP (botones según permisos) -->
-        <section id="seleccion-planillas" class="login-panel">
-          <h2 style="margin:0 0 6px 0;font-size:18px;">📌 Accesos</h2>
-          <div style="opacity:.8;font-size:12px;">Se muestran según permisos del usuario.</div>
+      <button class="btn-full ghost" id="btn-actualizar-app" type="button">
+        🔄 Actualizar app
+      </button>
 
-          <button class="app-btn alt" id="btn-relevamiento" type="button" style="display:none;">📋 Relevamiento Alarmas</button>
-          <button class="app-btn" id="btn-base" type="button" style="display:none;">📊 Base de Datos</button>
-          <button class="app-btn alt" id="btn-cctv" type="button" style="display:none;">🎥 Relevamiento CCTV</button>
+      <div class="login-status" id="estado-login">Sesión cerrada.</div>
 
-          <button class="app-btn" id="btn-monitoreo-web" type="button" style="display:none; background:#5aa7ff;">
-            🖥️ Monitoreo Web
-          </button>
+      <!-- ✅ PANEL DE ACCESOS (ESTO ERA LO QUE FALTABA) -->
+      <section id="seleccion-planillas" class="login-panel">
+        <h3 style="margin:0 0 8px 0;">📌 Accesos</h3>
 
-          <div class="hr"></div>
+        <button class="btn-full ghost" id="btn-relevamiento" type="button">📋 Relevamiento Alarmas</button>
+        <button class="btn-full" id="btn-base" type="button">📊 Base de Datos</button>
+        <button class="btn-full ghost" id="btn-cctv" type="button">🎥 Relevamiento CCTV</button>
+        <button class="btn-full" id="btn-monitoreo-web" type="button">🖥️ Monitoreo Web</button>
 
-          <!-- 👇 HOOK admin (acá aparece la gestión) -->
-          <div id="admin-manager-hook"></div>
-        </section>
+        <!-- ✅ Panel admin (solo si role=admin) -->
+        <div id="admin-manager-hook" style="margin-top:12px;"></div>
       </section>
     </main>
   </div>
 
-  <!-- Service Worker -->
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
