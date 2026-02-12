@@ -267,3 +267,65 @@ document.addEventListener("DOMContentLoaded", () => {
 window.loginUnico = loginUnico;
 window.logout = logout;
 window.adminDeleteUser = adminDeleteUser;
+/***********************
+ * COMPAT: LOGIN VIEJO *
+ * (Alarmas/CCTV)      *
+ ***********************/
+(function compatLoginViejo(){
+  // Si tu HTML viejo está, lo hacemos funcionar igual
+  const btnsModulos = document.querySelectorAll(".login-cardbtn");
+
+  // Si no hay botones de módulos, no hacemos nada
+  if (!btnsModulos || btnsModulos.length === 0) return;
+
+  // Si tu login.js nuevo usa login único, creamos un puente
+  // Caso: tocás Alarmas/CCTV => mostramos el login único (o el panel que corresponda)
+  window.mostrarLogin = function(_perfil){
+    // 1) Si existe el panel nuevo
+    const panelUnico = document.getElementById("login-unico");
+    const dash = document.getElementById("dashboard");
+
+    // 2) Si estás logueado -> dashboard, sino -> login único
+    if (localStorage.getItem("logueado") === "true" && dash) {
+      dash.classList.add("active");
+      panelUnico && panelUnico.classList.remove("active");
+      if (typeof setupDashboard === "function") setupDashboard();
+      if (typeof ensureAdminManagerUI === "function") ensureAdminManagerUI();
+      return;
+    }
+
+    if (panelUnico) {
+      panelUnico.classList.add("active");
+      dash && dash.classList.remove("active");
+      return;
+    }
+
+    // Si no existe el panel único, caemos al comportamiento anterior (si lo tenías)
+    console.warn("Compat: no existe #login-unico. Estás usando HTML viejo puro.");
+  };
+
+  // Si tu HTML viejo llama ocultarTodo()
+  window.ocultarTodo = function(){
+    document.getElementById("login-alarmas")?.classList.remove("active");
+    document.getElementById("login-cctv")?.classList.remove("active");
+    document.getElementById("seleccion-planillas")?.classList.remove("active");
+    document.getElementById("admin-panel")?.classList.remove("active");
+    document.getElementById("login-unico")?.classList.add("active");
+    document.getElementById("dashboard")?.classList.remove("active");
+  };
+
+  // Si el HTML viejo llama validarLogin('alarmas') o validarLogin('cctv'),
+  // lo redirigimos al login único (sin perfil)
+  window.validarLogin = function(){
+    if (typeof loginUnico === "function") return loginUnico();
+    alert("Login único no encontrado (loginUnico). Revisá login.js.");
+  };
+
+  // Enganche extra: si clickean botones Alarmas/CCTV y no había onclick por cambios,
+  // igual lo forzamos.
+  btnsModulos.forEach(btn => {
+    btn.addEventListener("click", () => window.mostrarLogin("unico"));
+  });
+
+  console.log("✅ Compat login viejo activado");
+})();
