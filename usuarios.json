@@ -1,0 +1,149 @@
+{
+  "version": 1,
+  "updatedAt": 1770917756883,
+  "users": [
+    {
+      "user": "luciod",
+      "passHash": "415f88519817bed00bd2c051c22ad7397a045715724aae3466a87a871bee95e2",
+      "perms": {
+        "relev": true,
+        "base": true,
+        "cctv": true,
+        "monitoreo": true
+      },
+      "updatedAt": 1770915929873
+    },
+    {
+      "user": "fernadom",
+      "passHash": "19d69a1f5be906b7711a1345da9a24872471197fdd510aa3643b8cb5a9e15d41",
+      "perms": {
+        "relev": true,
+        "base": true,
+        "cctv": true,
+        "monitoreo": true
+      },
+      "updatedAt": 1770915990900
+    },
+    {
+      "user": "pablomn",
+      "passHash": "7ae5c10c9cd9a47e69e23089dcd558b1ae264bdff4a6e054eb7173a4f38f3c51",
+      "perms": {
+        "relev": true,
+        "base": true,
+        "cctv": true,
+        "monitoreo": true
+      },
+      "updatedAt": 1770916021499
+    },
+    {
+      "user": "matiasm",
+      "passHash": "fd5153e77535d94b6743fb0d9c6091b031c4d506418db75925623394293640bf",
+      "perms": {
+        "relev": true,
+        "base": true,
+        "cctv": true,
+        "monitoreo": true
+      },
+      "updatedAt": 1770916082925
+    },
+    {
+      "user": "rodolfod",
+      "passHash": "5e9cb5456af3c4455631e8779d8dae9a635a2a17721b53ecf58e52a2a39ae501",
+      "perms": {
+        "relev": true,
+        "base": true,
+        "cctv": true,
+        "monitoreo": true
+      },
+      "updatedAt": 1770916156872
+    },
+    {
+      "user": "ignaciob",
+      "passHash": "3f04c0ae6572a0b0b164d53a575b60fc870b9dfc21a4b1c7ab90e8a2c32628d2",
+      "perms": {
+        "relev": true,
+        "base": true,
+        "cctv": true,
+        "monitoreo": true
+      },
+      "updatedAt": 1770916210120
+    },
+    {
+      "user": "hernancd",
+      "passHash": "9631ffa4bdf0027c8bc490ff4e1e1c850f4fb0f930160812147ebd78df58d9e1",
+      "perms": {
+        "relev": true,
+        "base": true,
+        "cctv": true,
+        "monitoreo": true
+      },
+      "updatedAt": 1770916331466
+    },
+    {
+      "user": "gustavol",
+      "passHash": "9fb9aca3cc919eee7afb80cccafe66273fd1372935fd81c6930e373c292cde52",
+      "perms": {
+        "relev": true,
+        "base": true,
+        "cctv": true,
+        "monitoreo": true
+      },
+      "updatedAt": 1770916372149
+    },
+    {
+      "user": "emilioj",
+      "passHash": "37f933175c91148e96a5487abb9367127eb0f9f8129af6714ce9960b104e42b8",
+      "perms": {
+        "relev": true,
+        "base": true,
+        "cctv": true,
+        "monitoreo": true
+      },
+      "updatedAt": 1770916426314
+    },
+    {
+      "user": "emiliod",
+      "passHash": "0df8235aa0ca15ebb0e73fc576d56b1e15785bb739ccd01124191a5a0726f9a4",
+      "perms": {
+        "relev": true,
+        "base": true,
+        "cctv": true,
+        "monitoreo": true
+      },
+      "updatedAt": 1770916476977
+    },
+    {
+      "user": "carlosd",
+      "passHash": "56cbaf865a4f6abd5a234f7b4b2df35e2ace44346af3258e3953d4f54bebb1ef",
+      "perms": {
+        "relev": true,
+        "base": true,
+        "cctv": true,
+        "monitoreo": true
+      },
+      "updatedAt": 1770916550827
+    },
+    {
+      "user": "carlosad",
+      "passHash": "7384e349f378ba8ba590f83b0e18d44599b9f28b972c4587d0744c8ff1870381",
+      "perms": {
+        "relev": true,
+        "base": true,
+        "cctv": true,
+        "monitoreo": true
+      },
+      "updatedAt": 1770916592899
+    },
+    {
+      "user": "alejandrog",
+      "passHash": "193bf6613717ef4c8b4c038d1a108fa8ee047a611928c450070a1909c773d0e4",
+      "perms": {
+        "relev": true,
+        "base": true,
+        "cctv": true,
+        "monitoreo": true
+      },
+      "updatedAt": 1770917625029
+    }
+  ]
+}
