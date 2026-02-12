@@ -1,8 +1,18 @@
-/* login.js - Señalco (Login único + permisos + usuarios.json + update app) */
+/* login.js - Señalco (Login único + permisos + usuarios.json + update app)
+   ✅ NO auto-inicia sesión: pide "Continuar sesión"
+*/
 
 const USERS_JSON_URL = "./usuarios.json";
 const SESSION_KEY = "senalco_session_v2";
 const USERS_CACHE_KEY = "senalco_users_cache_v2";
+
+// Limpieza de keys viejas (por versiones anteriores)
+const OLD_KEYS_TO_PURGE = [
+  "logueado", "perfil",
+  "senalco_session_v1",
+  "senalco_perms_active_v1",
+  "senalco_users_v1",
+];
 
 // ⏳ Expiración de sesión
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 días
@@ -46,8 +56,6 @@ function defaultPerms(){
 
 /* =========================
    SHA-256 universal
-   - usa crypto.subtle si está
-   - si no, usa JS puro (para teléfonos “problemáticos”)
    ========================= */
 function rotr(n, x){ return (x >>> n) | (x << (32 - n)); }
 function sha256PureJS(ascii){
@@ -164,16 +172,49 @@ async function fetchUsersFromRepo(){
 }
 
 /* =========================
-   UI: ocultar login / mostrar accesos
+   UI State
    ========================= */
-function setUIState(isLogged){
+function setUIState(mode){
+  // mode: "logged" | "logged_locked" | "guest"
   const loginBlock = $("login-block");
   const panelAccesos = $("seleccion-planillas");
   const btnLogout = $("btn-cerrar-sesion");
 
-  if (loginBlock) loginBlock.style.display = isLogged ? "none" : "block";
-  if (panelAccesos) panelAccesos.classList.toggle("active", !!isLogged);
-  if (btnLogout) btnLogout.style.display = isLogged ? "block" : "none";
+  // Creamos btn continuar si no existe
+  let btnCont = $("btn-continuar");
+  if (!btnCont) {
+    btnCont = document.createElement("button");
+    btnCont.id = "btn-continuar";
+    btnCont.type = "button";
+    btnCont.className = "btn-full ghost";
+    btnCont.textContent = "Continuar sesión";
+    btnCont.style.display = "none";
+    (loginBlock?.parentNode || document.body).appendChild(btnCont);
+  }
+
+  if (mode === "guest") {
+    if (loginBlock) loginBlock.style.display = "block";
+    if (panelAccesos) panelAccesos.classList.remove("active");
+    if (btnLogout) btnLogout.style.display = "none";
+    btnCont.style.display = "none";
+    return;
+  }
+
+  if (mode === "logged_locked") {
+    // ✅ sesión existe pero NO entra sola
+    if (loginBlock) loginBlock.style.display = "none";
+    if (panelAccesos) panelAccesos.classList.remove("active");
+    if (btnLogout) btnLogout.style.display = "block";
+    btnCont.style.display = "block";
+    return;
+  }
+
+  if (mode === "logged") {
+    if (loginBlock) loginBlock.style.display = "none";
+    if (panelAccesos) panelAccesos.classList.add("active");
+    if (btnLogout) btnLogout.style.display = "block";
+    btnCont.style.display = "none";
+  }
 }
 
 function applyPermButtons(perms){
@@ -202,7 +243,7 @@ function applyPermButtons(perms){
 }
 
 /* =========================
-   Admin: gestión usuarios → descarga usuarios.json
+   Admin: panel usuarios
    ========================= */
 function ensureAdminManagerUI(){
   const hook = $("admin-manager-hook");
@@ -284,9 +325,7 @@ function adminGetWorkingUsers(){
   if (!data.users) data.users = [];
   return data;
 }
-function adminSetWorkingUsers(data){
-  setUsersCache(data);
-}
+function adminSetWorkingUsers(data){ setUsersCache(data); }
 
 async function adminCreateOrUpdateUser(){
   const user = norm($("adm-new-user")?.value).toLowerCase();
@@ -383,29 +422,40 @@ function adminDownloadUsersJson(){
 }
 
 /* =========================
-   Render principal
+   Render / Lock screen
    ========================= */
-function renderFromSession(){
+function renderLockedOrGuest(){
   const s = getSessionValidated();
-
   if (!s){
-    setUIState(false);
+    setUIState("guest");
+    setStatus("Sesión cerrada.");
     const hook = $("admin-manager-hook");
     if (hook) hook.innerHTML = "";
-    setStatus("Sesión cerrada.");
     return;
   }
 
-  setUIState(true);
+  // ✅ No entra solo: queda “bloqueado”
+  setUIState("logged_locked");
+  setStatus(`Sesión detectada: ${s.user} (${s.role}). Tocá “Continuar sesión” o “Cerrar sesión”.`);
+}
+
+function continueSession(){
+  const s = getSessionValidated();
+  if (!s){
+    renderLockedOrGuest();
+    return;
+  }
+
+  setUIState("logged");
   applyPermButtons(s.perms || defaultPerms());
 
   if (s.role === "admin"){
     ensureAdminManagerUI();
-    setStatus(`✅ Sesión iniciada: ${s.user} (admin)`);
+    setStatus(`✅ Sesión activa: ${s.user} (admin)`);
   } else {
     const hook = $("admin-manager-hook");
     if (hook) hook.innerHTML = "";
-    setStatus(`✅ Sesión iniciada: ${s.user}`);
+    setStatus(`✅ Sesión activa: ${s.user}`);
   }
 }
 
@@ -421,14 +471,12 @@ async function loginGeneral(){
     return;
   }
 
-  // Admin fijo
   if (usuario === ADMIN_USER && clave === ADMIN_PASS){
     setSession({ user: ADMIN_USER, role: "admin", perms: defaultPerms(), ts: Date.now() });
-    renderFromSession();
+    continueSession();
     return;
   }
 
-  // Users desde repo (o cache)
   let data;
   try {
     data = await fetchUsersFromRepo();
@@ -446,14 +494,14 @@ async function loginGeneral(){
   if (found.passHash !== passHash){ alert("Credenciales incorrectas"); return; }
 
   setSession({ user: usuario, role: "user", perms: found.perms || defaultPerms(), ts: Date.now() });
-  renderFromSession();
+  continueSession();
 }
 
 function logout(){
   clearSession();
   if ($("usuario")) $("usuario").value = "";
   if ($("clave")) $("clave").value = "";
-  renderFromSession();
+  renderLockedOrGuest();
 }
 
 /* =========================
@@ -479,21 +527,30 @@ async function updateApp(){
    ========================= */
 document.addEventListener("DOMContentLoaded", async () => {
   try {
+    // Limpieza de residuos viejos (una vez)
+    OLD_KEYS_TO_PURGE.forEach(k => {
+      try { localStorage.removeItem(k); } catch {}
+    });
+
     $("btn-login")?.addEventListener("click", loginGeneral);
     $("btn-cerrar-sesion")?.addEventListener("click", logout);
     $("btn-actualizar-app")?.addEventListener("click", updateApp);
+
+    // si existe botón continuar en tu HTML, lo usamos
+    $("btn-continuar")?.addEventListener("click", continueSession);
 
     $("clave")?.addEventListener("keydown", (e) => {
       if (e.key === "Enter") loginGeneral();
     });
 
-    // precarga cache users
+    // precarga users cache (no bloquea)
     try {
       const data = await fetchUsersFromRepo();
       setUsersCache(data);
     } catch {}
 
-    renderFromSession();
+    // ✅ NO auto-inicia: muestra lock o login
+    renderLockedOrGuest();
   } catch (e) {
     console.error(e);
     setStatus("❌ Error en login.js: " + (e?.message || e));
