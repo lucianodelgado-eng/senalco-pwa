@@ -7,7 +7,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <link rel="stylesheet" href="estilo.css" />
-
+  <script src="auth-guard.js"></script>
   <!-- PDF (salida) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.7.0/jspdf.plugin.autotable.min.js"></script>
@@ -18,10 +18,14 @@
   <!-- Seguridad: si no está logueado -->
   <script>
     if (localStorage.getItem("logueado") !== "true") {
+      window.location.href = "index.html";
+    }
+  </script>
+  <script>
+    if (localStorage.getItem("logueado") !== "true") {
       window.location.href = "login.html";
     }
   </script>
-
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -111,7 +115,6 @@
       opacity: .92;
     }
 
-    /* ✅ Secciones plegables */
     .section {
       margin-top: 14px;
       padding: 12px;
@@ -171,7 +174,6 @@
       opacity: .92;
     }
 
-    /* ✅ Buscador rápido afuera */
     .buscador-wrap {
       margin-top: 14px;
       padding: 12px;
@@ -213,7 +215,7 @@
       margin-bottom: 10px;
     }
 
-    /* ✅ Ventanita abajo: bases guardadas (scroll) */
+    /* Ventanita abajo */
     .bases-window {
       margin-top: 14px;
       padding: 12px;
@@ -245,11 +247,10 @@
       display: block;
     }
 
-    /* ⚙️ Esto es lo que pediste: 3 visibles aprox + scroll */
     #lista-bases-inline {
-      max-height: 260px;          /* ~3 cards según tamaño */
-      overflow-y: auto;           /* scroll lateral */
-      padding-right: 6px;         /* deja lugar para “cursor” */
+      max-height: 260px;
+      overflow-y: auto;
+      padding-right: 6px;
     }
 
     #lista-bases-inline .card {
@@ -260,29 +261,50 @@
       margin-bottom: 10px;
     }
 
-    /* ❌ Nunca mostrar aviso de actualización */
-    #update-bar { display: none !important; }
+    /* No mostrar update bar */
+    #update-bar {
+      display: none !important;
+    }
+
+    /* Modal preview básico */
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .55);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 14px;
+      z-index: 9999;
+    }
+
+    .modal .box {
+      width: min(980px, 100%);
+      max-height: 86vh;
+      overflow: auto;
+      background: #0b0b20;
+      border: 1px solid rgba(255, 255, 255, .12);
+      border-radius: 14px;
+      padding: 14px;
+    }
+
+    .modal .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
   </style>
 </head>
 
 <body>
 
-  <!-- Logo para PDF -->
   <img id="logo-pdf" src="images/logo.jpg" alt="logo" />
 
-  <!-- Logo visible -->
   <img src="images/logo_blanco.jpg" alt="Logo Señalco" class="logo-entrada">
 
   <h1>📊 Base de Datos - Señalco</h1>
-
-  <!-- (Se mantiene por compatibilidad, pero está apagado por CSS) -->
-  <div id="update-bar">
-    <div class="msg">⬆️ Hay una actualización disponible</div>
-    <div class="actions">
-      <button class="mini-btn" id="btn-actualizar-app">Actualizar</button>
-      <button class="mini-btn" id="btn-ignorar-update" style="background:#555;">Más tarde</button>
-    </div>
-  </div>
 
   <label>Entidad</label>
   <input type="text" id="entidad" list="lista-entidades" placeholder="Ej: Banco Galicia" />
@@ -313,7 +335,7 @@
     <tbody></tbody>
   </table>
 
-  <!-- ✅ SECCIÓN 1: Importar (plegable / ocultable) -->
+  <!-- IMPORTAR (reducido, relevante) -->
   <div class="section" id="sec-importar">
     <div class="section-head" onclick="toggleSection('sec-importar')">
       <div class="section-title">📥 Importar</div>
@@ -327,18 +349,23 @@
           accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
           style="position:absolute; left:-9999px; width:1px; height:1px;" />
 
-        <button class="bigbtn" id="btn-importar-json-top">📤 Importar JSON</button>
+        <button class="bigbtn" id="btn-importar-json-top">📤 Importar 1 JSON</button>
         <input id="input-json-base-top" type="file" accept="application/json,.json"
           style="position:absolute; left:-9999px; width:1px; height:1px;" />
 
-        <button class="bigbtn" id="btn-importar-carpeta-top">📦 Importar carpeta (muchos JSON)</button>
-        <input id="input-json-folder-top" type="file" accept=".json,application/json" multiple webkitdirectory directory
+        <!-- ✅ Android-friendly: multiple -->
+        <button class="bigbtn" id="btn-importar-muchos-json">📦 Importar varios JSON</button>
+        <input id="input-json-muchos" type="file" accept="application/json,.json" multiple webkitdirectory directory
           style="position:absolute; left:-9999px; width:1px; height:1px;" />
+      </div>
+
+      <div style="margin-top:10px; font-size:12px; opacity:.85;">
+        Tip: en Android a veces “carpeta” no aparece. Igual podés seleccionar varios archivos a la vez.
       </div>
     </div>
   </div>
 
-  <!-- ✅ SECCIÓN 2: Acciones (plegable / ocultable) -->
+  <!-- ACCIONES -->
   <div class="section open" id="sec-acciones">
     <div class="section-head" onclick="toggleSection('sec-acciones')">
       <div class="section-title">⚙️ Acciones</div>
@@ -349,12 +376,12 @@
       <div class="btn-grid">
         <button class="bigbtn" id="btn-limpiar-base">🧹 Limpiar</button>
 
-        <!-- ✅ Guardar + backup ya descarga JSON => NO ponemos Descargar JSON aparte -->
-        <button class="bigbtn" id="btn-guardar-rapido">💾 Guardar en Mis Bases + Backup</button>
+        <!-- Guardar + backup JSON -->
+        <button class="bigbtn" id="btn-guardar-rapido">💾 Guardar en Bases + Backup JSON</button>
 
         <button class="bigbtn" id="btn-previsualizar">👁️ Previsualizar</button>
 
-        <button class="bigbtn" id="btn-generar-pdf-base">📄 Generar PDF</button>
+        <button class="bigbtn" id="btn-generar-pdf-base">📄 Exportar PDF</button>
 
         <button class="bigbtn" id="btn-excel-base">📊 Exportar Excel</button>
 
@@ -366,14 +393,14 @@
     </div>
   </div>
 
-  <!-- ✅ BUSCADOR RÁPIDO -->
+  <!-- BUSCADOR -->
   <div class="buscador-wrap">
-    <h3 style="margin:0 0 8px;">🔎 Buscador rápido de Bases</h3>
+    <h3 style="margin:0 0 8px;">🔎 Buscador rápido de Bases (teléfono)</h3>
 
-    <input id="buscar-rapido" placeholder="Escribí 3 letras (ej: gal) y filtra al toque..." />
+    <input id="buscar-rapido" placeholder="Escribí (ej: gal) y filtra al toque..." />
 
     <div style="opacity:.9; font-size:13px; margin-top:6px;">
-      ✅ Elegí en qué campos buscar (tildás casillas):
+      ✅ Elegí en qué campos buscar (si destildás todo, busca en todos):
     </div>
 
     <div class="chips" id="filtros-wrap">
@@ -392,7 +419,7 @@
     </div>
   </div>
 
-  <!-- ✅ Ventanita abajo (sin “Mis Bases” como opción) -->
+  <!-- Ventanita -->
   <div class="bases-window open" id="bases-window">
     <div class="bases-window-head" onclick="toggleBasesWindow()">
       <div class="bases-window-title">📁 Bases guardadas (lista)</div>
@@ -400,12 +427,11 @@
     </div>
 
     <div class="bases-window-body">
-      <!-- Acá renderiza la lista (máximo ~3 visibles + scroll) -->
       <div id="lista-bases-inline"></div>
     </div>
   </div>
 
-  <!-- ✅ Modal Previsualizar (lo mantiene el JS) -->
+  <!-- Modal Previsualizar -->
   <div id="modal-prev" class="modal">
     <div class="box">
       <div class="row">
@@ -423,6 +449,8 @@
     function cerrarSesion() {
       localStorage.removeItem("logueado");
       localStorage.removeItem("perfil");
+      localStorage.removeItem("usuario");
+      localStorage.removeItem("rol");
       window.location.href = "login.html";
     }
 
@@ -443,10 +471,8 @@
     }
   </script>
 
-  <!-- ✅ IMPORTANTE: orden correcto -->
   <script src="idb-base.js"></script>
   <script src="java-base.js"></script>
-
 </body>
 
 </html>
