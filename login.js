@@ -3,7 +3,9 @@
    ✅ Usuarios desde usuarios.json (repo)
    ✅ Admin descarga usuarios.json (vos lo subís al repo)
    ✅ Permisos por botón (base/relev/cctv/monitoreo)
-   ✅ No inicia solo admin: muestra "Continuar / Cerrar sesión"
+   ✅ NO auto-entrar solo por sesión, pero:
+      - Entrar SIEMPRE entra y muestra accesos
+      - Continuar sesión muestra accesos
    ✅ Botón Actualizar app: update SW + reload
 */
 
@@ -20,7 +22,7 @@ const FEATURES = [
   { id: "monitoreo", label: "🖥️ Monitoreo Web",        default: true }
 ];
 
-// Admin fijo (sí, está en JS; sin backend no existe “secreto real”)
+// Admin fijo (sin backend NO hay secreto real)
 const ADMIN_USER = "admin";
 const ADMIN_PASS = "Senalco2025";
 
@@ -116,17 +118,10 @@ function applyPermButtons(perms){
   }
 }
 
-function isAdminSession(){
-  const s = getSession();
-  return !!s && s.role === "admin" && s.user === ADMIN_USER;
-}
-
 // ---- Admin manager UI (se monta en #admin-manager-hook)
 function ensureAdminManagerUI(){
   const hook = $("admin-manager-hook");
   if (!hook) return;
-
-  // evitar duplicado
   if ($("admin-manager")) return;
 
   const box = document.createElement("div");
@@ -142,7 +137,7 @@ function ensureAdminManagerUI(){
   box.innerHTML = `
     <h3 style="margin:0 0 10px 0;">👤 Gestión de usuarios (Admin)</h3>
     <div style="opacity:.85;font-size:12px;margin-bottom:10px;">
-      Los usuarios salen de <b>usuarios.json</b> del repo. Acá podés armar la lista y descargar el JSON para subirlo.
+      Los usuarios salen de <b>usuarios.json</b> del repo. Acá armás la lista y descargás el JSON para subirlo.
     </div>
 
     <div style="display:grid; gap:10px; max-width:520px;">
@@ -195,13 +190,11 @@ function buildPermsFromForm(container){
   container.querySelectorAll("input[data-perm]").forEach(chk => {
     p[chk.dataset.perm] = !!chk.checked;
   });
-  // monitoreo por defecto true si no existe
   if (typeof p.monitoreo !== "boolean") p.monitoreo = true;
   return p;
 }
 
 function adminGetWorkingUsers(){
-  // trabajamos sobre el CACHE local, así podés armar la lista sin depender del fetch
   const data = getUsersCache();
   if (!data.users) data.users = [];
   return data;
@@ -237,7 +230,7 @@ async function adminCreateOrUpdateUser(){
   if ($("adm-new-pass")) $("adm-new-pass").value = "";
 
   adminRenderUsers();
-  alert("✅ Usuario guardado (en cache local). Ahora descargá usuarios.json y subilo al repo.");
+  alert("✅ Usuario guardado (en cache local). Descargá usuarios.json y subilo al repo.");
 }
 
 function adminDeleteUser(user){
@@ -303,7 +296,27 @@ function adminDownloadUsersJson(){
   a.remove();
   URL.revokeObjectURL(url);
 
-  alert("✅ Descargado: usuarios.json\n\nAhora subilo al repo reemplazando el anterior.");
+  alert("✅ Descargado: usuarios.json\nSubilo al repo reemplazando el anterior.");
+}
+
+// ---- Mostrar accesos
+function showAfterLogin(forceOpen = false){
+  const s = getSession();
+  if (!s) return;
+
+  if (forceOpen) showPanelAccesos(true);
+
+  applyPermButtons(s.perms || defaultPerms());
+
+  if (s.role === "admin"){
+    ensureAdminManagerUI();
+    // el admin manager aparece SOLO si el panel está abierto
+  } else {
+    const hook = $("admin-manager-hook");
+    if (hook) hook.innerHTML = "";
+  }
+
+  syncSessionButtons();
 }
 
 // ---- Login
@@ -325,11 +338,11 @@ async function loginGeneral(){
       ts: Date.now()
     });
     setStatus("✅ Sesión iniciada: admin");
-    showAfterLogin();
+    showAfterLogin(true); // ✅ ABRIR panel sí o sí
     return;
   }
 
-  // Técnico: buscamos users desde repo (y si falla, cache)
+  // Técnico: buscar users desde repo (y si falla, cache)
   let data;
   try {
     data = await fetchUsersFromRepo();
@@ -360,34 +373,15 @@ async function loginGeneral(){
   });
 
   setStatus(`✅ Sesión iniciada: ${usuario}`);
-  showAfterLogin();
+  showAfterLogin(true); // ✅ ABRIR panel sí o sí
 }
 
 function logout(){
   clearSession();
   showPanelAccesos(false);
   setStatus("Sesión cerrada.");
-  // limpia inputs
   if ($("usuario")) $("usuario").value = "";
   if ($("clave")) $("clave").value = "";
-  syncSessionButtons();
-}
-
-function showAfterLogin(){
-  const s = getSession();
-  if (!s) return;
-
-  showPanelAccesos(true);
-  applyPermButtons(s.perms || defaultPerms());
-
-  if (s.role === "admin"){
-    ensureAdminManagerUI();
-  } else {
-    // si no es admin, ocultamos panel admin si existía
-    const hook = $("admin-manager-hook");
-    if (hook) hook.innerHTML = "";
-  }
-
   syncSessionButtons();
 }
 
@@ -395,20 +389,16 @@ function syncSessionButtons(){
   const s = getSession();
   const btnLogout = $("btn-cerrar-sesion");
   const btnCont = $("btn-continuar");
-  const panel = $("seleccion-planillas");
 
   if (!btnLogout || !btnCont) return;
 
   if (s){
-    // NO auto-entrar: solo mostramos continuar / cerrar
     btnLogout.style.display = "inline-block";
     btnCont.style.display = "inline-block";
-    if (panel) panel.classList.remove("active");
     setStatus(`Sesión detectada: ${s.user} (${s.role}). Tocá “Continuar sesión” o “Cerrar sesión”.`);
   } else {
     btnLogout.style.display = "none";
     btnCont.style.display = "none";
-    if (panel) panel.classList.remove("active");
   }
 }
 
@@ -423,8 +413,6 @@ async function updateApp(){
     const reg = await navigator.serviceWorker.getRegistration();
     if (reg) {
       await reg.update();
-
-      // si hay waiting, pedirle que active
       if (reg.waiting) {
         reg.waiting.postMessage({ type: "SKIP_WAITING" });
       }
@@ -432,33 +420,31 @@ async function updateApp(){
   } catch (e) {
     console.warn("updateApp error:", e);
   } finally {
-    // recarga fuerte
     window.location.reload();
   }
 }
 
 // ---- Boot
 document.addEventListener("DOMContentLoaded", async () => {
-  // Botones
   $("btn-login")?.addEventListener("click", () => loginGeneral());
   $("btn-cerrar-sesion")?.addEventListener("click", () => logout());
-  $("btn-continuar")?.addEventListener("click", () => showAfterLogin());
+
+  // ✅ Continuar ahora ABRE el panel
+  $("btn-continuar")?.addEventListener("click", () => showAfterLogin(true));
+
   $("btn-actualizar-app")?.addEventListener("click", () => updateApp());
 
-  // enter en clave
   $("clave")?.addEventListener("keydown", (e) => {
     if (e.key === "Enter") loginGeneral();
   });
 
-  // Detectar sesión pero NO auto entrar
   syncSessionButtons();
 
-  // precargar cache (no molesta si falla)
+  // precargar cache
   try {
     const data = await fetchUsersFromRepo();
     setUsersCache(data);
   } catch {}
 });
 
-// Exponer borrar (lo usa onclick del admin list)
 window.adminDeleteUser = adminDeleteUser;
