@@ -1,6 +1,11 @@
+Parque industrial Burzaco		instalacion 2 ATM	22/02/* login.js - Señalco (Login único + permisos + usuarios.json + update app) */
+
 const USERS_JSON_URL = "./usuarios.json";
 const SESSION_KEY = "senalco_session_v2";
 const USERS_CACHE_KEY = "senalco_users_cache_v2";
+
+// ⏳ Expiración de sesión (evita “se quedó admin logueado para siempre”)
+const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 días
 
 const MONITOREO_URL = "https://itsenalco.com/monitoreo/web/";
 
@@ -47,13 +52,35 @@ async function sha256Hex(text){
 }
 
 // ---- Sesión
-function getSession(){ return lsGet(SESSION_KEY, null); }
-function setSession(sess){ lsSet(SESSION_KEY, sess); }
-function clearSession(){ localStorage.removeItem(SESSION_KEY); }
+function getSessionRaw(){ return lsGet(SESSION_KEY, null); }
+
+function getSessionValidated(){
+  const s = getSessionRaw();
+  if (!s) return null;
+
+  const ts = Number(s.ts || 0);
+  if (!ts || (Date.now() - ts) > SESSION_TTL_MS){
+    // Expiró
+    localStorage.removeItem(SESSION_KEY);
+    return null;
+  }
+  return s;
+}
+
+function setSession(sess){
+  lsSet(SESSION_KEY, sess);
+}
+function clearSession(){
+  localStorage.removeItem(SESSION_KEY);
+}
 
 // ---- Users cache
-function getUsersCache(){ return lsGet(USERS_CACHE_KEY, { version: 1, updatedAt: 0, users: [] }); }
-function setUsersCache(data){ lsSet(USERS_CACHE_KEY, data); }
+function getUsersCache(){
+  return lsGet(USERS_CACHE_KEY, { version: 1, updatedAt: 0, users: [] });
+}
+function setUsersCache(data){
+  lsSet(USERS_CACHE_KEY, data);
+}
 
 async function fetchUsersFromRepo(){
   const url = `${USERS_JSON_URL}?ts=${Date.now()}`;
@@ -64,14 +91,38 @@ async function fetchUsersFromRepo(){
   return data;
 }
 
-// ---- UI
-function showPanelAccesos(show){
-  const p = $("seleccion-planillas");
-  if (!p){
-    setStatus("⚠️ No encuentro el panel de accesos (#seleccion-planillas). Revisá login.html.");
-    return;
+// ---- UI: mostrar/ocultar bloques (login vs accesos)
+function setUIState(isLogged){
+  // Elementos del bloque login
+  const loginFields = document.querySelectorAll(".login-field");
+  const loginActions = document.querySelector(".login-actions");
+  const btnLogin = $("btn-login");
+  const btnActualizar = $("btn-actualizar-app");
+  const titulo = document.querySelector(".login-h1");
+  const texto = document.querySelector(".login-p");
+
+  // Elementos del bloque accesos
+  const panelAccesos = $("seleccion-planillas");
+
+  if (isLogged){
+    loginFields.forEach(el => el.style.display = "none");
+    if (loginActions) loginActions.style.display = "none";
+    if (btnLogin) btnLogin.style.display = "none";
+    if (btnActualizar) btnActualizar.style.display = "none";
+    if (titulo) titulo.style.display = "none";
+    if (texto) texto.style.display = "none";
+
+    if (panelAccesos) panelAccesos.classList.add("active");
+  } else {
+    loginFields.forEach(el => el.style.display = "");
+    if (loginActions) loginActions.style.display = "";
+    if (btnLogin) btnLogin.style.display = "";
+    if (btnActualizar) btnActualizar.style.display = "";
+    if (titulo) titulo.style.display = "";
+    if (texto) texto.style.display = "";
+
+    if (panelAccesos) panelAccesos.classList.remove("active");
   }
-  p.classList.toggle("active", !!show);
 }
 
 function applyPermButtons(perms){
@@ -100,19 +151,18 @@ function applyPermButtons(perms){
 }
 
 function syncSessionButtons(){
-  const s = getSession();
+  const s = getSessionValidated();
   const btnLogout = $("btn-cerrar-sesion");
   const btnCont = $("btn-continuar");
+
   if (!btnLogout || !btnCont) return;
 
   if (s){
     btnLogout.style.display = "inline-block";
-    btnCont.style.display = "inline-block";
-    setStatus(`Sesión detectada: ${s.user} (${s.role}). Tocá “Continuar sesión” o “Cerrar sesión”.`);
+    btnCont.style.display = "none"; // ✅ ya no hace falta “continuar”: entra directo
   } else {
     btnLogout.style.display = "none";
     btnCont.style.display = "none";
-    setStatus("Sesión cerrada.");
   }
 }
 
@@ -295,22 +345,32 @@ function adminDownloadUsersJson(){
   alert("✅ Descargado: usuarios.json\nSubilo al repo reemplazando el anterior.");
 }
 
-// ---- Mostrar accesos
-function showAfterLogin(forceOpen=false){
-  const s = getSession();
-  if (!s) return;
+// ---- Render principal
+function renderFromSession(){
+  const s = getSessionValidated();
 
-  if (forceOpen) showPanelAccesos(true);
-
-  applyPermButtons(s.perms || defaultPerms());
-
-  if (s.role === "admin") ensureAdminManagerUI();
-  else {
+  if (!s){
+    setUIState(false);
+    syncSessionButtons();
+    // limpiar panel admin si quedó
     const hook = $("admin-manager-hook");
     if (hook) hook.innerHTML = "";
+    setStatus("Sesión cerrada.");
+    return;
   }
 
+  setUIState(true);
+  applyPermButtons(s.perms || defaultPerms());
   syncSessionButtons();
+
+  if (s.role === "admin"){
+    ensureAdminManagerUI();
+    setStatus(`✅ Sesión iniciada: ${s.user} (admin)`);
+  } else {
+    const hook = $("admin-manager-hook");
+    if (hook) hook.innerHTML = "";
+    setStatus(`✅ Sesión iniciada: ${s.user}`);
+  }
 }
 
 // ---- Login
@@ -323,13 +383,14 @@ async function loginGeneral(){
     return;
   }
 
+  // Admin fijo
   if (usuario === ADMIN_USER && clave === ADMIN_PASS){
     setSession({ user: ADMIN_USER, role: "admin", perms: defaultPerms(), ts: Date.now() });
-    setStatus("✅ Sesión iniciada: admin");
-    showAfterLogin(true);
+    renderFromSession();
     return;
   }
 
+  // Users desde repo (o cache)
   let data;
   try {
     data = await fetchUsersFromRepo();
@@ -347,18 +408,17 @@ async function loginGeneral(){
   if (found.passHash !== passHash){ alert("Credenciales incorrectas"); return; }
 
   setSession({ user: usuario, role: "user", perms: found.perms || defaultPerms(), ts: Date.now() });
-  setStatus(`✅ Sesión iniciada: ${usuario}`);
-  showAfterLogin(true);
+  renderFromSession();
 }
 
 function logout(){
   clearSession();
-  showPanelAccesos(false);
   if ($("usuario")) $("usuario").value = "";
   if ($("clave")) $("clave").value = "";
-  syncSessionButtons();
+  renderFromSession();
 }
 
+// ---- Actualizar app
 async function updateApp(){
   try {
     if (!("serviceWorker" in navigator)) { window.location.reload(); return; }
@@ -370,6 +430,7 @@ async function updateApp(){
   } catch (e) {
     console.warn("updateApp error:", e);
   } finally {
+    // reload “duro”
     window.location.reload();
   }
 }
@@ -378,19 +439,21 @@ async function updateApp(){
 document.addEventListener("DOMContentLoaded", async () => {
   $("btn-login")?.addEventListener("click", loginGeneral);
   $("btn-cerrar-sesion")?.addEventListener("click", logout);
-  $("btn-continuar")?.addEventListener("click", () => showAfterLogin(true));
   $("btn-actualizar-app")?.addEventListener("click", updateApp);
 
   $("clave")?.addEventListener("keydown", (e) => {
     if (e.key === "Enter") loginGeneral();
   });
 
-  syncSessionButtons();
-
+  // precarga cache users (no rompe si falla)
   try {
     const data = await fetchUsersFromRepo();
     setUsersCache(data);
   } catch {}
+
+  // ✅ Render real al abrir: si hay sesión → muestra accesos; si no → muestra login
+  renderFromSession();
 });
 
+// Exponer para botones inline del admin
 window.adminDeleteUser = adminDeleteUser;
