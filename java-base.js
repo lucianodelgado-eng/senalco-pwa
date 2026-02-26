@@ -1,1098 +1,812 @@
-/***********************
- *   Señalco - Base    *
- * java-base.js FULL   *
- * (optimizado UI sin romper)
- ***********************/
+// java-base.js — Señalco Base de Datos
+// Objetivo: seleccionar sucursal desde sucursales.json, autocompletar datos,
+// y al elegir una sucursal traer automáticamente el ÚLTIMO JSON guardado para esa sucursal.
 
-/** =========================
- *  Listas
- *  ========================= */
-const eventos = [
-  "- Sin tipo definido -",
-  "Avería de linea",
-  "Averia de linea",
-  "Falta de 220V",
-  "Alarma", "Robo", "Asalto",
-  "clave", "Sabotaje", "Apertura de Equipo",
-  "Puls. Remoto - Falla Red", "ALM + 4 HS", "Asalto Clave Falsa",
-  "Falla activador portátil", "Falla cent. Policial. GPRS OK", "Falla Comunicación GPRS",
-  "Falla de Conexión al Servidor GPRS", "Falla de PT", "Falla Enlace Red PT",
-  "Incendio", "Otros",
-  "Prevención con Policía", "Prevención de Red", "Prevención Placa Acicomp",
-  "Puerta Abierta", "Sirena Disparada"
-];
+(() => {
+  "use strict";
 
-const areas = [
-  "-", "Acceso Exterior", "Archivo", "ATM", "AutoConsulta", "Baños", "Bunker",
-  "Caja de Seguridad", "Cajas de Pago", "Castillete", "Central Incendio", "Cocina",
-  "Deposito", "Gerencia", "Guardia", "Oficinas", "Recinto ATM - Area",
-  "Recinto Autocons", "Recinto Caja Seg", "Recinto Tesoro", "Sala Back Office",
-  "T.A.S.", "Terraza", "Tesorería", "Tesoro Boveda", "Tesoro Documentos",
-  "Tesoro Efectivo", "Tesoro Movil", "Volumetrica", "Otros"
-];
+  const SUCURSALES_JSON_URL = "sucursales.json"; // poner este archivo en la misma carpeta
+  const KEY_SUC_CACHE = "senalco_sucursales_v1";
+  const KEY_LATEST = "senalco_bases_latest_v1";
+  const KEY_HISTORY = "senalco_bases_history_v1";
 
-const dispositivos = [
-  "-",
-  "Activado Portatil",
-  "Sismico",
-  "Puerta",
-  "Termico",
-  "Sabotaje",
-  "Volumetricos",
-  "Infrarrojo Pasivo",
-  "Puerta Exterior",
-  "Pulsador Fijo",
-  "Pulsador Remoto",
-  "Sensor de Humo",
-  "Tamper Teclado",
-  "Tapa Superior",
-  "otros"
-];
+  let SUC_DATA = null;
+  let zonasEditable123 = false;
 
-/** ==========================================
- *  Flags / State
- *  ========================================== */
-let zonas123Editables = false;
-
-// base “actual”
-const CURRENT_NAME_KEY = "senalco_current_base_name";
-function getCurrentBaseName() { return localStorage.getItem(CURRENT_NAME_KEY) || ""; }
-function setCurrentBaseName(name) {
-  if (!name) localStorage.removeItem(CURRENT_NAME_KEY);
-  else localStorage.setItem(CURRENT_NAME_KEY, name);
-}
-
-/** ==========================================
- *  Utilidades
- *  ========================================== */
-function $(id) { return document.getElementById(id); }
-function pad2(n) { return String(n).padStart(2, "0"); }
-
-function fechaGeneradoLocal() {
-  const d = new Date();
-  return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
-}
-function fechaStamp() {
-  const d = new Date();
-  return `${d.getFullYear()}${pad2(d.getMonth() + 1)}${pad2(d.getDate())}_${pad2(d.getHours())}${pad2(d.getMinutes())}${pad2(d.getSeconds())}`;
-}
-
-function safeName(s) {
-  return (s || "base").toString().trim().replace(/\s+/g, "_").replace(/[^\w\-()]/g, "_");
-}
-
-function getZonaNumberFromText(z) {
-  const m = String(z || "").match(/(\d{1,2})/);
-  return m ? parseInt(m[1], 10) : null;
-}
-
-function normKey(s) {
-  return String(s || "")
-    .trim()
-    .toLowerCase()
-    .replaceAll("á", "a").replaceAll("é", "e").replaceAll("í", "i").replaceAll("ó", "o").replaceAll("ú", "u")
-    .replace(/\s+/g, " ");
-}
-
-function escapeHtml(s) {
-  return String(s ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
-
-/** ==========================================
- *  Entidades (datalist)
- *  ========================================== */
-const ENTIDADES_AR = [
-  "Banco de la Nación Argentina",
-  "Banco de la Provincia de Buenos Aires",
-  "Banco Ciudad",
-  "Banco Santander Río",
-  "Banco Galicia",
-  "BBVA Argentina",
-  "Banco Macro",
-  "Banco Comafi",
-  "Banco Patagonia",
-  "Banco Hipotecario",
-  "Banco Supervielle",
-  "Banco Itaú (operación migrada)",
-  "Banco Credicoop",
-  "Banco ICBC",
-  "Banco Provincia de Córdoba",
-  "Banco de Santa Fe",
-  "Banco de Entre Ríos",
-  "Banco San Juan",
-  "Banco Santa Cruz",
-  "Banco del Chubut",
-  "Banco del Neuquén",
-  "Banco Corrientes",
-  "Banco Bica",
-  "Banco Industrial",
-  "Banco CMF",
-  "Banco del Sol",
-  "Banco Dino",
-  "Banco de Formosa",
-  "Banco de La Pampa",
-  "Banco de Tierra del Fuego",
-  "Musimundo",
-  "Otros"
-];
-
-function poblarDatalistEntidades() {
-  const dl = $("lista-entidades");
-  if (!dl) return;
-  dl.innerHTML = "";
-  ENTIDADES_AR.forEach(n => {
-    const opt = document.createElement("option");
-    opt.value = n;
-    dl.appendChild(opt);
-  });
-}
-
-/** ==========================================
- *  Storage Keys (LS)
- *  ========================================== */
-const INDEX_KEY = "senalco_bases_index";
-const BASE_PREFIX = "senalco_base_";
-const AUTOSAVE_KEY = "senalco_base_autosave";
-
-function getIndex() {
-  try { return JSON.parse(localStorage.getItem(INDEX_KEY) || "[]"); }
-  catch { return []; }
-}
-function setIndex(list) {
-  localStorage.setItem(INDEX_KEY, JSON.stringify(list));
-}
-function baseKey(nombre) { return BASE_PREFIX + nombre; }
-
-/** ==========================================
- *  DOM Bindings
- *  ========================================== */
-function asignarEventosBase() {
-  $("btn-limpiar-base")?.addEventListener("click", limpiarBase);
-  $("btn-generar-pdf-base")?.addEventListener("click", generarPDF);
-  $("btn-excel-base")?.addEventListener("click", generarExcel);
-
-  // Import Excel
-  $("btn-subir-excel")?.addEventListener("click", () => $("input-excel-base")?.click());
-  $("input-excel-base")?.addEventListener("change", async (e) => {
-    const f = e.target.files?.[0];
-    if (f) await importarExcelBase(f);
-    e.target.value = "";
-  });
-
-  // Import JSON
-  $("btn-importar-json-top")?.addEventListener("click", () => $("input-json-base-top")?.click());
-  $("input-json-base-top")?.addEventListener("change", (e) => {
-    const f = e.target.files?.[0];
-    if (f) importarJSONBase(f);
-    e.target.value = "";
-  });
-
-  // Import folder (muchos JSON)
-  $("btn-importar-carpeta-top")?.addEventListener("click", () => $("input-json-folder-top")?.click());
-  $("input-json-folder-top")?.addEventListener("change", async (e) => {
-    const files = Array.from(e.target.files || []).filter(f => (f.name || "").toLowerCase().endsWith(".json"));
-    if (files.length) await importarMuchosJSON(files);
-    e.target.value = "";
-  });
-
-  // Guardar rápido + backup
-  $("btn-guardar-rapido")?.addEventListener("click", guardarRapidoConBackup);
-
-  // Previsualizar
-  $("btn-previsualizar")?.addEventListener("click", abrirPrevisualizacion);
-  $("btn-cerrar-prev")?.addEventListener("click", cerrarPrevisualizacion);
-  $("btn-descargar-pdf-prev")?.addEventListener("click", generarPDF);
-
-  // Buscador rápido (filtra ventanita)
-  $("buscar-rapido")?.addEventListener("input", () => renderBasesMini());
-  document.querySelectorAll(".filtro-check").forEach(chk => {
-    chk.addEventListener("change", () => renderBasesMini());
-  });
-  $("btn-limpiar-buscador")?.addEventListener("click", () => {
-    if ($("buscar-rapido")) $("buscar-rapido").value = "";
-    renderBasesMini();
-  });
-
-  // Zonas 1-3 bloquear/desbloquear
-  $("btn-editar-zonas123")?.addEventListener("click", () => {
-    zonas123Editables = true;
-    aplicarBloqueoZonas123();
-    alert("🔓 Zonas 1-3 habilitadas para editar");
-  });
-
-  $("btn-bloquear-zonas123")?.addEventListener("click", () => {
-    zonas123Editables = false;
-    aplicarBloqueoZonas123();
-    alert("🔒 Zonas 1-3 bloqueadas");
-  });
-
-  // Autosave cabecera
-  ["entidad", "sucursal", "abonado", "central", "provincia"].forEach(id => {
-    $(id)?.addEventListener("input", autosaveBase);
-  });
-}
-
-/** ==========================================
- *  Tabla zonas 1..24
- *  ========================================== */
-function precargarZonas() {
-  const tbody = document.querySelector("#tabla-base tbody");
-  if (!tbody) return;
-  tbody.innerHTML = "";
-
-  for (let i = 1; i <= 24; i++) tbody.appendChild(crearFilaZona(i));
-
-  aplicarDefaultsZonas123SiVacias();
-  aplicarBloqueoZonas123();
-  autosaveBase();
-}
-
-function crearFilaZona(numeroZona) {
-  const fila = document.createElement("tr");
-  fila.dataset.zona = String(numeroZona);
-
-  const celdaZona = document.createElement("td");
-  celdaZona.textContent = "Zona " + numeroZona;
-
-  // EVENTO
-  const celdaEvento = document.createElement("td");
-  const selectEvento = document.createElement("select");
-  eventos.forEach(e => {
-    const option = document.createElement("option");
-    option.textContent = e;
-    option.value = e;
-    selectEvento.appendChild(option);
-  });
-  const inputEventoOtro = document.createElement("input");
-  inputEventoOtro.placeholder = "Especificar evento";
-  inputEventoOtro.style.display = "none";
-  selectEvento.addEventListener("change", () => {
-    inputEventoOtro.style.display = selectEvento.value === "Otros" ? "inline-block" : "none";
-    autosaveBase();
-  });
-  inputEventoOtro.addEventListener("input", autosaveBase);
-  celdaEvento.appendChild(selectEvento);
-  celdaEvento.appendChild(inputEventoOtro);
-
-  // ÁREA
-  const celdaArea = document.createElement("td");
-  const selectArea = document.createElement("select");
-  areas.forEach(a => {
-    const option = document.createElement("option");
-    option.textContent = a;
-    option.value = a;
-    selectArea.appendChild(option);
-  });
-  const inputAreaOtro = document.createElement("input");
-  inputAreaOtro.placeholder = "Especificar área";
-  inputAreaOtro.style.display = "none";
-  selectArea.addEventListener("change", () => {
-    inputAreaOtro.style.display = selectArea.value === "Otros" ? "inline-block" : "none";
-    autosaveBase();
-  });
-  inputAreaOtro.addEventListener("input", autosaveBase);
-  celdaArea.appendChild(selectArea);
-  celdaArea.appendChild(inputAreaOtro);
-
-  // DISPOSITIVO
-  const celdaDispositivo = document.createElement("td");
-  const selectDispositivo = document.createElement("select");
-  dispositivos.forEach(d => {
-    const option = document.createElement("option");
-    option.textContent = d;
-    option.value = d;
-    selectDispositivo.appendChild(option);
-  });
-  const inputDispositivoOtro = document.createElement("input");
-  inputDispositivoOtro.placeholder = "Especificar dispositivo";
-  inputDispositivoOtro.style.display = "none";
-  selectDispositivo.addEventListener("change", () => {
-    inputDispositivoOtro.style.display = selectDispositivo.value === "otros" ? "inline-block" : "none";
-    autosaveBase();
-  });
-  inputDispositivoOtro.addEventListener("input", autosaveBase);
-  celdaDispositivo.appendChild(selectDispositivo);
-  celdaDispositivo.appendChild(inputDispositivoOtro);
-
-  // DESCRIPCIÓN
-  const celdaDescripcion = document.createElement("td");
-  const inputDescripcion = document.createElement("input");
-  inputDescripcion.addEventListener("input", autosaveBase);
-  celdaDescripcion.appendChild(inputDescripcion);
-
-  fila.appendChild(celdaZona);
-  fila.appendChild(celdaEvento);
-  fila.appendChild(celdaArea);
-  fila.appendChild(celdaDispositivo);
-  fila.appendChild(celdaDescripcion);
-
-  return fila;
-}
-
-/** ✅ Defaults y bloqueo zonas 1..3 */
-function aplicarDefaultsZonas123SiVacias() {
-  const filas = document.querySelectorAll("#tabla-base tbody tr");
-
-  const defaults = {
-    1: "Avería de linea",
-    2: "Apertura de Equipo",
-    3: "Falta de 220V"
-  };
-
-  [1, 2, 3].forEach(z => {
-    const tr = Array.from(filas).find(r => r.dataset.zona === String(z));
-    if (!tr) return;
-
-    const selEvento = tr.querySelector("td:nth-child(2) select");
-    const selArea = tr.querySelector("td:nth-child(3) select");
-    const selDisp = tr.querySelector("td:nth-child(4) select");
-    const desc = tr.querySelector("td:nth-child(5) input");
-
-    const vacia =
-      (!selEvento?.value || selEvento.value === "- Sin tipo definido -") &&
-      (!selArea?.value || selArea.value === "-") &&
-      (!selDisp?.value || selDisp.value === "-") &&
-      !(desc?.value || "").trim();
-
-    if (!vacia) return;
-
-    const ev = defaults[z];
-    if (selEvento) selEvento.value = eventos.includes(ev) ? ev : "- Sin tipo definido -";
-    if (selArea) selArea.value = "-";
-    if (selDisp) selDisp.value = "-";
-    if (desc) desc.value = "";
-  });
-}
-
-function aplicarBloqueoZonas123() {
-  const filas = document.querySelectorAll("#tabla-base tbody tr");
-  filas.forEach(tr => {
-    const zona = parseInt(tr.dataset.zona, 10);
-    if (![1, 2, 3].includes(zona)) return;
-
-    tr.querySelectorAll("td:nth-child(n+2) select, td:nth-child(n+2) input").forEach(el => {
-      el.disabled = !zonas123Editables;
-      el.style.opacity = !zonas123Editables ? "0.85" : "1";
-    });
-  });
-
-  if ($("btn-editar-zonas123")) $("btn-editar-zonas123").style.display = zonas123Editables ? "none" : "inline-block";
-  if ($("btn-bloquear-zonas123")) $("btn-bloquear-zonas123").style.display = zonas123Editables ? "inline-block" : "none";
-}
-
-/** ==========================================
- *  Limpiar
- *  ========================================== */
-function limpiarBase() {
-  $("entidad").value = "";
-  $("sucursal").value = "";
-  $("abonado").value = "";
-  $("central").value = "";
-  $("provincia").value = "";
-
-  zonas123Editables = false;
-  setCurrentBaseName("");
-  precargarZonas();
-  autosaveBase();
-}
-
-/** ==========================================
- *  Construir JSON Base
- *  ========================================== */
-function construirJSONBase() {
-  const datos = {
-    meta: { generado: fechaGeneradoLocal() },
-    entidad: $("entidad").value,
-    sucursal: $("sucursal").value,
-    abonado: $("abonado").value,
-    central: $("central").value,
-    provincia: $("provincia")?.value || "",
-    zonas: []
-  };
-
-  const filas = document.querySelectorAll("#tabla-base tbody tr");
-  filas.forEach(fila => {
-    const celdas = fila.querySelectorAll("td");
-
-    const selectEvento = celdas[1].querySelector("select");
-    const inputEventoOtro = celdas[1].querySelector("input");
-    const evento = (selectEvento.value === "Otros" && inputEventoOtro.value.trim())
-      ? inputEventoOtro.value.trim()
-      : selectEvento.value;
-
-    const selectArea = celdas[2].querySelector("select");
-    const inputAreaOtro = celdas[2].querySelector("input");
-    const area = (selectArea.value === "Otros" && inputAreaOtro.value.trim())
-      ? inputAreaOtro.value.trim()
-      : selectArea.value;
-
-    const selectDisp = celdas[3].querySelector("select");
-    const inputDispOtro = celdas[3].querySelector("input");
-    const disp = (selectDisp.value === "otros" && inputDispOtro.value.trim())
-      ? inputDispOtro.value.trim()
-      : selectDisp.value;
-
-    datos.zonas.push({
-      zona: celdas[0].textContent,
-      evento,
-      area,
-      dispositivo: disp,
-      descripcion: celdas[4].querySelector("input").value
-    });
-  });
-
-  return datos;
-}
-
-/** ==========================================
- *  Naming
- *  ========================================== */
-function generarNombreAuto() {
-  const e = safeName($("entidad").value || "Entidad");
-  const s = safeName($("sucursal").value || "Suc");
-  const a = safeName($("abonado").value || "");
-  const base = [e, s, a].filter(Boolean).join("_");
-  return base || `Base_${fechaStamp()}`;
-}
-
-function addToIndex(nombre) {
-  const idx = getIndex();
-  if (!idx.includes(nombre)) idx.unshift(nombre);
-  else {
-    const n = idx.filter(x => x !== nombre);
-    n.unshift(nombre);
-    setIndex(n);
-    return;
+  // ---------- helpers storage ----------
+  function safeJSONParse(str, fallback) {
+    try { return JSON.parse(str); } catch { return fallback; }
   }
-  setIndex(idx);
-}
+  function loadLatestMap() {
+    return safeJSONParse(localStorage.getItem(KEY_LATEST) || "{}", {});
+  }
+  function saveLatestMap(map) {
+    localStorage.setItem(KEY_LATEST, JSON.stringify(map));
+  }
+  function loadHistoryArr() {
+    return safeJSONParse(localStorage.getItem(KEY_HISTORY) || "[]", []);
+  }
+  function saveHistoryArr(arr) {
+    localStorage.setItem(KEY_HISTORY, JSON.stringify(arr));
+  }
 
-/** ==========================================
- *  Guardar rápido + Backup
- *  ========================================== */
-function guardarRapidoConBackup() {
-  const data = construirJSONBase();
+  // ---------- key ----------
+  function makeKey(entidad, sucursal, abonado, central) {
+    return [
+      (entidad || "").trim().toLowerCase(),
+      (sucursal || "").trim().toLowerCase(),
+      (abonado || "").trim().toLowerCase(),
+      (central || "").trim().toLowerCase(),
+    ].join("|");
+  }
 
-  const current = getCurrentBaseName();
-  let nombre = "";
+  // ---------- DOM ----------
+  const $ = (id) => document.getElementById(id);
 
-  if (current && localStorage.getItem(baseKey(current))) {
-    nombre = `${current} (mod ${fechaStamp()})`;
-  } else {
-    nombre = generarNombreAuto();
-    if (localStorage.getItem(baseKey(nombre))) {
-      nombre = `${nombre} (mod ${fechaStamp()})`;
+  function getUIHead() {
+    return {
+      entidad: ($("entidad")?.value || "").trim(),
+      sucursal: ($("sucursal")?.value || "").trim(),
+      abonado: ($("abonado")?.value || "").trim(),
+      central: ($("central")?.value || "").trim(),
+      provincia: ($("provincia")?.value || "").trim(),
+    };
+  }
+
+  function setUIHead(head) {
+    if ($("entidad")) $("entidad").value = head.entidad || "";
+    if ($("sucursal")) $("sucursal").value = head.sucursal || "";
+    if ($("abonado")) $("abonado").value = head.abonado || "";
+    if ($("central")) $("central").value = head.central || "";
+    if ($("provincia")) $("provincia").value = head.provincia || "";
+  }
+
+  // ---------- table ----------
+  function ensureDefaultRows(count = 5) {
+    const tbody = $("tabla-base")?.querySelector("tbody");
+    if (!tbody) return;
+
+    const existing = tbody.querySelectorAll("tr").length;
+    if (existing >= count) return;
+
+    for (let i = existing + 1; i <= count; i++) {
+      const tr = document.createElement("tr");
+      tr.dataset.zona = String(i);
+
+      // Zona
+      const tdZona = document.createElement("td");
+      tdZona.textContent = `Zona ${i}`;
+      tr.appendChild(tdZona);
+
+      // Evento
+      tr.appendChild(makeInputCell("evento", i));
+
+      // Área
+      tr.appendChild(makeInputCell("area", i));
+
+      // Dispositivo
+      tr.appendChild(makeInputCell("dispositivo", i));
+
+      // Descripción
+      tr.appendChild(makeInputCell("descripcion", i));
+
+      tbody.appendChild(tr);
     }
+
+    // Por defecto, bloqueamos edición Z1-3 (se habilita con botón)
+    applyEditLockToZonas123();
   }
 
-  localStorage.setItem(baseKey(nombre), JSON.stringify(data));
-
-  // IDB silencioso
-  if (typeof idbPutBase === "function") {
-    idbPutBase(baseKey(nombre), data).catch(console.warn);
+  function makeInputCell(field, zonaNum) {
+    const td = document.createElement("td");
+    const inp = document.createElement("input");
+    inp.type = "text";
+    inp.autocomplete = "off";
+    inp.dataset.field = field;
+    inp.dataset.zona = String(zonaNum);
+    inp.placeholder = "-";
+    td.appendChild(inp);
+    return td;
   }
 
-  addToIndex(nombre);
-  setCurrentBaseName(nombre);
+  function readTableRows() {
+    const tbody = $("tabla-base")?.querySelector("tbody");
+    if (!tbody) return [];
+    const rows = [];
+    tbody.querySelectorAll("tr").forEach(tr => {
+      const zonaNum = tr.dataset.zona || "";
+      const vals = {};
+      tr.querySelectorAll("input").forEach(inp => {
+        const f = inp.dataset.field;
+        vals[f] = (inp.value || "").trim();
+      });
+      rows.push({
+        zona: `Zona ${zonaNum}`,
+        evento: vals.evento || "",
+        area: vals.area || "",
+        dispositivo: vals.dispositivo || "",
+        descripcion: vals.descripcion || "",
+      });
+    });
+    return rows;
+  }
 
-  // Backup JSON
-  descargarRawComoJSON(nombre, JSON.stringify(data));
+  function writeTableRows(rows) {
+    const tbody = $("tabla-base")?.querySelector("tbody");
+    if (!tbody) return;
 
-  renderBasesMini();
-  alert("✅ Guardado + Backup\n" + nombre);
-}
+    // reconstruimos
+    tbody.innerHTML = "";
+    const safeRows = Array.isArray(rows) ? rows : [];
+    const count = Math.max(5, safeRows.length || 0);
 
-function descargarRawComoJSON(nombre, rawJsonString) {
-  const blob = new Blob([rawJsonString], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `base_${safeName(nombre)}_${safeName(fechaStamp())}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
+    for (let i = 1; i <= count; i++) {
+      const tr = document.createElement("tr");
+      tr.dataset.zona = String(i);
 
-/** ==========================================
- *  Export JSON directo desde tarjeta (sin abrir)
- *  ========================================== */
-function exportarBaseComoJSON(nombre) {
-  const raw = localStorage.getItem(baseKey(nombre));
-  if (!raw) return alert("❌ No se encontró la base");
-  descargarRawComoJSON(nombre, raw);
-}
+      const tdZona = document.createElement("td");
+      tdZona.textContent = `Zona ${i}`;
+      tr.appendChild(tdZona);
 
-/** ==========================================
- *  Importar JSON (1) => carga a pantalla (no guarda)
- *  ========================================== */
-function importarJSONBase(file) {
-  const reader = new FileReader();
-  reader.onload = () => {
-    try {
-      const data = JSON.parse(reader.result);
-      cargarDataEnPantalla(data);
-      setCurrentBaseName("");
-      alert("✅ JSON importado (cabecera + zonas)");
-    } catch {
-      alert("❌ JSON inválido");
+      const r = safeRows[i - 1] || {};
+      tr.appendChild(makeInputCellWithValue("evento", i, r.evento || ""));
+      tr.appendChild(makeInputCellWithValue("area", i, r.area || ""));
+      tr.appendChild(makeInputCellWithValue("dispositivo", i, r.dispositivo || ""));
+      tr.appendChild(makeInputCellWithValue("descripcion", i, r.descripcion || ""));
+      tbody.appendChild(tr);
     }
-  };
-  reader.readAsText(file);
-}
 
-/** ==========================================
- *  Importar carpeta (muchos JSON) => guarda directo
- *  ========================================== */
-async function importarMuchosJSON(files) {
-  let ok = 0, bad = 0;
+    applyEditLockToZonas123();
+  }
 
-  for (const f of files) {
-    try {
-      const text = await f.text();
-      const data = JSON.parse(text);
+  function makeInputCellWithValue(field, zonaNum, value) {
+    const td = document.createElement("td");
+    const inp = document.createElement("input");
+    inp.type = "text";
+    inp.autocomplete = "off";
+    inp.dataset.field = field;
+    inp.dataset.zona = String(zonaNum);
+    inp.placeholder = "-";
+    inp.value = value;
+    td.appendChild(inp);
+    return td;
+  }
 
-      let nombre = safeName(f.name.replace(/\.json$/i, "")) || generarNombreAuto();
-      if (localStorage.getItem(baseKey(nombre))) nombre = `${nombre} (mod ${fechaStamp()})`;
+  function clearTableRows() {
+    const tbody = $("tabla-base")?.querySelector("tbody");
+    if (!tbody) return;
+    tbody.querySelectorAll("input").forEach(inp => inp.value = "");
+  }
 
-      localStorage.setItem(baseKey(nombre), JSON.stringify(data));
-      if (typeof idbPutBase === "function") {
-        idbPutBase(baseKey(nombre), data).catch(console.warn);
+  function applyEditLockToZonas123() {
+    const tbody = $("tabla-base")?.querySelector("tbody");
+    if (!tbody) return;
+    tbody.querySelectorAll("tr").forEach(tr => {
+      const zn = Number(tr.dataset.zona || "0");
+      if (zn >= 1 && zn <= 3) {
+        tr.querySelectorAll("input").forEach(inp => {
+          inp.disabled = !zonasEditable123;
+        });
       }
+    });
+  }
 
-      addToIndex(nombre);
-      ok++;
-    } catch {
-      bad++;
+  // ---------- sucursales loading ----------
+  async function loadSucursales() {
+    // cache first
+    const cached = localStorage.getItem(KEY_SUC_CACHE);
+    if (cached) SUC_DATA = safeJSONParse(cached, null);
+
+    if (!SUC_DATA) {
+      const res = await fetch(SUCURSALES_JSON_URL, { cache: "no-store" });
+      if (!res.ok) throw new Error("No se pudo cargar sucursales.json");
+      SUC_DATA = await res.json();
+      localStorage.setItem(KEY_SUC_CACHE, JSON.stringify(SUC_DATA));
     }
   }
 
-  renderBasesMini();
-  alert(`✅ Importación masiva lista\nOK: ${ok}  •  Fallidos: ${bad}`);
-}
+  function fillEntidadesDatalist() {
+    const dl = $("lista-entidades");
+    if (!dl || !SUC_DATA) return;
+    dl.innerHTML = "";
+    (SUC_DATA.entidades || []).forEach(ent => {
+      const opt = document.createElement("option");
+      opt.value = ent;
+      dl.appendChild(opt);
+    });
+  }
 
-/** ==========================================
- *  Cargar data a pantalla
- *  ========================================== */
-function cargarDataEnPantalla(data) {
-  $("entidad").value = data.entidad || "";
-  $("sucursal").value = data.sucursal || "";
-  $("abonado").value = data.abonado || "";
-  $("central").value = data.central || "";
-  $("provincia").value = data.provincia || "";
+  function fillSucursalesDatalistForEntidad(entidad) {
+    const dl = $("lista-sucursales");
+    if (!dl || !SUC_DATA) return;
+    dl.innerHTML = "";
 
-  precargarZonas();
-
-  (data.zonas || []).forEach(zObj => {
-    const n = getZonaNumberFromText(zObj.zona);
-    if (!n || n < 1 || n > 24) return;
-
-    const tr = document.querySelector(`#tabla-base tbody tr[data-zona="${n}"]`);
-    if (!tr) return;
-    const celdas = tr.querySelectorAll("td");
-
-    const se = celdas[1].querySelector("select");
-    const ie = celdas[1].querySelector("input");
-    if (eventos.includes(zObj.evento)) {
-      se.value = zObj.evento; ie.value = ""; ie.style.display = "none";
-    } else {
-      se.value = "Otros"; ie.value = zObj.evento || ""; ie.style.display = "inline-block";
-    }
-
-    const sa = celdas[2].querySelector("select");
-    const ia = celdas[2].querySelector("input");
-    if (areas.includes(zObj.area)) {
-      sa.value = zObj.area; ia.value = ""; ia.style.display = "none";
-    } else {
-      sa.value = "Otros"; ia.value = zObj.area || ""; ia.style.display = "inline-block";
-    }
-
-    const sd = celdas[3].querySelector("select");
-    const id = celdas[3].querySelector("input");
-    if (dispositivos.includes(zObj.dispositivo)) {
-      sd.value = zObj.dispositivo; id.value = ""; id.style.display = "none";
-    } else {
-      sd.value = "otros"; id.value = zObj.dispositivo || ""; id.style.display = "inline-block";
-    }
-
-    celdas[4].querySelector("input").value = zObj.descripcion || "";
-  });
-
-  aplicarDefaultsZonas123SiVacias();
-  aplicarBloqueoZonas123();
-  autosaveBase();
-}
-
-/** ==========================================
- *  Excel IMPORT (Zonas 1-3 no se pisan)
- *  ========================================== */
-async function importarExcelBase(file) {
-  try {
-    const buf = await file.arrayBuffer();
-    const wb = new ExcelJS.Workbook();
-    await wb.xlsx.load(buf);
-
-    const ws = wb.worksheets[0];
-    if (!ws) return alert("❌ El Excel no tiene hojas.");
-
-    precargarZonas();
-
-    const meta = { entidad: "", sucursal: "", abonado: "", central: "", provincia: "" };
-
-    for (let r = 1; r <= Math.min(ws.rowCount, 50); r++) {
-      const row = ws.getRow(r);
-      const k = normKey(row.getCell(1).value);
-      const v = String(row.getCell(2).value ?? "").trim();
-      if (!k || !v) continue;
-
-      if (k === "entidad") meta.entidad = v;
-      if (k === "sucursal") meta.sucursal = v;
-      if (k === "abonado") meta.abonado = v;
-      if (k === "central") meta.central = v;
-      if (k === "provincia") meta.provincia = v;
-    }
-
-    if (meta.entidad) $("entidad").value = meta.entidad;
-    if (meta.sucursal) $("sucursal").value = meta.sucursal;
-    if (meta.abonado) $("abonado").value = meta.abonado;
-    if (meta.central) $("central").value = meta.central;
-    if (meta.provincia) $("provincia").value = meta.provincia;
-
-    let headerRow = null;
-    ws.eachRow((row, rowNumber) => {
-      const vals = (row.values || []).map(v => String(v || "").trim().toLowerCase());
-      if (vals.includes("zona") && vals.includes("evento")) headerRow = rowNumber;
+    const list = SUC_DATA?.sucursalesByEntidad?.[entidad] || [];
+    list.forEach(r => {
+      const opt = document.createElement("option");
+      opt.value = r.Sucursal;
+      dl.appendChild(opt);
     });
 
-    const start = headerRow ? headerRow + 1 : 1;
-
-    for (let r = start; r <= ws.rowCount; r++) {
-      const row = ws.getRow(r);
-      const A = String(row.getCell(1).value ?? "").trim();
-      const B = String(row.getCell(2).value ?? "").trim();
-      const C = String(row.getCell(3).value ?? "").trim();
-      const D = String(row.getCell(4).value ?? "").trim();
-      const E = String(row.getCell(5).value ?? "").trim();
-
-      if (!A && !B && !C && !D && !E) continue;
-
-      const n = getZonaNumberFromText(A);
-      if (!n || n < 1 || n > 24) continue;
-
-      if ([1, 2, 3].includes(n)) continue;
-
-      const tr = document.querySelector(`#tabla-base tbody tr[data-zona="${n}"]`);
-      if (!tr) continue;
-
-      const celdas = tr.querySelectorAll("td");
-
-      const se = celdas[1].querySelector("select");
-      const ie = celdas[1].querySelector("input");
-      if (eventos.includes(B)) { se.value = B; ie.value = ""; ie.style.display = "none"; }
-      else if (B) { se.value = "Otros"; ie.value = B; ie.style.display = "inline-block"; }
-
-      const sa = celdas[2].querySelector("select");
-      const ia = celdas[2].querySelector("input");
-      if (areas.includes(C)) { sa.value = C; ia.value = ""; ia.style.display = "none"; }
-      else if (C) { sa.value = "Otros"; ia.value = C; ia.style.display = "inline-block"; }
-
-      const sd = celdas[3].querySelector("select");
-      const id = celdas[3].querySelector("input");
-      if (dispositivos.includes(D)) { sd.value = D; id.value = ""; id.style.display = "none"; }
-      else if (D) { sd.value = "otros"; id.value = D; id.style.display = "inline-block"; }
-
-      celdas[4].querySelector("input").value = E || "";
-    }
-
-    aplicarDefaultsZonas123SiVacias();
-    aplicarBloqueoZonas123();
-    autosaveBase();
-    setCurrentBaseName("");
-    alert("✅ Excel importado (cabecera + zonas, 1-3 ignoradas)");
-  } catch (e) {
-    console.error(e);
-    alert("❌ Error leyendo Excel");
+    // ✅ siempre "Otros"
+    const optOtros = document.createElement("option");
+    optOtros.value = "Otros";
+    dl.appendChild(optOtros);
   }
-}
 
-/** ==========================================
- *  PDF
- *  ========================================== */
-function generarPDF() {
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF();
-  doc.setFontSize(14);
-  doc.text("Base de Datos - Señalco", 14, 14);
+  function findSucursal(entidad, sucursal) {
+    const list = SUC_DATA?.sucursalesByEntidad?.[entidad] || [];
+    return list.find(r => (r.Sucursal || "").trim().toLowerCase() === (sucursal || "").trim().toLowerCase()) || null;
+  }
 
-  try {
-    const logoImg = document.getElementById("logo-pdf");
-    if (logoImg && logoImg.complete) {
-      const canvas = document.createElement("canvas");
-      canvas.width = logoImg.naturalWidth;
-      canvas.height = logoImg.naturalHeight;
-      const ctx = canvas.getContext("2d");
-      ctx.drawImage(logoImg, 0, 0);
-      const dataURL = canvas.toDataURL("image/jpeg");
-      doc.addImage(dataURL, "JPEG", 160, 10, 40, 20);
+  // ---------- base latest ----------
+  function buildBaseObjectFromUI() {
+    const head = getUIHead();
+    const key = makeKey(head.entidad, head.sucursal, head.abonado, head.central);
+    return {
+      version: 1,
+      key,
+      ...head,
+      rows: readTableRows(),
+      updatedAt: new Date().toISOString(),
+    };
+  }
+
+  function saveBaseLatestAndBackup() {
+    const base = buildBaseObjectFromUI();
+    if (!base.entidad || !base.sucursal) {
+      alert("Primero completá Entidad y Sucursal.");
+      return null;
     }
-  } catch { }
 
-  const entidad = $("entidad").value;
-  const sucursal = $("sucursal").value;
-  const abonado = $("abonado").value;
-  const central = $("central").value;
-  const provincia = $("provincia")?.value || "";
-  const generado = fechaGeneradoLocal();
+    const latest = loadLatestMap();
+    latest[base.key] = base;
+    saveLatestMap(latest);
 
-  doc.setFontSize(11);
-  doc.text(`Entidad: ${entidad}`, 14, 28);
-  doc.text(`Sucursal: ${sucursal}`, 14, 36);
-  doc.text(`Abonado: ${abonado}`, 100, 28);
-  doc.text(`Central: ${central}`, 100, 36);
-  doc.text(`Provincia: ${provincia}`, 14, 44);
-  doc.text(`Generado: ${generado}`, 14, 52);
+    const history = loadHistoryArr();
+    history.push(base);
+    saveHistoryArr(history);
 
-  const columnas = ["Zona", "Evento", "Área", "Dispositivo", "Descripción"];
-  const filas = [];
+    downloadJSON(base, fileSafeName(`${base.entidad}-${base.sucursal}-BASE.json`));
+    refreshBasesListUI();
+    return base;
+  }
 
-  const filasTabla = document.querySelectorAll("#tabla-base tbody tr");
-  filasTabla.forEach(fila => {
-    const celdas = fila.querySelectorAll("td");
+  function tryLoadLatestForCurrentSucursal() {
+    const head = getUIHead();
+    const key = makeKey(head.entidad, head.sucursal, head.abonado, head.central);
+    const latest = loadLatestMap();
+    const base = latest[key];
 
-    const selectEvento = celdas[1].querySelector("select");
-    const inputEventoOtro = celdas[1].querySelector("input");
-    const evento = (selectEvento.value === "Otros" && inputEventoOtro.value.trim())
-      ? inputEventoOtro.value.trim()
-      : selectEvento.value;
+    if (base) {
+      setUIHead(base);
+      writeTableRows(base.rows || []);
+      return true;
+    } else {
+      // no hay base: limpiamos SOLO la tabla (no tocamos cabecera)
+      clearTableRows();
+      return false;
+    }
+  }
 
-    const selectArea = celdas[2].querySelector("select");
-    const inputAreaOtro = celdas[2].querySelector("input");
-    const area = (selectArea.value === "Otros" && inputAreaOtro.value.trim())
-      ? inputAreaOtro.value.trim()
-      : selectArea.value;
+  // ---------- UI bases list ----------
+  function refreshBasesListUI() {
+    const wrap = $("lista-bases-inline");
+    if (!wrap) return;
+    const latest = loadLatestMap();
+    const items = Object.values(latest);
 
-    const selectDisp = celdas[3].querySelector("select");
-    const inputDispOtro = celdas[3].querySelector("input");
-    const disp = (selectDisp.value === "otros" && inputDispOtro.value.trim())
-      ? inputDispOtro.value.trim()
-      : selectDisp.value;
+    // orden por updatedAt desc
+    items.sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")));
 
-    filas.push([celdas[0].textContent, evento, area, disp, celdas[4].querySelector("input").value]);
-  });
+    wrap.innerHTML = "";
+    if (!items.length) {
+      wrap.innerHTML = `<div class="card"><b>Sin bases guardadas</b><div style="opacity:.8;margin-top:6px;">Guardá una base para que aparezca acá.</div></div>`;
+      return;
+    }
 
-  doc.autoTable({ head: [columnas], body: filas, startY: 60 });
-  doc.save(`base_${safeName(entidad)}_${safeName(sucursal)}_${safeName(fechaStamp())}.pdf`);
-}
+    items.forEach(base => {
+      const card = document.createElement("div");
+      card.className = "card";
+      card.style.cursor = "pointer";
+      card.innerHTML = `
+        <div style="font-weight:800">${escapeHTML(base.entidad || "")} — ${escapeHTML(base.sucursal || "")}</div>
+        <div style="opacity:.85;font-size:13px;margin-top:6px">
+          Abonado: <b>${escapeHTML(base.abonado || "-")}</b> · Central: <b>${escapeHTML(base.central || "-")}</b> · Prov: <b>${escapeHTML(base.provincia || "-")}</b>
+        </div>
+        <div style="opacity:.7;font-size:12px;margin-top:6px">Última: ${escapeHTML(formatDate(base.updatedAt))}</div>
+        <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="mini-btn" data-action="load">Cargar</button>
+          <button class="mini-btn" data-action="download" style="background:#555">Backup JSON</button>
+        </div>
+      `;
 
-/** ==========================================
- *  Excel EXPORT
- *  ========================================== */
-function generarExcel() {
-  const workbook = new ExcelJS.Workbook();
-  const sheet = workbook.addWorksheet("Base");
+      card.querySelector('[data-action="load"]').addEventListener("click", (e) => {
+        e.stopPropagation();
+        setUIHead(base);
+        writeTableRows(base.rows || []);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      });
 
-  sheet.addRow(["Entidad", $("entidad").value || ""]);
-  sheet.addRow(["Sucursal", $("sucursal").value || ""]);
-  sheet.addRow(["Abonado", $("abonado").value || ""]);
-  sheet.addRow(["Central", $("central").value || ""]);
-  sheet.addRow(["Provincia", $("provincia").value || ""]);
-  sheet.addRow(["Generado", fechaGeneradoLocal()]);
-  sheet.addRow([]);
+      card.querySelector('[data-action="download"]').addEventListener("click", (e) => {
+        e.stopPropagation();
+        downloadJSON(base, fileSafeName(`${base.entidad}-${base.sucursal}-BASE.json`));
+      });
 
-  sheet.addRow(["Zona", "Evento", "Área", "Dispositivo", "Descripción"]);
+      // click card carga
+      card.addEventListener("click", () => {
+        setUIHead(base);
+        writeTableRows(base.rows || []);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      });
 
-  const filas = document.querySelectorAll("#tabla-base tbody tr");
-  filas.forEach(fila => {
-    const celdas = fila.querySelectorAll("td");
+      wrap.appendChild(card);
+    });
+  }
 
-    const selectEvento = celdas[1].querySelector("select");
-    const inputEventoOtro = celdas[1].querySelector("input");
-    const evento = (selectEvento.value === "Otros" && inputEventoOtro.value.trim())
-      ? inputEventoOtro.value.trim()
-      : selectEvento.value;
+  // ---------- preview modal ----------
+  function openPreviewModal() {
+    const base = buildBaseObjectFromUI();
+    const body = $("prev-body");
+    const modal = $("modal-prev");
+    if (!body || !modal) return;
 
-    const selectArea = celdas[2].querySelector("select");
-    const inputAreaOtro = celdas[2].querySelector("input");
-    const area = (selectArea.value === "Otros" && inputAreaOtro.value.trim())
-      ? inputAreaOtro.value.trim()
-      : selectArea.value;
-
-    const selectDisp = celdas[3].querySelector("select");
-    const inputDispOtro = celdas[3].querySelector("input");
-    const disp = (selectDisp.value === "otros" && inputDispOtro.value.trim())
-      ? inputDispOtro.value.trim()
-      : selectDisp.value;
-
-    sheet.addRow([celdas[0].textContent, evento, area, disp, celdas[4].querySelector("input").value]);
-  });
-
-  workbook.xlsx.writeBuffer().then(buffer => {
-    const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `base_${safeName($("entidad").value || "base")}_${safeName($("sucursal").value || "")}_${safeName(fechaStamp())}.xlsx`;
-    a.click();
-    URL.revokeObjectURL(url);
-  });
-}
-
-/** ==========================================
- *  Previsualización
- *  ========================================== */
-function abrirPrevisualizacion() {
-  const modal = $("modal-prev");
-  const body = $("prev-body");
-  if (!modal || !body) return;
-
-  const data = construirJSONBase();
-  const generado = data.meta?.generado || fechaGeneradoLocal();
-
-  body.innerHTML = `
-    <div style="background:#fff; color:#000; border-radius:12px; padding:12px;">
-      <div style="font-weight:bold; margin-bottom:10px; line-height:1.4;">
-        Entidad: ${escapeHtml(data.entidad || "-")}<br>
-        Sucursal: ${escapeHtml(data.sucursal || "-")}<br>
-        Abonado: ${escapeHtml(data.abonado || "-")}<br>
-        Central: ${escapeHtml(data.central || "-")}<br>
-        Provincia: ${escapeHtml(data.provincia || "-")}<br>
-        Generado: ${escapeHtml(generado)}<br>
+    const rows = base.rows || [];
+    const headHtml = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="card"><b>Entidad</b><div>${escapeHTML(base.entidad || "-")}</div></div>
+        <div class="card"><b>Sucursal</b><div>${escapeHTML(base.sucursal || "-")}</div></div>
+        <div class="card"><b>Abonado</b><div>${escapeHTML(base.abonado || "-")}</div></div>
+        <div class="card"><b>Central</b><div>${escapeHTML(base.central || "-")}</div></div>
+        <div class="card"><b>Provincia</b><div>${escapeHTML(base.provincia || "-")}</div></div>
+        <div class="card"><b>Filas</b><div>${rows.length}</div></div>
       </div>
+    `;
 
-      <div style="overflow:auto; border:1px solid #ddd; border-radius:10px;">
-        <table style="width:100%; border-collapse:collapse; font-size:12px;">
+    const tableHtml = `
+      <div style="margin-top:12px;overflow:auto;">
+        <table style="width:100%;border-collapse:collapse;background:#0d0d2a;color:#fff;border:1px solid rgba(255,255,255,.1)">
           <thead>
-            <tr style="background:#1976d2; color:#fff;">
-              <th style="padding:6px; border:1px solid #ddd;">Zona</th>
-              <th style="padding:6px; border:1px solid #ddd;">Evento</th>
-              <th style="padding:6px; border:1px solid #ddd;">Área</th>
-              <th style="padding:6px; border:1px solid #ddd;">Dispositivo</th>
-              <th style="padding:6px; border:1px solid #ddd;">Descripción</th>
+            <tr>
+              <th style="padding:8px;border:1px solid rgba(255,255,255,.1)">Zona</th>
+              <th style="padding:8px;border:1px solid rgba(255,255,255,.1)">Evento</th>
+              <th style="padding:8px;border:1px solid rgba(255,255,255,.1)">Área</th>
+              <th style="padding:8px;border:1px solid rgba(255,255,255,.1)">Dispositivo</th>
+              <th style="padding:8px;border:1px solid rgba(255,255,255,.1)">Descripción</th>
             </tr>
           </thead>
           <tbody>
-            ${data.zonas.map(z => `
+            ${rows.map(r => `
               <tr>
-                <td style="padding:6px; border:1px solid #ddd;">${escapeHtml(z.zona)}</td>
-                <td style="padding:6px; border:1px solid #ddd;">${escapeHtml(z.evento)}</td>
-                <td style="padding:6px; border:1px solid #ddd;">${escapeHtml(z.area)}</td>
-                <td style="padding:6px; border:1px solid #ddd;">${escapeHtml(z.dispositivo)}</td>
-                <td style="padding:6px; border:1px solid #ddd;">${escapeHtml(z.descripcion)}</td>
+                <td style="padding:8px;border:1px solid rgba(255,255,255,.1)">${escapeHTML(r.zona || "")}</td>
+                <td style="padding:8px;border:1px solid rgba(255,255,255,.1)">${escapeHTML(r.evento || "")}</td>
+                <td style="padding:8px;border:1px solid rgba(255,255,255,.1)">${escapeHTML(r.area || "")}</td>
+                <td style="padding:8px;border:1px solid rgba(255,255,255,.1)">${escapeHTML(r.dispositivo || "")}</td>
+                <td style="padding:8px;border:1px solid rgba(255,255,255,.1)">${escapeHTML(r.descripcion || "")}</td>
               </tr>
             `).join("")}
           </tbody>
         </table>
       </div>
-    </div>
-  `;
-
-  modal.style.display = "flex";
-}
-
-function cerrarPrevisualizacion() {
-  const modal = $("modal-prev");
-  if (modal) modal.style.display = "none";
-}
-
-/** ==========================================
- *  Bases: abrir/borrar
- *  ========================================== */
-function leerBase(nombre) {
-  const raw = localStorage.getItem(baseKey(nombre));
-  if (!raw) return null;
-  try { return JSON.parse(raw); } catch { return null; }
-}
-
-function abrirBaseGuardada(nombre) {
-  const data = leerBase(nombre);
-  if (!data) return alert("❌ No se encontró la base");
-  cargarDataEnPantalla(data);
-  setCurrentBaseName(nombre);
-}
-
-function borrarBaseGuardada(nombre) {
-  if (!confirm(`🗑️ ¿Borrar esta base?\n\n${nombre}`)) return;
-  localStorage.removeItem(baseKey(nombre));
-  setIndex(getIndex().filter(x => x !== nombre));
-  if (getCurrentBaseName() === nombre) setCurrentBaseName("");
-  renderBasesMini();
-}
-
-/** ==========================================
- *  Buscador (campos)
- *  ========================================== */
-function getCamposSeleccionados() {
-  const checks = Array.from(document.querySelectorAll(".filtro-check"))
-    .filter(ch => ch.checked)
-    .map(ch => ch.value);
-
-  return checks.length ? checks : ["nombre", "entidad", "sucursal", "abonado", "central", "provincia"];
-}
-
-/** ==========================================
- *  Ventanita abajo: lista de bases (scrolleable)
- *  - acá vive TODO (buscador incluido)
- *  ========================================== */
-function renderBasesMini() {
-  const cont = $("lista-bases-inline"); // ✅ clave: el id correcto del HTML
-  if (!cont) return;
-
-  const idx = getIndex();
-  const q = ($("buscar-rapido")?.value || "").trim().toLowerCase();
-  const campos = getCamposSeleccionados();
-  const modoCorto = q.length < 3;
-
-  if (!idx.length) {
-    cont.innerHTML = `
-      <div class="card">
-        <b>Sin bases todavía</b>
-        <div style="opacity:.8;">Guardá una base y te aparece acá.</div>
-      </div>
     `;
-    return;
+
+    body.innerHTML = headHtml + tableHtml;
+
+    modal.style.display = "flex";
+
+    const btnDown = $("btn-descargar-pdf-prev");
+    if (btnDown) {
+      btnDown.onclick = () => exportPDF(base);
+    }
   }
 
-  cont.innerHTML = "";
-  const nombres = modoCorto ? idx.slice(0, 12) : idx;
-  let count = 0;
-
-  nombres.forEach(nombre => {
-    const data = leerBase(nombre);
-    if (!data) return;
-
-    const map = {
-      nombre,
-      entidad: (data.entidad || ""),
-      sucursal: (data.sucursal || ""),
-      abonado: (data.abonado || ""),
-      central: (data.central || ""),
-      provincia: (data.provincia || "")
-    };
-
-    let ok = true;
-    if (!modoCorto) {
-      ok = campos.some(c => String(map[c] || "").toLowerCase().includes(q));
-    }
-    if (!ok) return;
-
-    count++;
-
-    const card = document.createElement("div");
-    card.className = "card";
-
-    card.innerHTML = `
-      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between;">
-        <div style="min-width:220px;">
-          <div style="font-weight:bold;">${escapeHtml(nombre)}</div>
-          <div style="font-size:12px; opacity:.85;">
-            ${escapeHtml(data.entidad || "-")}
-            • Suc: ${escapeHtml(data.sucursal || "-")}
-            • Ab: ${escapeHtml(data.abonado || "-")}
-            • Central: ${escapeHtml(data.central || "-")}
-            • ${escapeHtml(data.provincia || "-")}
-          </div>
-        </div>
-
-        <div style="display:flex; gap:8px; flex-wrap:wrap;">
-          <button class="mini-btn" data-act="abrir">Abrir</button>
-          <button class="mini-btn" data-act="json" style="background:#555;">JSON</button>
-          <button class="mini-btn" data-act="borrar" style="background:#b00020;">Borrar</button>
-        </div>
-      </div>
-    `;
-
-    card.querySelector('[data-act="abrir"]').onclick = () => abrirBaseGuardada(nombre);
-    card.querySelector('[data-act="json"]').onclick = () => exportarBaseComoJSON(nombre);
-    card.querySelector('[data-act="borrar"]').onclick = () => borrarBaseGuardada(nombre);
-
-    cont.appendChild(card);
-  });
-
-  if (count === 0) {
-    cont.innerHTML = `
-      <div class="card">
-        <b>Sin resultados</b>
-        <div style="opacity:.8;">Probá tildar más casillas o escribir otra palabra.</div>
-      </div>
-    `;
+  function closePreviewModal() {
+    const modal = $("modal-prev");
+    if (modal) modal.style.display = "none";
   }
-}
 
-/** ==========================================
- *  Autosave
- *  ========================================== */
-function autosaveBase() {
-  try { localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(construirJSONBase())); } catch { }
-}
+  // ---------- export ----------
+  function exportPDF(base) {
+    const { jsPDF } = window.jspdf || {};
+    if (!jsPDF) { alert("jsPDF no está disponible."); return; }
 
-/** ==========================================
- *  Update banner (SW)
- *  ========================================== */
-function setupUpdateBanner() {
-  if (!("serviceWorker" in navigator)) return;
+    const doc = new jsPDF({ orientation: "p", unit: "pt", format: "a4" });
+    const margin = 40;
 
-  navigator.serviceWorker.register("./sw.js").then((reg) => {
-    const bar = $("update-bar");
-    const btnUpd = $("btn-actualizar-app");
-    const btnLater = $("btn-ignorar-update");
+    doc.setFontSize(14);
+    doc.text("Base de Datos - Señalco", margin, 50);
 
-    function showUpdate() {
-      if (!bar) return;
-      bar.style.display = "flex";
-      btnUpd?.addEventListener("click", () => {
-        if (reg.waiting) reg.waiting.postMessage({ type: "SKIP_WAITING" });
-      }, { once: true });
+    doc.setFontSize(10);
+    const head = [
+      ["Entidad", base.entidad || ""],
+      ["Sucursal", base.sucursal || ""],
+      ["Abonado", base.abonado || ""],
+      ["Central", base.central || ""],
+      ["Provincia", base.provincia || ""],
+      ["Actualizado", formatDate(base.updatedAt)],
+    ];
 
-      btnLater?.addEventListener("click", () => {
-        bar.style.display = "none";
-      }, { once: true });
-    }
+    let y = 70;
+    head.forEach(([k, v]) => {
+      doc.text(`${k}: ${v}`, margin, y);
+      y += 14;
+    });
 
-    if (reg.waiting) showUpdate();
+    const rows = (base.rows || []).map(r => [
+      r.zona || "",
+      r.evento || "", 
+      r.area || "",
+      r.dispositivo || "",
+      r.descripcion || ""
+    ]);
 
-    reg.addEventListener("updatefound", () => {
-      const nw = reg.installing;
-      if (!nw) return;
-      nw.addEventListener("statechange", () => {
-        if (nw.state === "installed" && navigator.serviceWorker.controller) {
-          showUpdate();
-        }
+    if (doc.autoTable) {
+      doc.autoTable({
+        startY: y + 10,
+        head: [["Zona", "Evento", "Área", "Dispositivo", "Descripción"]],
+        body: rows,
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [25, 118, 210] }
       });
-    });
+    } else {
+      doc.text("autoTable no está disponible.", margin, y + 20);
+    }
 
-    navigator.serviceWorker.addEventListener("controllerchange", () => {
-      window.location.reload();
-    });
-  }).catch(console.warn);
-}
-
-/** ==========================================
- *  Bootstrap
- *  ========================================== */
-window.addEventListener("DOMContentLoaded", () => {
-  if (!document.querySelector("#tabla-base")) return;
-
-  if (typeof migrateLocalStorageToIDB === "function") {
-    migrateLocalStorageToIDB().catch(console.warn);
+    doc.save(fileSafeName(`${base.entidad}-${base.sucursal}-BASE.pdf`));
   }
 
-  poblarDatalistEntidades();
-  setupUpdateBanner();
-  precargarZonas();
+  async function exportExcelSoloTabla() {
+    if (!window.ExcelJS) { alert("ExcelJS no está disponible."); return; }
 
-  // recuperar autosave
-  const raw = localStorage.getItem(AUTOSAVE_KEY);
-  if (raw) {
+    const head = getUIHead();
+    if (!head.entidad || !head.sucursal) {
+      alert("Primero elegí Entidad y Sucursal.");
+      return;
+    }
+
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet("Base");
+
+    ws.addRow(["Zona", "Evento", "Área", "Dispositivo", "Descripción"]);
+
+    const rows = readTableRows();
+    rows.forEach(r => ws.addRow([r.zona, r.evento, r.area, r.dispositivo, r.descripcion]));
+
+    // Nota: NO exportamos entidad/sucursal en la hoja principal (tu pedido).
+    // Si querés, se puede agregar una hoja "Info" solo para referencia.
+
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = fileSafeName(`${head.entidad}-${head.sucursal}-BASE.xlsx`);
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1500);
+  }
+
+  // Import Excel SOLO tabla (no toca entidad/sucursal/abonado/central/provincia)
+  async function importExcelSoloTabla(file) {
+    if (!window.ExcelJS) { alert("ExcelJS no está disponible."); return; }
+
+    const head = getUIHead();
+    if (!head.entidad || !head.sucursal) {
+      alert("Primero elegí Entidad y Sucursal. Después importás el Excel.");
+      return;
+    }
+
+    const data = await file.arrayBuffer();
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(data);
+
+    const ws = wb.worksheets[0];
+    if (!ws) { alert("El Excel no tiene hojas."); return; }
+
+    // buscamos encabezado (zona + evento) en las primeras 10 filas
+    let headerRowIdx = 1;
+    for (let r = 1; r <= Math.min(10, ws.rowCount); r++) {
+      const vals = (ws.getRow(r).values || []).map(v => String(v || "").trim().toLowerCase()).join("|");
+      if (vals.includes("zona") && vals.includes("evento")) { headerRowIdx = r; break; }
+    }
+
+    const header = (ws.getRow(headerRowIdx).values || []).map(v => String(v || "").trim().toLowerCase());
+    const colZona = header.findIndex(x => x === "zona");
+    const colEvento = header.findIndex(x => x === "evento");
+    const colArea = header.findIndex(x => x === "área" || x === "area");
+    const colDisp = header.findIndex(x => x === "dispositivo");
+    const colDesc = header.findIndex(x => x === "descripción" || x === "descripcion");
+
+    if ([colZona, colEvento, colArea, colDisp, colDesc].some(i => i < 0)) {
+      alert("El Excel no tiene las columnas esperadas: Zona, Evento, Área, Dispositivo, Descripción.");
+      return;
+    }
+
+    const rows = [];
+    for (let r = headerRowIdx + 1; r <= ws.rowCount; r++) {
+      const rv = ws.getRow(r).values || [];
+      const zona = String(rv[colZona] || "").trim();
+      const evento = String(rv[colEvento] || "").trim();
+      const area = String(rv[colArea] || "").trim();
+      const disp = String(rv[colDisp] || "").trim();
+      const desc = String(rv[colDesc] || "").trim();
+
+      // si está toda vacía, salteamos
+      if (!zona && !evento && !area && !disp && !desc) continue;
+
+      rows.push({
+        zona: zona || `Zona ${rows.length + 1}`,
+        evento, area,
+        dispositivo: disp,
+        descripcion: desc
+      });
+    }
+
+    writeTableRows(rows);
+  }
+
+  // ---------- util ----------
+  function downloadJSON(obj, filename) {
+    const blob = new Blob([JSON.stringify(obj, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1500);
+  }
+
+  function fileSafeName(name) {
+    return String(name || "archivo")
+      .replace(/[\\/:*?"<>|]+/g, "-")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function formatDate(iso) {
+    if (!iso) return "-";
     try {
-      const data = JSON.parse(raw);
-      cargarDataEnPantalla(data);
-      setCurrentBaseName("");
-    } catch { }
+      const d = new Date(iso);
+      return d.toLocaleString();
+    } catch {
+      return iso;
+    }
   }
 
-  asignarEventosBase();
-  renderBasesMini();
-});
+  function escapeHTML(str) {
+    return String(str ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+
+  // ---------- events ----------
+  function bindUI() {
+    // Botones
+    $("btn-limpiar-base")?.addEventListener("click", () => {
+      clearTableRows();
+    });
+
+    $("btn-guardar-rapido")?.addEventListener("click", () => {
+      const saved = saveBaseLatestAndBackup();
+      if (saved) alert("✅ Guardado OK (y backup descargado).");
+    });
+
+    $("btn-previsualizar")?.addEventListener("click", () => openPreviewModal());
+    $("btn-cerrar-prev")?.addEventListener("click", () => closePreviewModal());
+
+    $("btn-generar-pdf-base")?.addEventListener("click", () => {
+      const base = buildBaseObjectFromUI();
+      exportPDF(base);
+    });
+
+    $("btn-excel-base")?.addEventListener("click", () => exportExcelSoloTabla());
+
+    // Editar/Bloquear Zonas 1-3
+    $("btn-editar-zonas123")?.addEventListener("click", () => {
+      zonasEditable123 = true;
+      applyEditLockToZonas123();
+      $("btn-editar-zonas123").style.display = "none";
+      $("btn-bloquear-zonas123").style.display = "inline-block";
+    });
+
+    $("btn-bloquear-zonas123")?.addEventListener("click", () => {
+      zonasEditable123 = false;
+      applyEditLockToZonas123();
+      $("btn-bloquear-zonas123").style.display = "none";
+      $("btn-editar-zonas123").style.display = "inline-block";
+    });
+
+    // Import Excel
+    $("btn-subir-excel")?.addEventListener("click", () => $("input-excel-base")?.click());
+    $("input-excel-base")?.addEventListener("change", async (e) => {
+      const file = e.target.files?.[0];
+      if (file) await importExcelSoloTabla(file);
+      e.target.value = "";
+    });
+
+    // Import 1 JSON (base)
+    $("btn-importar-json-top")?.addEventListener("click", () => $("input-json-base-top")?.click());
+    $("input-json-base-top")?.addEventListener("change", async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const txt = await file.text();
+      const obj = safeJSONParse(txt, null);
+      if (!obj) { alert("JSON inválido."); e.target.value = ""; return; }
+
+      // si trae rows, lo cargamos
+      if (obj.rows) {
+        // no pisamos entidad/sucursal si ya están elegidas
+        const head = getUIHead();
+        if (!head.entidad && obj.entidad) setUIHead(obj);
+        writeTableRows(obj.rows || []);
+        alert("✅ JSON importado.");
+      } else {
+        alert("Ese JSON no parece una base válida (no trae 'rows').");
+      }
+      e.target.value = "";
+    });
+
+    // Import muchos JSON (carpeta/selección múltiple)
+    $("btn-importar-muchos-json")?.addEventListener("click", () => $("input-json-muchos")?.click());
+    $("input-json-muchos")?.addEventListener("change", async (e) => {
+      const files = Array.from(e.target.files || []);
+      if (!files.length) return;
+
+      let latestMap = loadLatestMap();
+      let imported = 0;
+
+      for (const f of files) {
+        if (!f.name.toLowerCase().endsWith(".json")) continue;
+        const obj = safeJSONParse(await f.text(), null);
+        if (!obj || !obj.entidad || !obj.sucursal || !obj.rows) continue;
+
+        const key = makeKey(obj.entidad, obj.sucursal, obj.abonado, obj.central);
+        obj.key = key;
+        obj.updatedAt = obj.updatedAt || new Date().toISOString();
+
+        // comparo por updatedAt y me quedo con el más nuevo
+        const prev = latestMap[key];
+        if (!prev || String(obj.updatedAt) > String(prev.updatedAt || "")) {
+          latestMap[key] = obj;
+        }
+
+        imported++;
+      }
+
+      saveLatestMap(latestMap);
+      refreshBasesListUI();
+      alert(`✅ Importados: ${imported} (se actualizó el "último" por sucursal).`);
+      e.target.value = "";
+    });
+
+    // Buscador rápido (en latest)
+    $("buscar-rapido")?.addEventListener("input", () => renderBuscador());
+    $("btn-limpiar-buscador")?.addEventListener("click", () => {
+      if ($("buscar-rapido")) $("buscar-rapido").value = "";
+      // re-check filtros
+      document.querySelectorAll(".filtro-check").forEach(ch => ch.checked = true);
+      renderBuscador();
+    });
+
+    document.querySelectorAll(".filtro-check").forEach(ch => ch.addEventListener("change", renderBuscador));
+
+    // Entidad/Sucursal autocompletar
+    $("entidad")?.addEventListener("input", () => {
+      const ent = ($("entidad").value || "").trim();
+      fillSucursalesDatalistForEntidad(ent);
+      // si cambia entidad, limpiamos sucursal y campos dependientes
+      $("sucursal").value = "";
+      $("abonado").value = "";
+      $("central").value = "";
+      $("provincia").value = "";
+      clearTableRows();
+    });
+
+    $("sucursal")?.addEventListener("input", () => {
+      const ent = ($("entidad").value || "").trim();
+      const suc = ($("sucursal").value || "").trim();
+
+      if (!ent) return;
+
+      // Otros
+      if (suc.toLowerCase() === "otros") {
+        $("sucursal").value = "";
+        $("sucursal").placeholder = "Escribí la sucursal nueva...";
+        $("abonado").value = "";
+        $("central").value = "";
+        $("provincia").value = "";
+        clearTableRows();
+        return;
+      }
+
+      const found = findSucursal(ent, suc);
+      if (found) {
+        // autocompleta
+        $("abonado").value = found.Abo || "";
+        $("central").value = found["Id Central"] || "";
+        $("provincia").value = found.Provincia || "";
+        $("sucursal").placeholder = "Ej: Humberto Primo";
+
+        // ✅ cargar último json si existe
+        tryLoadLatestForCurrentSucursal();
+      }
+    });
+  }
+
+  function renderBuscador() {
+    const wrap = $("buscador-resultados");
+    if (!wrap) return;
+
+    const q = ($("buscar-rapido")?.value || "").trim().toLowerCase();
+    const latest = loadLatestMap();
+    const items = Object.values(latest);
+
+    const checks = Array.from(document.querySelectorAll(".filtro-check"));
+    const activeFields = checks.filter(c => c.checked).map(c => c.value);
+
+    // Si no hay checks activos, buscamos en todo
+    const fields = activeFields.length ? activeFields : ["entidad","sucursal","abonado","central","provincia","nombre"];
+
+    const filtered = !q ? [] : items.filter(b => {
+      const hay = (f) => String(b[f] || "").toLowerCase().includes(q);
+      // "nombre" lo tratamos como entidad+sucursal
+      return fields.some(f => f === "nombre"
+        ? `${b.entidad||""} ${b.sucursal||""}`.toLowerCase().includes(q)
+        : hay(f)
+      );
+    }).slice(0, 30);
+
+    wrap.innerHTML = "";
+    if (!q) return;
+
+    if (!filtered.length) {
+      wrap.innerHTML = `<div class="card"><b>Sin resultados</b><div style="opacity:.8;margin-top:6px;">Probá con otra palabra.</div></div>`;
+      return;
+    }
+
+    filtered.forEach(base => {
+      const card = document.createElement("div");
+      card.className = "card";
+      card.style.cursor = "pointer";
+      card.innerHTML = `
+        <div style="font-weight:800">${escapeHTML(base.entidad || "")} — ${escapeHTML(base.sucursal || "")}</div>
+        <div style="opacity:.85;font-size:13px;margin-top:6px">
+          Abonado: <b>${escapeHTML(base.abonado || "-")}</b> · Central: <b>${escapeHTML(base.central || "-")}</b> · Prov: <b>${escapeHTML(base.provincia || "-")}</b>
+        </div>
+        <div style="opacity:.7;font-size:12px;margin-top:6px">Última: ${escapeHTML(formatDate(base.updatedAt))}</div>
+      `;
+      card.addEventListener("click", () => {
+        setUIHead(base);
+        writeTableRows(base.rows || []);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      });
+      wrap.appendChild(card);
+    });
+  }
+
+  // ---------- boot ----------
+  async function boot() {
+    ensureDefaultRows(5);
+
+    try {
+      await loadSucursales();
+      fillEntidadesDatalist();
+
+      // si ya hay entidad escrita al abrir, precargamos sucursales
+      const ent = ($("entidad")?.value || "").trim();
+      if (ent) fillSucursalesDatalistForEntidad(ent);
+    } catch (e) {
+      console.warn(e);
+      // no cortamos la app si falta sucursales.json
+    }
+
+    bindUI();
+    refreshBasesListUI();
+  }
+
+  window.addEventListener("load", boot);
+})();
