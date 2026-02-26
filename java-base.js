@@ -1,560 +1,812 @@
-/* login.js - Señalco (Login único + permisos + usuarios.json + update app)
-   ✅ NO auto-inicia sesión: pide "Continuar sesión"
-*/
+// java-base.js — Señalco Base de Datos
+// Objetivo: seleccionar sucursal desde sucursales.json, autocompletar datos,
+// y al elegir una sucursal traer automáticamente el ÚLTIMO JSON guardado para esa sucursal.
 
-const USERS_JSON_URL = "./usuarios.json";
-const SESSION_KEY = "senalco_session_v2";
-const USERS_CACHE_KEY = "senalco_users_cache_v2";
+(() => {
+  "use strict";
 
-// Limpieza de keys viejas (por versiones anteriores)
-const OLD_KEYS_TO_PURGE = [
-  "logueado", "perfil",
-  "senalco_session_v1",
-  "senalco_perms_active_v1",
-  "senalco_users_v1",
-];
+  const SUCURSALES_JSON_URL = "sucursales.json"; // poner este archivo en la misma carpeta
+  const KEY_SUC_CACHE = "senalco_sucursales_v1";
+  const KEY_LATEST = "senalco_bases_latest_v1";
+  const KEY_HISTORY = "senalco_bases_history_v1";
 
-// ⏳ Expiración de sesión
-const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 días
+  let SUC_DATA = null;
+  let zonasEditable123 = false;
 
-const MONITOREO_URL = "https://itsenalco.com/monitoreo/web/";
+  // ---------- helpers storage ----------
+  function safeJSONParse(str, fallback) {
+    try { return JSON.parse(str); } catch { return fallback; }
+  }
+  function loadLatestMap() {
+    return safeJSONParse(localStorage.getItem(KEY_LATEST) || "{}", {});
+  }
+  function saveLatestMap(map) {
+    localStorage.setItem(KEY_LATEST, JSON.stringify(map));
+  }
+  function loadHistoryArr() {
+    return safeJSONParse(localStorage.getItem(KEY_HISTORY) || "[]", []);
+  }
+  function saveHistoryArr(arr) {
+    localStorage.setItem(KEY_HISTORY, JSON.stringify(arr));
+  }
 
-const FEATURES = [
-  { id: "relev",     label: "📋 Relevamiento Alarmas", default: true },
-  { id: "base",      label: "📊 Base de Datos",        default: true },
-  { id: "cctv",      label: "🎥 Relevamiento CCTV",    default: true },
-  { id: "monitoreo", label: "🖥️ Monitoreo Web",        default: true }
-];
+  // ---------- key ----------
+  function makeKey(entidad, sucursal, abonado, central) {
+    return [
+      (entidad || "").trim().toLowerCase(),
+      (sucursal || "").trim().toLowerCase(),
+      (abonado || "").trim().toLowerCase(),
+      (central || "").trim().toLowerCase(),
+    ].join("|");
+  }
 
-const ADMIN_USER = "admin";
-const ADMIN_PASS = "Senalco2025";
+  // ---------- DOM ----------
+  const $ = (id) => document.getElementById(id);
 
-function $(id){ return document.getElementById(id); }
-function norm(s){ return String(s || "").trim(); }
+  function getUIHead() {
+    return {
+      entidad: ($("entidad")?.value || "").trim(),
+      sucursal: ($("sucursal")?.value || "").trim(),
+      abonado: ($("abonado")?.value || "").trim(),
+      central: ($("central")?.value || "").trim(),
+      provincia: ($("provincia")?.value || "").trim(),
+    };
+  }
 
-function safeJsonParse(raw, fallback){
-  try { return JSON.parse(raw); } catch { return fallback; }
-}
-function lsGet(key, fallback){
-  const raw = localStorage.getItem(key);
-  return raw ? safeJsonParse(raw, fallback) : fallback;
-}
-function lsSet(key, value){
-  localStorage.setItem(key, JSON.stringify(value));
-}
+  function setUIHead(head) {
+    if ($("entidad")) $("entidad").value = head.entidad || "";
+    if ($("sucursal")) $("sucursal").value = head.sucursal || "";
+    if ($("abonado")) $("abonado").value = head.abonado || "";
+    if ($("central")) $("central").value = head.central || "";
+    if ($("provincia")) $("provincia").value = head.provincia || "";
+  }
 
-function setStatus(msg){
-  const el = $("estado-login");
-  if (el) el.textContent = msg || "";
-}
+  // ---------- table ----------
+  function ensureDefaultRows(count = 5) {
+    const tbody = $("tabla-base")?.querySelector("tbody");
+    if (!tbody) return;
 
-function defaultPerms(){
-  const p = {};
-  FEATURES.forEach(f => p[f.id] = !!f.default);
-  return p;
-}
+    const existing = tbody.querySelectorAll("tr").length;
+    if (existing >= count) return;
 
-/* =========================
-   SHA-256 universal
-   ========================= */
-function rotr(n, x){ return (x >>> n) | (x << (32 - n)); }
-function sha256PureJS(ascii){
-  const maxWord = Math.pow(2, 32);
-  let result = "";
+    for (let i = existing + 1; i <= count; i++) {
+      const tr = document.createElement("tr");
+      tr.dataset.zona = String(i);
 
-  const words = [];
-  const asciiBitLength = ascii.length * 8;
+      // Zona
+      const tdZona = document.createElement("td");
+      tdZona.textContent = `Zona ${i}`;
+      tr.appendChild(tdZona);
 
-  const hash = sha256PureJS.h = sha256PureJS.h || [];
-  const k = sha256PureJS.k = sha256PureJS.k || [];
-  let primeCounter = k.length;
+      // Evento
+      tr.appendChild(makeInputCell("evento", i));
 
-  const isComposite = {};
-  for (let candidate = 2; primeCounter < 64; candidate++) {
-    if (!isComposite[candidate]) {
-      for (let i = 0; i < 313; i += candidate) isComposite[i] = candidate;
-      hash[primeCounter] = (Math.pow(candidate, .5) * maxWord) | 0;
-      k[primeCounter++] = (Math.pow(candidate, 1/3) * maxWord) | 0;
+      // Área
+      tr.appendChild(makeInputCell("area", i));
+
+      // Dispositivo
+      tr.appendChild(makeInputCell("dispositivo", i));
+
+      // Descripción
+      tr.appendChild(makeInputCell("descripcion", i));
+
+      tbody.appendChild(tr);
+    }
+
+    // Por defecto, bloqueamos edición Z1-3 (se habilita con botón)
+    applyEditLockToZonas123();
+  }
+
+  function makeInputCell(field, zonaNum) {
+    const td = document.createElement("td");
+    const inp = document.createElement("input");
+    inp.type = "text";
+    inp.autocomplete = "off";
+    inp.dataset.field = field;
+    inp.dataset.zona = String(zonaNum);
+    inp.placeholder = "-";
+    td.appendChild(inp);
+    return td;
+  }
+
+  function readTableRows() {
+    const tbody = $("tabla-base")?.querySelector("tbody");
+    if (!tbody) return [];
+    const rows = [];
+    tbody.querySelectorAll("tr").forEach(tr => {
+      const zonaNum = tr.dataset.zona || "";
+      const vals = {};
+      tr.querySelectorAll("input").forEach(inp => {
+        const f = inp.dataset.field;
+        vals[f] = (inp.value || "").trim();
+      });
+      rows.push({
+        zona: `Zona ${zonaNum}`,
+        evento: vals.evento || "",
+        area: vals.area || "",
+        dispositivo: vals.dispositivo || "",
+        descripcion: vals.descripcion || "",
+      });
+    });
+    return rows;
+  }
+
+  function writeTableRows(rows) {
+    const tbody = $("tabla-base")?.querySelector("tbody");
+    if (!tbody) return;
+
+    // reconstruimos
+    tbody.innerHTML = "";
+    const safeRows = Array.isArray(rows) ? rows : [];
+    const count = Math.max(5, safeRows.length || 0);
+
+    for (let i = 1; i <= count; i++) {
+      const tr = document.createElement("tr");
+      tr.dataset.zona = String(i);
+
+      const tdZona = document.createElement("td");
+      tdZona.textContent = `Zona ${i}`;
+      tr.appendChild(tdZona);
+
+      const r = safeRows[i - 1] || {};
+      tr.appendChild(makeInputCellWithValue("evento", i, r.evento || ""));
+      tr.appendChild(makeInputCellWithValue("area", i, r.area || ""));
+      tr.appendChild(makeInputCellWithValue("dispositivo", i, r.dispositivo || ""));
+      tr.appendChild(makeInputCellWithValue("descripcion", i, r.descripcion || ""));
+      tbody.appendChild(tr);
+    }
+
+    applyEditLockToZonas123();
+  }
+
+  function makeInputCellWithValue(field, zonaNum, value) {
+    const td = document.createElement("td");
+    const inp = document.createElement("input");
+    inp.type = "text";
+    inp.autocomplete = "off";
+    inp.dataset.field = field;
+    inp.dataset.zona = String(zonaNum);
+    inp.placeholder = "-";
+    inp.value = value;
+    td.appendChild(inp);
+    return td;
+  }
+
+  function clearTableRows() {
+    const tbody = $("tabla-base")?.querySelector("tbody");
+    if (!tbody) return;
+    tbody.querySelectorAll("input").forEach(inp => inp.value = "");
+  }
+
+  function applyEditLockToZonas123() {
+    const tbody = $("tabla-base")?.querySelector("tbody");
+    if (!tbody) return;
+    tbody.querySelectorAll("tr").forEach(tr => {
+      const zn = Number(tr.dataset.zona || "0");
+      if (zn >= 1 && zn <= 3) {
+        tr.querySelectorAll("input").forEach(inp => {
+          inp.disabled = !zonasEditable123;
+        });
+      }
+    });
+  }
+
+  // ---------- sucursales loading ----------
+  async function loadSucursales() {
+    // cache first
+    const cached = localStorage.getItem(KEY_SUC_CACHE);
+    if (cached) SUC_DATA = safeJSONParse(cached, null);
+
+    if (!SUC_DATA) {
+      const res = await fetch(SUCURSALES_JSON_URL, { cache: "no-store" });
+      if (!res.ok) throw new Error("No se pudo cargar sucursales.json");
+      SUC_DATA = await res.json();
+      localStorage.setItem(KEY_SUC_CACHE, JSON.stringify(SUC_DATA));
     }
   }
 
-  ascii += "\x80";
-  while (ascii.length % 64 - 56) ascii += "\x00";
-  for (let i = 0; i < ascii.length; i++) {
-    const j = ascii.charCodeAt(i);
-    words[i >> 2] |= j << ((3 - i) % 4) * 8;
+  function fillEntidadesDatalist() {
+    const dl = $("lista-entidades");
+    if (!dl || !SUC_DATA) return;
+    dl.innerHTML = "";
+    (SUC_DATA.entidades || []).forEach(ent => {
+      const opt = document.createElement("option");
+      opt.value = ent;
+      dl.appendChild(opt);
+    });
   }
-  words[words.length] = (asciiBitLength / maxWord) | 0;
-  words[words.length] = (asciiBitLength) | 0;
 
-  for (let j = 0; j < words.length;) {
-    const w = words.slice(j, j += 16);
-    const oldHash = hash.slice(0);
+  function fillSucursalesDatalistForEntidad(entidad) {
+    const dl = $("lista-sucursales");
+    if (!dl || !SUC_DATA) return;
+    dl.innerHTML = "";
 
-    for (let i = 0; i < 64; i++) {
-      const w15 = w[i - 15], w2 = w[i - 2];
+    const list = SUC_DATA?.sucursalesByEntidad?.[entidad] || [];
+    list.forEach(r => {
+      const opt = document.createElement("option");
+      opt.value = r.Sucursal;
+      dl.appendChild(opt);
+    });
 
-      const a = hash[0], e = hash[4];
-      const temp1 = (hash[7]
-        + (rotr(6, e) ^ rotr(11, e) ^ rotr(25, e))
-        + ((e & hash[5]) ^ (~e & hash[6]))
-        + k[i]
-        + (w[i] = (i < 16) ? w[i] : (
-            w[i - 16]
-            + (rotr(7, w15) ^ rotr(18, w15) ^ (w15 >>> 3))
-            + w[i - 7]
-            + (rotr(17, w2) ^ rotr(19, w2) ^ (w2 >>> 10))
-          ) | 0)
-      ) | 0;
+    // ✅ siempre "Otros"
+    const optOtros = document.createElement("option");
+    optOtros.value = "Otros";
+    dl.appendChild(optOtros);
+  }
 
-      const temp2 = ((rotr(2, a) ^ rotr(13, a) ^ rotr(22, a))
-        + ((a & hash[1]) ^ (a & hash[2]) ^ (hash[1] & hash[2]))
-      ) | 0;
+  function findSucursal(entidad, sucursal) {
+    const list = SUC_DATA?.sucursalesByEntidad?.[entidad] || [];
+    return list.find(r => (r.Sucursal || "").trim().toLowerCase() === (sucursal || "").trim().toLowerCase()) || null;
+  }
 
-      hash.unshift((temp1 + temp2) | 0);
-      hash[4] = (hash[4] + temp1) | 0;
-      hash.pop();
+  // ---------- base latest ----------
+  function buildBaseObjectFromUI() {
+    const head = getUIHead();
+    const key = makeKey(head.entidad, head.sucursal, head.abonado, head.central);
+    return {
+      version: 1,
+      key,
+      ...head,
+      rows: readTableRows(),
+      updatedAt: new Date().toISOString(),
+    };
+  }
+
+  function saveBaseLatestAndBackup() {
+    const base = buildBaseObjectFromUI();
+    if (!base.entidad || !base.sucursal) {
+      alert("Primero completá Entidad y Sucursal.");
+      return null;
     }
 
-    for (let i = 0; i < 8; i++) hash[i] = (hash[i] + oldHash[i]) | 0;
+    const latest = loadLatestMap();
+    latest[base.key] = base;
+    saveLatestMap(latest);
+
+    const history = loadHistoryArr();
+    history.push(base);
+    saveHistoryArr(history);
+
+    downloadJSON(base, fileSafeName(`${base.entidad}-${base.sucursal}-BASE.json`));
+    refreshBasesListUI();
+    return base;
   }
 
-  for (let i = 0; i < 8; i++) {
-    for (let j = 3; j + 1; j--) {
-      const b = (hash[i] >> (j * 8)) & 255;
-      result += (b < 16 ? "0" : "") + b.toString(16);
+  function tryLoadLatestForCurrentSucursal() {
+    const head = getUIHead();
+    const key = makeKey(head.entidad, head.sucursal, head.abonado, head.central);
+    const latest = loadLatestMap();
+    const base = latest[key];
+
+    if (base) {
+      setUIHead(base);
+      writeTableRows(base.rows || []);
+      return true;
+    } else {
+      // no hay base: limpiamos SOLO la tabla (no tocamos cabecera)
+      clearTableRows();
+      return false;
     }
   }
-  return result;
-}
 
-async function sha256Hex(text){
-  try {
-    if (globalThis.crypto?.subtle) {
-      const enc = new TextEncoder().encode(text);
-      const buf = await crypto.subtle.digest("SHA-256", enc);
-      const arr = Array.from(new Uint8Array(buf));
-      return arr.map(b => b.toString(16).padStart(2, "0")).join("");
+  // ---------- UI bases list ----------
+  function refreshBasesListUI() {
+    const wrap = $("lista-bases-inline");
+    if (!wrap) return;
+    const latest = loadLatestMap();
+    const items = Object.values(latest);
+
+    // orden por updatedAt desc
+    items.sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")));
+
+    wrap.innerHTML = "";
+    if (!items.length) {
+      wrap.innerHTML = `<div class="card"><b>Sin bases guardadas</b><div style="opacity:.8;margin-top:6px;">Guardá una base para que aparezca acá.</div></div>`;
+      return;
     }
-  } catch {}
-  return sha256PureJS(String(text));
-}
 
-// ---- Sesión
-function getSessionRaw(){ return lsGet(SESSION_KEY, null); }
-
-function getSessionValidated(){
-  const s = getSessionRaw();
-  if (!s) return null;
-
-  const ts = Number(s.ts || 0);
-  if (!ts || (Date.now() - ts) > SESSION_TTL_MS){
-    localStorage.removeItem(SESSION_KEY);
-    return null;
-  }
-  return s;
-}
-
-function setSession(sess){ lsSet(SESSION_KEY, sess); }
-function clearSession(){ localStorage.removeItem(SESSION_KEY); }
-
-// ---- Users cache
-function getUsersCache(){ return lsGet(USERS_CACHE_KEY, { version: 1, updatedAt: 0, users: [] }); }
-function setUsersCache(data){ lsSet(USERS_CACHE_KEY, data); }
-
-async function fetchUsersFromRepo(){
-  const url = `${USERS_JSON_URL}?ts=${Date.now()}`;
-  const res = await fetch(url, { cache: "no-store" });
-  if (!res.ok) throw new Error("No se pudo leer usuarios.json");
-  const data = await res.json();
-  if (!data || !Array.isArray(data.users)) throw new Error("usuarios.json inválido");
-  return data;
-}
-
-/* =========================
-   UI State
-   ========================= */
-function setUIState(mode){
-  // mode: "logged" | "logged_locked" | "guest"
-  const loginBlock = $("login-block");
-  const panelAccesos = $("seleccion-planillas");
-  const btnLogout = $("btn-cerrar-sesion");
-
-  // Creamos btn continuar si no existe
-  let btnCont = $("btn-continuar");
-  if (!btnCont) {
-    btnCont = document.createElement("button");
-    btnCont.id = "btn-continuar";
-    btnCont.type = "button";
-    btnCont.className = "btn-full ghost";
-    btnCont.textContent = "Continuar sesión";
-    btnCont.style.display = "none";
-    (loginBlock?.parentNode || document.body).appendChild(btnCont);
-  }
-
-  if (mode === "guest") {
-    if (loginBlock) loginBlock.style.display = "block";
-    if (panelAccesos) panelAccesos.classList.remove("active");
-    if (btnLogout) btnLogout.style.display = "none";
-    btnCont.style.display = "none";
-    return;
-  }
-
-  if (mode === "logged_locked") {
-    // ✅ sesión existe pero NO entra sola
-    if (loginBlock) loginBlock.style.display = "none";
-    if (panelAccesos) panelAccesos.classList.remove("active");
-    if (btnLogout) btnLogout.style.display = "block";
-    btnCont.style.display = "block";
-    return;
-  }
-
-  if (mode === "logged") {
-    if (loginBlock) loginBlock.style.display = "none";
-    if (panelAccesos) panelAccesos.classList.add("active");
-    if (btnLogout) btnLogout.style.display = "block";
-    btnCont.style.display = "none";
-  }
-}
-
-function applyPermButtons(perms){
-  const btnRelev = $("btn-relevamiento");
-  const btnBase  = $("btn-base");
-  const btnCctv  = $("btn-cctv");
-  const btnMon   = $("btn-monitoreo-web");
-
-  if (btnRelev){
-    btnRelev.style.display = perms.relev ? "block" : "none";
-    btnRelev.onclick = () => window.location.href = "relevamiento1.html";
-  }
-  if (btnBase){
-    btnBase.style.display = perms.base ? "block" : "none";
-    btnBase.onclick = () => window.location.href = "index-base.html";
-  }
-  if (btnCctv){
-    btnCctv.style.display = perms.cctv ? "block" : "none";
-    btnCctv.onclick = () => window.location.href = "index2.html";
-  }
-  if (btnMon){
-    const can = (typeof perms.monitoreo === "boolean") ? perms.monitoreo : true;
-    btnMon.style.display = can ? "block" : "none";
-    btnMon.onclick = () => window.open(MONITOREO_URL, "_blank");
-  }
-}
-
-/* =========================
-   Admin: panel usuarios
-   ========================= */
-function ensureAdminManagerUI(){
-  const hook = $("admin-manager-hook");
-  if (!hook) return;
-  if ($("admin-manager")) return;
-
-  const box = document.createElement("div");
-  box.id = "admin-manager";
-  box.style.marginTop = "12px";
-  box.style.padding = "14px";
-  box.style.borderRadius = "16px";
-  box.style.border = "1px solid rgba(255,255,255,.14)";
-  box.style.background = "rgba(0,0,0,.18)";
-  box.style.backdropFilter = "blur(10px)";
-  box.style.color = "#fff";
-
-  box.innerHTML = `
-    <h3 style="margin:0 0 10px 0;">👤 Gestión de usuarios (Admin)</h3>
-    <div style="opacity:.85;font-size:12px;margin-bottom:10px;">
-      Creás usuarios → descargás <b>usuarios.json</b> → lo subís al repo.
-    </div>
-
-    <div style="display:grid; gap:10px; max-width:520px;">
-      <input id="adm-new-user" class="login-input" placeholder="Usuario (ej: tecnico1)" />
-      <input id="adm-new-pass" class="login-input" placeholder="Clave (se guarda hasheada)" />
-
-      <div id="adm-perms"
-           style="display:grid; gap:8px; padding:10px; border-radius:14px; border:1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.06);">
-        <div style="font-weight:900; margin-bottom:2px;">Permisos</div>
-        ${FEATURES.map(f => `
-          <label style="display:flex; gap:10px; align-items:center;">
-            <input type="checkbox" data-perm="${f.id}" ${f.default ? "checked" : ""} />
-            <span>${f.label}</span>
-          </label>
-        `).join("")}
-      </div>
-
-      <div style="display:flex; gap:10px; flex-wrap:wrap;">
-        <button id="adm-btn-create" class="login-btn" type="button">➕ Crear / Actualizar</button>
-        <button id="adm-btn-download" class="login-btn ghost" type="button">⬇️ Descargar usuarios.json</button>
-        <button id="adm-btn-refresh" class="login-btn ghost" type="button">🔁 Cargar desde repo</button>
-      </div>
-
-      <div id="adm-users-list" style="margin-top:8px;"></div>
-    </div>
-  `;
-
-  hook.appendChild(box);
-
-  $("adm-btn-create").onclick = adminCreateOrUpdateUser;
-  $("adm-btn-download").onclick = adminDownloadUsersJson;
-  $("adm-btn-refresh").onclick = async () => {
-    try {
-      const data = await fetchUsersFromRepo();
-      setUsersCache(data);
-      adminRenderUsers();
-      alert("✅ Usuarios recargados desde el repo");
-    } catch (e) {
-      alert("❌ No pude cargar usuarios desde el repo");
-      console.warn(e);
-    }
-  };
-
-  adminRenderUsers();
-}
-
-function buildPermsFromForm(container){
-  const p = defaultPerms();
-  if (!container) return p;
-  container.querySelectorAll("input[data-perm]").forEach(chk => {
-    p[chk.dataset.perm] = !!chk.checked;
-  });
-  if (typeof p.monitoreo !== "boolean") p.monitoreo = true;
-  return p;
-}
-
-function adminGetWorkingUsers(){
-  const data = getUsersCache();
-  if (!data.users) data.users = [];
-  return data;
-}
-function adminSetWorkingUsers(data){ setUsersCache(data); }
-
-async function adminCreateOrUpdateUser(){
-  const user = norm($("adm-new-user")?.value).toLowerCase();
-  const pass = norm($("adm-new-pass")?.value);
-  const perms = buildPermsFromForm($("adm-perms"));
-
-  if (!user || user.length < 3) return alert("Usuario inválido (mínimo 3 caracteres).");
-  if (!pass || pass.length < 4) return alert("Clave inválida (mínimo 4 caracteres).");
-  if (user === ADMIN_USER) return alert("Ese usuario está reservado.");
-
-  const passHash = await sha256Hex(pass);
-
-  const data = adminGetWorkingUsers();
-  const users = data.users;
-
-  const i = users.findIndex(x => x.user === user);
-  const payload = { user, passHash, perms, updatedAt: Date.now() };
-
-  if (i >= 0) users[i] = payload;
-  else users.push(payload);
-
-  data.updatedAt = Date.now();
-  adminSetWorkingUsers(data);
-
-  if ($("adm-new-user")) $("adm-new-user").value = "";
-  if ($("adm-new-pass")) $("adm-new-pass").value = "";
-
-  adminRenderUsers();
-  alert("✅ Usuario guardado (local). Descargá usuarios.json y subilo al repo.");
-}
-
-function adminDeleteUser(user){
-  if (!confirm(`🗑️ ¿Borrar usuario?\n\n${user}`)) return;
-  const data = adminGetWorkingUsers();
-  data.users = (data.users || []).filter(x => x.user !== user);
-  data.updatedAt = Date.now();
-  adminSetWorkingUsers(data);
-  adminRenderUsers();
-}
-
-function adminRenderUsers(){
-  const cont = $("adm-users-list");
-  if (!cont) return;
-
-  const data = adminGetWorkingUsers();
-  const users = data.users || [];
-
-  if (!users.length){
-    cont.innerHTML = `<div style="opacity:.85;">No hay usuarios en la lista todavía.</div>`;
-    return;
-  }
-
-  cont.innerHTML = users.map(u => {
-    const perms = u.perms || {};
-    const resumen = FEATURES.filter(f => perms[f.id]).map(f => f.label).join(" • ") || "Sin permisos";
-    const safeUser = String(u.user || "").replace(/'/g, "\\'");
-
-    return `
-      <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px; border-radius:14px; border:1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.06); margin-top:8px;">
-        <div>
-          <div style="font-weight:900;">${u.user}</div>
-          <div style="font-size:12px; opacity:.85;">${resumen}</div>
+    items.forEach(base => {
+      const card = document.createElement("div");
+      card.className = "card";
+      card.style.cursor = "pointer";
+      card.innerHTML = `
+        <div style="font-weight:800">${escapeHTML(base.entidad || "")} — ${escapeHTML(base.sucursal || "")}</div>
+        <div style="opacity:.85;font-size:13px;margin-top:6px">
+          Abonado: <b>${escapeHTML(base.abonado || "-")}</b> · Central: <b>${escapeHTML(base.central || "-")}</b> · Prov: <b>${escapeHTML(base.provincia || "-")}</b>
         </div>
-        <button type="button" class="login-btn ghost" onclick="adminDeleteUser('${safeUser}')">🗑️ Borrar</button>
+        <div style="opacity:.7;font-size:12px;margin-top:6px">Última: ${escapeHTML(formatDate(base.updatedAt))}</div>
+        <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="mini-btn" data-action="load">Cargar</button>
+          <button class="mini-btn" data-action="download" style="background:#555">Backup JSON</button>
+        </div>
+      `;
+
+      card.querySelector('[data-action="load"]').addEventListener("click", (e) => {
+        e.stopPropagation();
+        setUIHead(base);
+        writeTableRows(base.rows || []);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      });
+
+      card.querySelector('[data-action="download"]').addEventListener("click", (e) => {
+        e.stopPropagation();
+        downloadJSON(base, fileSafeName(`${base.entidad}-${base.sucursal}-BASE.json`));
+      });
+
+      // click card carga
+      card.addEventListener("click", () => {
+        setUIHead(base);
+        writeTableRows(base.rows || []);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      });
+
+      wrap.appendChild(card);
+    });
+  }
+
+  // ---------- preview modal ----------
+  function openPreviewModal() {
+    const base = buildBaseObjectFromUI();
+    const body = $("prev-body");
+    const modal = $("modal-prev");
+    if (!body || !modal) return;
+
+    const rows = base.rows || [];
+    const headHtml = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="card"><b>Entidad</b><div>${escapeHTML(base.entidad || "-")}</div></div>
+        <div class="card"><b>Sucursal</b><div>${escapeHTML(base.sucursal || "-")}</div></div>
+        <div class="card"><b>Abonado</b><div>${escapeHTML(base.abonado || "-")}</div></div>
+        <div class="card"><b>Central</b><div>${escapeHTML(base.central || "-")}</div></div>
+        <div class="card"><b>Provincia</b><div>${escapeHTML(base.provincia || "-")}</div></div>
+        <div class="card"><b>Filas</b><div>${rows.length}</div></div>
       </div>
     `;
-  }).join("");
-}
 
-function adminDownloadUsersJson(){
-  const data = adminGetWorkingUsers();
-  const payload = {
-    version: 1,
-    updatedAt: Date.now(),
-    users: (data.users || []).map(u => ({
-      user: u.user,
-      passHash: u.passHash,
-      perms: u.perms || defaultPerms(),
-      updatedAt: u.updatedAt || Date.now()
-    }))
-  };
+    const tableHtml = `
+      <div style="margin-top:12px;overflow:auto;">
+        <table style="width:100%;border-collapse:collapse;background:#0d0d2a;color:#fff;border:1px solid rgba(255,255,255,.1)">
+          <thead>
+            <tr>
+              <th style="padding:8px;border:1px solid rgba(255,255,255,.1)">Zona</th>
+              <th style="padding:8px;border:1px solid rgba(255,255,255,.1)">Evento</th>
+              <th style="padding:8px;border:1px solid rgba(255,255,255,.1)">Área</th>
+              <th style="padding:8px;border:1px solid rgba(255,255,255,.1)">Dispositivo</th>
+              <th style="padding:8px;border:1px solid rgba(255,255,255,.1)">Descripción</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map(r => `
+              <tr>
+                <td style="padding:8px;border:1px solid rgba(255,255,255,.1)">${escapeHTML(r.zona || "")}</td>
+                <td style="padding:8px;border:1px solid rgba(255,255,255,.1)">${escapeHTML(r.evento || "")}</td>
+                <td style="padding:8px;border:1px solid rgba(255,255,255,.1)">${escapeHTML(r.area || "")}</td>
+                <td style="padding:8px;border:1px solid rgba(255,255,255,.1)">${escapeHTML(r.dispositivo || "")}</td>
+                <td style="padding:8px;border:1px solid rgba(255,255,255,.1)">${escapeHTML(r.descripcion || "")}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+    `;
 
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "usuarios.json";
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
+    body.innerHTML = headHtml + tableHtml;
 
-  alert("✅ Descargado: usuarios.json\nSubilo al repo reemplazando el anterior.");
-}
+    modal.style.display = "flex";
 
-/* =========================
-   Render / Lock screen
-   ========================= */
-function renderLockedOrGuest(){
-  const s = getSessionValidated();
-  if (!s){
-    setUIState("guest");
-    setStatus("Sesión cerrada.");
-    const hook = $("admin-manager-hook");
-    if (hook) hook.innerHTML = "";
-    return;
-  }
-
-  // ✅ No entra solo: queda “bloqueado”
-  setUIState("logged_locked");
-  setStatus(`Sesión detectada: ${s.user} (${s.role}). Tocá “Continuar sesión” o “Cerrar sesión”.`);
-}
-
-function continueSession(){
-  const s = getSessionValidated();
-  if (!s){
-    renderLockedOrGuest();
-    return;
-  }
-
-  setUIState("logged");
-  applyPermButtons(s.perms || defaultPerms());
-
-  if (s.role === "admin"){
-    ensureAdminManagerUI();
-    setStatus(`✅ Sesión activa: ${s.user} (admin)`);
-  } else {
-    const hook = $("admin-manager-hook");
-    if (hook) hook.innerHTML = "";
-    setStatus(`✅ Sesión activa: ${s.user}`);
-  }
-}
-
-/* =========================
-   Login / Logout
-   ========================= */
-async function loginGeneral(){
-  const usuario = norm($("usuario")?.value).toLowerCase();
-  const clave = norm($("clave")?.value);
-
-  if (!usuario || !clave){
-    alert("Completá usuario y clave");
-    return;
-  }
-
-  if (usuario === ADMIN_USER && clave === ADMIN_PASS){
-    setSession({ user: ADMIN_USER, role: "admin", perms: defaultPerms(), ts: Date.now() });
-    continueSession();
-    return;
-  }
-
-  let data;
-  try {
-    data = await fetchUsersFromRepo();
-    setUsersCache(data);
-  } catch (e) {
-    console.warn("fetch users falló, uso cache:", e);
-    data = getUsersCache();
-  }
-
-  const users = (data && Array.isArray(data.users)) ? data.users : [];
-  const found = users.find(u => (u.user || "").toLowerCase() === usuario);
-  if (!found){ alert("Credenciales incorrectas"); return; }
-
-  const passHash = await sha256Hex(clave);
-  if (found.passHash !== passHash){ alert("Credenciales incorrectas"); return; }
-
-  setSession({ user: usuario, role: "user", perms: found.perms || defaultPerms(), ts: Date.now() });
-  continueSession();
-}
-
-function logout(){
-  clearSession();
-  if ($("usuario")) $("usuario").value = "";
-  if ($("clave")) $("clave").value = "";
-  renderLockedOrGuest();
-}
-
-/* =========================
-   Update app
-   ========================= */
-async function updateApp(){
-  try {
-    if (!("serviceWorker" in navigator)) { window.location.reload(); return; }
-    const reg = await navigator.serviceWorker.getRegistration();
-    if (reg) {
-      await reg.update();
-      if (reg.waiting) reg.waiting.postMessage({ type: "SKIP_WAITING" });
+    const btnDown = $("btn-descargar-pdf-prev");
+    if (btnDown) {
+      btnDown.onclick = () => exportPDF(base);
     }
-  } catch (e) {
-    console.warn("updateApp error:", e);
-  } finally {
-    window.location.reload();
   }
-}
 
-/* =========================
-   Boot
-   ========================= */
-document.addEventListener("DOMContentLoaded", async () => {
-  try {
-    // Limpieza de residuos viejos (una vez)
-    OLD_KEYS_TO_PURGE.forEach(k => {
-      try { localStorage.removeItem(k); } catch {}
+  function closePreviewModal() {
+    const modal = $("modal-prev");
+    if (modal) modal.style.display = "none";
+  }
+
+  // ---------- export ----------
+  function exportPDF(base) {
+    const { jsPDF } = window.jspdf || {};
+    if (!jsPDF) { alert("jsPDF no está disponible."); return; }
+
+    const doc = new jsPDF({ orientation: "p", unit: "pt", format: "a4" });
+    const margin = 40;
+
+    doc.setFontSize(14);
+    doc.text("Base de Datos - Señalco", margin, 50);
+
+    doc.setFontSize(10);
+    const head = [
+      ["Entidad", base.entidad || ""],
+      ["Sucursal", base.sucursal || ""],
+      ["Abonado", base.abonado || ""],
+      ["Central", base.central || ""],
+      ["Provincia", base.provincia || ""],
+      ["Actualizado", formatDate(base.updatedAt)],
+    ];
+
+    let y = 70;
+    head.forEach(([k, v]) => {
+      doc.text(`${k}: ${v}`, margin, y);
+      y += 14;
     });
 
-    $("btn-login")?.addEventListener("click", loginGeneral);
-    $("btn-cerrar-sesion")?.addEventListener("click", logout);
-    $("btn-actualizar-app")?.addEventListener("click", updateApp);
+    const rows = (base.rows || []).map(r => [
+      r.zona || "",
+      r.evento || "", 
+      r.area || "",
+      r.dispositivo || "",
+      r.descripcion || ""
+    ]);
 
-    // si existe botón continuar en tu HTML, lo usamos
-    $("btn-continuar")?.addEventListener("click", continueSession);
+    if (doc.autoTable) {
+      doc.autoTable({
+        startY: y + 10,
+        head: [["Zona", "Evento", "Área", "Dispositivo", "Descripción"]],
+        body: rows,
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [25, 118, 210] }
+      });
+    } else {
+      doc.text("autoTable no está disponible.", margin, y + 20);
+    }
 
-    $("clave")?.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") loginGeneral();
-    });
+    doc.save(fileSafeName(`${base.entidad}-${base.sucursal}-BASE.pdf`));
+  }
 
-    // precarga users cache (no bloquea)
+  async function exportExcelSoloTabla() {
+    if (!window.ExcelJS) { alert("ExcelJS no está disponible."); return; }
+
+    const head = getUIHead();
+    if (!head.entidad || !head.sucursal) {
+      alert("Primero elegí Entidad y Sucursal.");
+      return;
+    }
+
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet("Base");
+
+    ws.addRow(["Zona", "Evento", "Área", "Dispositivo", "Descripción"]);
+
+    const rows = readTableRows();
+    rows.forEach(r => ws.addRow([r.zona, r.evento, r.area, r.dispositivo, r.descripcion]));
+
+    // Nota: NO exportamos entidad/sucursal en la hoja principal (tu pedido).
+    // Si querés, se puede agregar una hoja "Info" solo para referencia.
+
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = fileSafeName(`${head.entidad}-${head.sucursal}-BASE.xlsx`);
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1500);
+  }
+
+  // Import Excel SOLO tabla (no toca entidad/sucursal/abonado/central/provincia)
+  async function importExcelSoloTabla(file) {
+    if (!window.ExcelJS) { alert("ExcelJS no está disponible."); return; }
+
+    const head = getUIHead();
+    if (!head.entidad || !head.sucursal) {
+      alert("Primero elegí Entidad y Sucursal. Después importás el Excel.");
+      return;
+    }
+
+    const data = await file.arrayBuffer();
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(data);
+
+    const ws = wb.worksheets[0];
+    if (!ws) { alert("El Excel no tiene hojas."); return; }
+
+    // buscamos encabezado (zona + evento) en las primeras 10 filas
+    let headerRowIdx = 1;
+    for (let r = 1; r <= Math.min(10, ws.rowCount); r++) {
+      const vals = (ws.getRow(r).values || []).map(v => String(v || "").trim().toLowerCase()).join("|");
+      if (vals.includes("zona") && vals.includes("evento")) { headerRowIdx = r; break; }
+    }
+
+    const header = (ws.getRow(headerRowIdx).values || []).map(v => String(v || "").trim().toLowerCase());
+    const colZona = header.findIndex(x => x === "zona");
+    const colEvento = header.findIndex(x => x === "evento");
+    const colArea = header.findIndex(x => x === "área" || x === "area");
+    const colDisp = header.findIndex(x => x === "dispositivo");
+    const colDesc = header.findIndex(x => x === "descripción" || x === "descripcion");
+
+    if ([colZona, colEvento, colArea, colDisp, colDesc].some(i => i < 0)) {
+      alert("El Excel no tiene las columnas esperadas: Zona, Evento, Área, Dispositivo, Descripción.");
+      return;
+    }
+
+    const rows = [];
+    for (let r = headerRowIdx + 1; r <= ws.rowCount; r++) {
+      const rv = ws.getRow(r).values || [];
+      const zona = String(rv[colZona] || "").trim();
+      const evento = String(rv[colEvento] || "").trim();
+      const area = String(rv[colArea] || "").trim();
+      const disp = String(rv[colDisp] || "").trim();
+      const desc = String(rv[colDesc] || "").trim();
+
+      // si está toda vacía, salteamos
+      if (!zona && !evento && !area && !disp && !desc) continue;
+
+      rows.push({
+        zona: zona || `Zona ${rows.length + 1}`,
+        evento, area,
+        dispositivo: disp,
+        descripcion: desc
+      });
+    }
+
+    writeTableRows(rows);
+  }
+
+  // ---------- util ----------
+  function downloadJSON(obj, filename) {
+    const blob = new Blob([JSON.stringify(obj, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1500);
+  }
+
+  function fileSafeName(name) {
+    return String(name || "archivo")
+      .replace(/[\\/:*?"<>|]+/g, "-")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function formatDate(iso) {
+    if (!iso) return "-";
     try {
-      const data = await fetchUsersFromRepo();
-      setUsersCache(data);
-    } catch {}
-
-    // ✅ NO auto-inicia: muestra lock o login
-    renderLockedOrGuest();
-  } catch (e) {
-    console.error(e);
-    setStatus("❌ Error en login.js: " + (e?.message || e));
+      const d = new Date(iso);
+      return d.toLocaleString();
+    } catch {
+      return iso;
+    }
   }
-});
 
-window.adminDeleteUser = adminDeleteUser;
+  function escapeHTML(str) {
+    return String(str ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+
+  // ---------- events ----------
+  function bindUI() {
+    // Botones
+    $("btn-limpiar-base")?.addEventListener("click", () => {
+      clearTableRows();
+    });
+
+    $("btn-guardar-rapido")?.addEventListener("click", () => {
+      const saved = saveBaseLatestAndBackup();
+      if (saved) alert("✅ Guardado OK (y backup descargado).");
+    });
+
+    $("btn-previsualizar")?.addEventListener("click", () => openPreviewModal());
+    $("btn-cerrar-prev")?.addEventListener("click", () => closePreviewModal());
+
+    $("btn-generar-pdf-base")?.addEventListener("click", () => {
+      const base = buildBaseObjectFromUI();
+      exportPDF(base);
+    });
+
+    $("btn-excel-base")?.addEventListener("click", () => exportExcelSoloTabla());
+
+    // Editar/Bloquear Zonas 1-3
+    $("btn-editar-zonas123")?.addEventListener("click", () => {
+      zonasEditable123 = true;
+      applyEditLockToZonas123();
+      $("btn-editar-zonas123").style.display = "none";
+      $("btn-bloquear-zonas123").style.display = "inline-block";
+    });
+
+    $("btn-bloquear-zonas123")?.addEventListener("click", () => {
+      zonasEditable123 = false;
+      applyEditLockToZonas123();
+      $("btn-bloquear-zonas123").style.display = "none";
+      $("btn-editar-zonas123").style.display = "inline-block";
+    });
+
+    // Import Excel
+    $("btn-subir-excel")?.addEventListener("click", () => $("input-excel-base")?.click());
+    $("input-excel-base")?.addEventListener("change", async (e) => {
+      const file = e.target.files?.[0];
+      if (file) await importExcelSoloTabla(file);
+      e.target.value = "";
+    });
+
+    // Import 1 JSON (base)
+    $("btn-importar-json-top")?.addEventListener("click", () => $("input-json-base-top")?.click());
+    $("input-json-base-top")?.addEventListener("change", async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const txt = await file.text();
+      const obj = safeJSONParse(txt, null);
+      if (!obj) { alert("JSON inválido."); e.target.value = ""; return; }
+
+      // si trae rows, lo cargamos
+      if (obj.rows) {
+        // no pisamos entidad/sucursal si ya están elegidas
+        const head = getUIHead();
+        if (!head.entidad && obj.entidad) setUIHead(obj);
+        writeTableRows(obj.rows || []);
+        alert("✅ JSON importado.");
+      } else {
+        alert("Ese JSON no parece una base válida (no trae 'rows').");
+      }
+      e.target.value = "";
+    });
+
+    // Import muchos JSON (carpeta/selección múltiple)
+    $("btn-importar-muchos-json")?.addEventListener("click", () => $("input-json-muchos")?.click());
+    $("input-json-muchos")?.addEventListener("change", async (e) => {
+      const files = Array.from(e.target.files || []);
+      if (!files.length) return;
+
+      let latestMap = loadLatestMap();
+      let imported = 0;
+
+      for (const f of files) {
+        if (!f.name.toLowerCase().endsWith(".json")) continue;
+        const obj = safeJSONParse(await f.text(), null);
+        if (!obj || !obj.entidad || !obj.sucursal || !obj.rows) continue;
+
+        const key = makeKey(obj.entidad, obj.sucursal, obj.abonado, obj.central);
+        obj.key = key;
+        obj.updatedAt = obj.updatedAt || new Date().toISOString();
+
+        // comparo por updatedAt y me quedo con el más nuevo
+        const prev = latestMap[key];
+        if (!prev || String(obj.updatedAt) > String(prev.updatedAt || "")) {
+          latestMap[key] = obj;
+        }
+
+        imported++;
+      }
+
+      saveLatestMap(latestMap);
+      refreshBasesListUI();
+      alert(`✅ Importados: ${imported} (se actualizó el "último" por sucursal).`);
+      e.target.value = "";
+    });
+
+    // Buscador rápido (en latest)
+    $("buscar-rapido")?.addEventListener("input", () => renderBuscador());
+    $("btn-limpiar-buscador")?.addEventListener("click", () => {
+      if ($("buscar-rapido")) $("buscar-rapido").value = "";
+      // re-check filtros
+      document.querySelectorAll(".filtro-check").forEach(ch => ch.checked = true);
+      renderBuscador();
+    });
+
+    document.querySelectorAll(".filtro-check").forEach(ch => ch.addEventListener("change", renderBuscador));
+
+    // Entidad/Sucursal autocompletar
+    $("entidad")?.addEventListener("input", () => {
+      const ent = ($("entidad").value || "").trim();
+      fillSucursalesDatalistForEntidad(ent);
+      // si cambia entidad, limpiamos sucursal y campos dependientes
+      $("sucursal").value = "";
+      $("abonado").value = "";
+      $("central").value = "";
+      $("provincia").value = "";
+      clearTableRows();
+    });
+
+    $("sucursal")?.addEventListener("input", () => {
+      const ent = ($("entidad").value || "").trim();
+      const suc = ($("sucursal").value || "").trim();
+
+      if (!ent) return;
+
+      // Otros
+      if (suc.toLowerCase() === "otros") {
+        $("sucursal").value = "";
+        $("sucursal").placeholder = "Escribí la sucursal nueva...";
+        $("abonado").value = "";
+        $("central").value = "";
+        $("provincia").value = "";
+        clearTableRows();
+        return;
+      }
+
+      const found = findSucursal(ent, suc);
+      if (found) {
+        // autocompleta
+        $("abonado").value = found.Abo || "";
+        $("central").value = found["Id Central"] || "";
+        $("provincia").value = found.Provincia || "";
+        $("sucursal").placeholder = "Ej: Humberto Primo";
+
+        // ✅ cargar último json si existe
+        tryLoadLatestForCurrentSucursal();
+      }
+    });
+  }
+
+  function renderBuscador() {
+    const wrap = $("buscador-resultados");
+    if (!wrap) return;
+
+    const q = ($("buscar-rapido")?.value || "").trim().toLowerCase();
+    const latest = loadLatestMap();
+    const items = Object.values(latest);
+
+    const checks = Array.from(document.querySelectorAll(".filtro-check"));
+    const activeFields = checks.filter(c => c.checked).map(c => c.value);
+
+    // Si no hay checks activos, buscamos en todo
+    const fields = activeFields.length ? activeFields : ["entidad","sucursal","abonado","central","provincia","nombre"];
+
+    const filtered = !q ? [] : items.filter(b => {
+      const hay = (f) => String(b[f] || "").toLowerCase().includes(q);
+      // "nombre" lo tratamos como entidad+sucursal
+      return fields.some(f => f === "nombre"
+        ? `${b.entidad||""} ${b.sucursal||""}`.toLowerCase().includes(q)
+        : hay(f)
+      );
+    }).slice(0, 30);
+
+    wrap.innerHTML = "";
+    if (!q) return;
+
+    if (!filtered.length) {
+      wrap.innerHTML = `<div class="card"><b>Sin resultados</b><div style="opacity:.8;margin-top:6px;">Probá con otra palabra.</div></div>`;
+      return;
+    }
+
+    filtered.forEach(base => {
+      const card = document.createElement("div");
+      card.className = "card";
+      card.style.cursor = "pointer";
+      card.innerHTML = `
+        <div style="font-weight:800">${escapeHTML(base.entidad || "")} — ${escapeHTML(base.sucursal || "")}</div>
+        <div style="opacity:.85;font-size:13px;margin-top:6px">
+          Abonado: <b>${escapeHTML(base.abonado || "-")}</b> · Central: <b>${escapeHTML(base.central || "-")}</b> · Prov: <b>${escapeHTML(base.provincia || "-")}</b>
+        </div>
+        <div style="opacity:.7;font-size:12px;margin-top:6px">Última: ${escapeHTML(formatDate(base.updatedAt))}</div>
+      `;
+      card.addEventListener("click", () => {
+        setUIHead(base);
+        writeTableRows(base.rows || []);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      });
+      wrap.appendChild(card);
+    });
+  }
+
+  // ---------- boot ----------
+  async function boot() {
+    ensureDefaultRows(5);
+
+    try {
+      await loadSucursales();
+      fillEntidadesDatalist();
+
+      // si ya hay entidad escrita al abrir, precargamos sucursales
+      const ent = ($("entidad")?.value || "").trim();
+      if (ent) fillSucursalesDatalistForEntidad(ent);
+    } catch (e) {
+      console.warn(e);
+      // no cortamos la app si falta sucursales.json
+    }
+
+    bindUI();
+    refreshBasesListUI();
+  }
+
+  window.addEventListener("load", boot);
+})();

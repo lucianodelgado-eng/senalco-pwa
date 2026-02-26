@@ -1,195 +1,468 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="es">
+
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Ingreso • Señalco</title>
+  <meta charset="UTF-8" />
+  <title>Base de Datos - Señalco</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <link rel="stylesheet" href="estilo.css" />
-  <link rel="manifest" href="./manifest.json">
-  <meta name="theme-color" content="#0b1b2a">
+  <script src="auth-guard.js"></script>
+  <!-- PDF (salida) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.7.0/jspdf.plugin.autotable.min.js"></script>
 
-  <script defer src="login.js"></script>
+  <!-- Excel -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+
+  <!-- Seguridad: si no está logueado -->
 
   <style>
-    .login-shell{
-      min-height:100vh;
-      padding:18px;
-      background: radial-gradient(1200px 700px at 20% 10%, rgba(45,125,255,.25), transparent 60%),
-                  radial-gradient(900px 600px at 90% 30%, rgba(247,37,133,.22), transparent 55%),
-                  linear-gradient(to bottom right, #0d1b2a, #1b263b);
-      display:flex;
-      flex-direction:column;
-      gap:14px;
-      box-sizing:border-box;
-      color:#fff;
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      max-width: 1000px;
+      margin: auto;
+      background: #0b0b20;
+      color: #fff;
     }
 
-    .login-topbar{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      padding:14px 16px;
-      border:1px solid rgba(255,255,255,.14);
-      border-radius:16px;
-      background: rgba(0,0,0,.18);
-      backdrop-filter: blur(10px);
-    }
-    .login-brand{display:flex;align-items:center;gap:12px}
-    .login-brand__logo{
-      width:44px;height:44px;border-radius:14px;
-      background: rgba(255,255,255,.12);
-      display:grid;place-items:center;
-      font-weight:900;
-      box-shadow: 0 10px 30px rgba(0,0,0,.25);
-    }
-    .login-brand__title{font-weight:900;letter-spacing:.2px}
-    .login-brand__sub{font-size:12px;opacity:.8}
-
-    .login-main{
-      width:100%;
-      max-width:560px;
-      margin:0 auto;
-      border:1px solid rgba(255,255,255,.14);
-      border-radius:16px;
-      background: rgba(0,0,0,.18);
-      backdrop-filter: blur(10px);
-      padding:16px;
+    h1 {
+      text-align: center;
+      margin-top: 10px;
     }
 
-    .login-h1{margin:6px 0 0 0;font-size:22px;font-weight:900}
-    .login-p{margin:8px 0 0 0;opacity:.85;font-size:13px;line-height:1.35}
-
-    .login-field{margin:12px 0}
-    .login-label{display:block;font-size:12px;opacity:.85;margin-bottom:6px}
-    .login-input{
-      width:100%;
-      padding:12px 12px;
-      border-radius:14px;
-      border:1px solid rgba(255,255,255,.18);
-      background: rgba(0,0,0,.25);
-      color:#fff;
-      box-sizing:border-box;
-      outline:none;
-    }
-    .login-input:focus{border-color: rgba(45,125,255,.7)}
-
-    .login-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
-    .login-btn{
-      padding:11px 14px;
-      border-radius:14px;
-      border:0;
-      cursor:pointer;
-      font-weight:900;
-      background:#2d7dff;
-      color:#fff;
-      flex:1;
-      min-width:140px;
-    }
-    .login-btn:hover{opacity:.93}
-    .login-btn.ghost{
-      background: transparent;
-      border:1px solid rgba(255,255,255,.18);
+    label {
+      display: block;
+      margin-top: 10px;
+      font-weight: bold;
     }
 
-    .login-status{margin-top:10px;opacity:.85;font-size:12px}
-
-    .login-panel{
-      margin-top:14px;
-      padding:14px;
-      border-radius:16px;
-      border:1px solid rgba(255,255,255,.14);
-      background: rgba(255,255,255,.06);
-      display:none;
+    input,
+    select {
+      width: 100%;
+      padding: 10px;
+      margin: 6px 0;
+      box-sizing: border-box;
+      border-radius: 8px;
+      border: 1px solid #333;
+      background: #121235;
+      color: #fff;
     }
-    .login-panel.active{display:block}
 
-    .btn-full{
-      width:100%;
-      padding:14px;
-      border-radius:14px;
-      border:0;
-      cursor:pointer;
-      font-weight:900;
-      margin-top:10px;
-      background:#2d7dff;
-      color:#fff;
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+      background: #0d0d2a;
     }
-    .btn-full.ghost{
-      background: transparent;
-      border:1px solid rgba(255,255,255,.18);
+
+    table,
+    th,
+    td {
+      border: 1px solid #0a0a0a;
+    }
+
+    th,
+    td {
+      padding: 6px;
+      text-align: center;
+      vertical-align: middle;
+    }
+
+    td input {
+      width: 100%;
+      border-radius: 8px;
+      padding: 8px;
+      border: 1px solid #333;
+      background: #14143a;
+      color: #fff;
+      box-sizing: border-box;
+    }
+
+    #logo-pdf {
+      display: none;
+    }
+
+    .logo-entrada {
+      width: 140px;
+      display: block;
+      margin: 10px auto 0;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, .5);
+    }
+
+    .mini-btn {
+      padding: 10px 14px;
+      border-radius: 10px;
+      background: #444;
+      color: #fff;
+      border: 0;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    .mini-btn:hover {
+      opacity: .92;
+    }
+
+    .section {
+      margin-top: 14px;
+      padding: 12px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, .06);
+      border: 1px solid rgba(255, 255, 255, .08);
+    }
+
+    .section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .section-title {
+      font-weight: bold;
+      font-size: 15px;
+    }
+
+    .section-body {
+      margin-top: 10px;
+      display: none;
+    }
+
+    .section.open .section-body {
+      display: block;
+    }
+
+    .btn-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+
+    @media (min-width: 700px) {
+      .btn-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    .bigbtn {
+      width: 100%;
+      padding: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      border: 0;
+      border-radius: 12px;
+      background: #1976d2;
+      color: #fff;
+      font-size: 15px;
+    }
+
+    .bigbtn:hover {
+      opacity: .92;
+    }
+
+    .buscador-wrap {
+      margin-top: 14px;
+      padding: 12px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, .06);
+      border: 1px solid rgba(255, 255, 255, .08);
+    }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .chip {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+      padding: 8px 10px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, .08);
+      border: 1px solid rgba(255, 255, 255, .12);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .chip input {
+      width: auto;
+      margin: 0;
+      transform: scale(1.1);
+    }
+
+    #buscador-resultados .card {
+      background: #fff;
+      color: #000;
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 10px;
+    }
+
+    /* Ventanita abajo */
+    .bases-window {
+      margin-top: 14px;
+      padding: 12px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, .06);
+      border: 1px solid rgba(255, 255, 255, .08);
+    }
+
+    .bases-window-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      user-select: none;
+      gap: 10px;
+    }
+
+    .bases-window-title {
+      font-weight: bold;
+      font-size: 15px;
+    }
+
+    .bases-window-body {
+      margin-top: 10px;
+      display: none;
+    }
+
+    .bases-window.open .bases-window-body {
+      display: block;
+    }
+
+    #lista-bases-inline {
+      max-height: 260px;
+      overflow-y: auto;
+      padding-right: 6px;
+    }
+
+    #lista-bases-inline .card {
+      background: #fff;
+      color: #000;
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 10px;
+    }
+
+    /* No mostrar update bar */
+    #update-bar {
+      display: none !important;
+    }
+
+    /* Modal preview básico */
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .55);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 14px;
+      z-index: 9999;
+    }
+
+    .modal .box {
+      width: min(980px, 100%);
+      max-height: 86vh;
+      overflow: auto;
+      background: #0b0b20;
+      border: 1px solid rgba(255, 255, 255, .12);
+      border-radius: 14px;
+      padding: 14px;
+    }
+
+    .modal .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
     }
   </style>
 </head>
 
 <body>
-  <div class="login-shell">
-    <header class="login-topbar">
-      <div class="login-brand">
-        <div class="login-brand__logo">S</div>
-        <div>
-          <div class="login-brand__title">Señalco</div>
-          <div class="login-brand__sub">Ingreso al sistema</div>
-        </div>
+
+  <img id="logo-pdf" src="images/logo.jpg" alt="logo" />
+
+  <img src="images/logo_blanco.jpg" alt="Logo Señalco" class="logo-entrada">
+
+  <h1>📊 Base de Datos - Señalco</h1>
+
+  <label>Entidad</label>
+  <input type="text" id="entidad" list="lista-entidades" placeholder="Ej: Banco Galicia" />
+  <datalist id="lista-entidades"></datalist>
+
+  <label>Sucursal</label>
+  <input type="text" id="sucursal" list="lista-sucursales" placeholder="Ej: Humberto Primo" />
+  <datalist id="lista-sucursales"></datalist>
+
+  <label>Abonado</label>
+  <input type="text" id="abonado" placeholder="Ej: 000123" />
+
+  <label>Central</label>
+  <input type="text" id="central" placeholder="Ej: Acicomp" />
+
+  <label>Provincia</label>
+  <input type="text" id="provincia" placeholder="Ej: Buenos Aires" />
+
+  <table id="tabla-base">
+    <thead>
+      <tr>
+        <th>Zona</th>
+        <th>Evento</th>
+        <th>Área</th>
+        <th>Dispositivo</th>
+        <th>Descripción</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <!-- IMPORTAR (reducido, relevante) -->
+  <div class="section" id="sec-importar">
+    <div class="section-head" onclick="toggleSection('sec-importar')">
+      <div class="section-title">📥 Importar</div>
+      <div style="opacity:.9;">⬇️</div>
+    </div>
+
+    <div class="section-body">
+      <div class="btn-grid">
+        <button class="bigbtn" id="btn-subir-excel">📂 Importar Excel</button>
+        <input id="input-excel-base" type="file"
+          accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          style="position:absolute; left:-9999px; width:1px; height:1px;" />
+
+        <button class="bigbtn" id="btn-importar-json-top">📤 Importar 1 JSON</button>
+        <input id="input-json-base-top" type="file" accept="application/json,.json"
+          style="position:absolute; left:-9999px; width:1px; height:1px;" />
+
+        <!-- ✅ Android-friendly: multiple -->
+        <button class="bigbtn" id="btn-importar-muchos-json">📦 Importar varios JSON</button>
+        <input id="input-json-muchos" type="file" accept="application/json,.json" multiple webkitdirectory directory
+          style="position:absolute; left:-9999px; width:1px; height:1px;" />
       </div>
-      <img src="images/logo_blanco.jpg" alt="Logo Señalco"
-           style="height:42px;border-radius:10px;box-shadow:0 0 10px rgba(0,0,0,.35)">
-    </header>
 
-    <main class="login-main">
-
-      <!-- ✅ TODO el login dentro de este contenedor -->
-      <div id="login-block">
-        <div class="login-h1">Login único</div>
-        <div class="login-p">
-          Entrás una vez. Después ves solo lo habilitado (Alarmas / CCTV / Monitoreo).
-        </div>
-
-        <div class="login-field">
-          <span class="login-label">Usuario</span>
-          <input class="login-input" type="text" id="usuario" placeholder="admin o tecnico" autocomplete="username">
-        </div>
-
-        <div class="login-field">
-          <span class="login-label">Clave</span>
-          <input class="login-input" type="password" id="clave" placeholder="••••••••" autocomplete="current-password">
-        </div>
-
-        <div class="login-actions">
-          <button class="login-btn" id="btn-login" type="button">Entrar</button>
-          <button class="login-btn ghost" id="btn-actualizar-app" type="button">🔄 Actualizar app</button>
-        </div>
+      <div style="margin-top:10px; font-size:12px; opacity:.85;">
+        Tip: en Android a veces “carpeta” no aparece. Igual podés seleccionar varios archivos a la vez.
       </div>
+    </div>
+  </div>
 
-      <!-- ✅ Botón cerrar sesión siempre visible (si hay sesión) -->
-      <button class="btn-full ghost" id="btn-cerrar-sesion" type="button" style="display:none;">
-        🔒 Cerrar sesión
-      </button>
+  <!-- ACCIONES -->
+  <div class="section open" id="sec-acciones">
+    <div class="section-head" onclick="toggleSection('sec-acciones')">
+      <div class="section-title">⚙️ Acciones</div>
+      <div style="opacity:.9;">⬆️</div>
+    </div>
 
-      <div class="login-status" id="estado-login">Cargando…</div>
+    <div class="section-body">
+      <div class="btn-grid">
+        <button class="bigbtn" id="btn-limpiar-base">🧹 Limpiar</button>
 
-      <!-- ✅ PANEL DE ACCESOS -->
-      <section id="seleccion-planillas" class="login-panel">
-        <h3 style="margin:0 0 8px 0;">📌 Accesos</h3>
+        <!-- Guardar + backup JSON -->
+        <button class="bigbtn" id="btn-guardar-rapido">💾 Guardar en Bases + Backup JSON</button>
 
-        <button class="btn-full ghost" id="btn-relevamiento" type="button">📋 Relevamiento Alarmas</button>
-        <button class="btn-full" id="btn-base" type="button">📊 Base de Datos</button>
-        <button class="btn-full ghost" id="btn-cctv" type="button">🎥 Relevamiento CCTV</button>
-        <button class="btn-full" id="btn-monitoreo-web" type="button">🖥️ Monitoreo Web</button>
+        <button class="bigbtn" id="btn-previsualizar">👁️ Previsualizar</button>
 
-        <div id="admin-manager-hook" style="margin-top:12px;"></div>
-      </section>
-    </main>
+        <button class="bigbtn" id="btn-generar-pdf-base">📄 Exportar PDF</button>
+
+        <button class="bigbtn" id="btn-excel-base">📊 Exportar Excel</button>
+
+        <button class="bigbtn" id="btn-editar-zonas123">🔓 Editar Zonas 1-3</button>
+        <button class="bigbtn" id="btn-bloquear-zonas123" style="display:none;">🔒 Bloquear Zonas 1-3</button>
+
+        <button class="bigbtn" onclick="cerrarSesion()">🔒 Cerrar sesión</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- BUSCADOR -->
+  <div class="buscador-wrap">
+    <h3 style="margin:0 0 8px;">🔎 Buscador rápido de Bases (teléfono)</h3>
+
+    <input id="buscar-rapido" placeholder="Escribí (ej: gal) y filtra al toque..." />
+
+    <div style="opacity:.9; font-size:13px; margin-top:6px;">
+      ✅ Elegí en qué campos buscar (si destildás todo, busca en todos):
+    </div>
+
+    <div class="chips" id="filtros-wrap">
+      <label class="chip"><input type="checkbox" class="filtro-check" value="entidad" checked>Entidad</label>
+      <label class="chip"><input type="checkbox" class="filtro-check" value="sucursal" checked>Sucursal</label>
+      <label class="chip"><input type="checkbox" class="filtro-check" value="abonado" checked>Abonado</label>
+      <label class="chip"><input type="checkbox" class="filtro-check" value="central" checked>Central</label>
+      <label class="chip"><input type="checkbox" class="filtro-check" value="provincia" checked>Provincia</label>
+      <label class="chip"><input type="checkbox" class="filtro-check" value="nombre" checked>Nombre</label>
+    </div>
+
+    <div id="buscador-resultados" style="margin-top:12px;"></div>
+
+    <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
+      <button class="mini-btn" id="btn-limpiar-buscador" style="background:#555;">Limpiar búsqueda</button>
+    </div>
+  </div>
+
+  <!-- Ventanita -->
+  <div class="bases-window open" id="bases-window">
+    <div class="bases-window-head" onclick="toggleBasesWindow()">
+      <div class="bases-window-title">📁 Bases guardadas (lista)</div>
+      <div id="bases-window-arrow" style="opacity:.9;">⬆️</div>
+    </div>
+
+    <div class="bases-window-body">
+      <div id="lista-bases-inline"></div>
+    </div>
+  </div>
+
+  <!-- Modal Previsualizar -->
+  <div id="modal-prev" class="modal">
+    <div class="box">
+      <div class="row">
+        <h2 style="margin:0;">Previsualización de Base</h2>
+        <button class="mini-btn" id="btn-cerrar-prev">Cerrar ✖</button>
+      </div>
+      <div id="prev-body" style="margin-top:12px;"></div>
+      <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
+        <button class="mini-btn" id="btn-descargar-pdf-prev">✅ Descargar PDF</button>
+      </div>
+    </div>
   </div>
 
   <script>
-    if ("serviceWorker" in navigator) {
-      window.addEventListener("load", () => {
-        navigator.serviceWorker.register("./service-worker.js")
-          .then(() => console.log("✅ SW OK"))
-          .catch(err => console.error("❌ SW error", err));
-      });
+    function cerrarSesion() {
+      localStorage.removeItem("logueado");
+      localStorage.removeItem("perfil");
+      localStorage.removeItem("usuario");
+      localStorage.removeItem("rol");
+      window.location.href = "login.html";
+    }
+
+    function toggleSection(id) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.classList.toggle("open");
+      const arrow = el.querySelector(".section-head div:last-child");
+      if (arrow) arrow.textContent = el.classList.contains("open") ? "⬆️" : "⬇️";
+    }
+
+    function toggleBasesWindow() {
+      const el = document.getElementById("bases-window");
+      const arrow = document.getElementById("bases-window-arrow");
+      if (!el) return;
+      el.classList.toggle("open");
+      if (arrow) arrow.textContent = el.classList.contains("open") ? "⬆️" : "⬇️";
     }
   </script>
+  <script src="java-base.js"></script>
 </body>
+
 </html>
