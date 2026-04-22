@@ -1,157 +1,221 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8" />
-    <title>App Relevamiento</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8" />
+  <title>Señalco - Acceso</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <link rel="stylesheet" href="estilo.css" />
-    <script defer src="login.js"></script>
+  <link rel="stylesheet" href="estilo.css" />
+  <link rel="manifest" href="./manifest.json" />
+  <meta name="theme-color" content="#0b1b2a" />
 
-    <link rel="manifest" href="./manifest.json" />
-    <meta name="theme-color" content="#0b1b2a" />
+  <script defer src="login.js"></script>
 
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background: linear-gradient(to bottom right, #0d1b2a, #1b263b);
-            color: white;
-            text-align: center;
-            margin: 0;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: start;
-            padding: 40px 20px;
-            box-sizing: border-box;
-        }
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: linear-gradient(to bottom right, #0d1b2a, #1b263b);
+      color: #fff;
+      margin: 0;
+      min-height: 100vh;
+      padding: 30px 16px;
+      box-sizing: border-box;
+    }
 
-        h1 {
-            color: #f72585;
-            margin-bottom: 10px;
-        }
+    .contenedor {
+      max-width: 520px;
+      margin: 0 auto;
+    }
 
-        .logo {
-            width: 150px;
-            margin-bottom: 20px;
-            border-radius: 8px;
-        }
+    .card {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 18px;
+      padding: 20px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+      backdrop-filter: blur(10px);
+    }
 
-        .subtitulo {
-            margin-bottom: 25px;
-            opacity: 0.9;
-        }
+    .logo {
+      display: block;
+      width: 140px;
+      max-width: 70%;
+      margin: 0 auto 18px auto;
+      border-radius: 10px;
+    }
 
-        .panel-login,
-        .panel-modulos {
-            width: 100%;
-            max-width: 420px;
-            margin: 0 auto;
-            padding: 20px;
-            background-color: rgba(255, 255, 255, 0.06);
-            border-radius: 12px;
-            box-shadow: 0 0 14px rgba(255, 255, 255, 0.12);
-        }
+    h1 {
+      text-align: center;
+      margin: 0 0 8px 0;
+      font-size: 28px;
+      color: #ffffff;
+    }
 
-        .panel-modulos {
-            display: none;
-        }
+    .sub {
+      text-align: center;
+      margin-bottom: 20px;
+      color: rgba(255,255,255,0.85);
+      font-size: 14px;
+    }
 
-        input {
-            width: 100%;
-            padding: 12px;
-            margin: 8px 0;
-            font-size: 16px;
-            border-radius: 6px;
-            border: none;
-            box-sizing: border-box;
-        }
+    .login-input {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 12px 14px;
+      border: none;
+      border-radius: 12px;
+      margin-bottom: 10px;
+      font-size: 16px;
+      outline: none;
+    }
 
-        button {
-            width: 100%;
-            background-color: #0077b6;
-            color: white;
-            border: none;
-            padding: 12px 16px;
-            font-size: 16px;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: background 0.3s ease;
-            margin-top: 10px;
-        }
+    .login-btn,
+    .btn-full {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 12px 14px;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: 0.2s ease;
+    }
 
-        button:hover {
-            background-color: #023e8a;
-        }
+    .login-btn,
+    .btn-full {
+      background: #0077b6;
+      color: white;
+    }
 
-        .modulo-btn {
-            margin-top: 12px;
-        }
+    .login-btn:hover,
+    .btn-full:hover {
+      background: #005f92;
+    }
 
-        .mensaje {
-            margin-top: 12px;
-            min-height: 20px;
-            font-size: 14px;
-            color: #ffd166;
-        }
+    .ghost {
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.25);
+      color: #fff;
+    }
 
-        .usuario-logueado {
-            margin-bottom: 15px;
-            font-weight: bold;
-            color: #90e0ef;
-        }
+    .ghost:hover {
+      background: rgba(255,255,255,0.08);
+    }
 
-        .btn-salir {
-            background-color: #9d0208;
-        }
+    #estado-login {
+      margin-top: 14px;
+      text-align: center;
+      font-size: 14px;
+      color: #ffd166;
+      min-height: 20px;
+    }
 
-        .btn-salir:hover {
-            background-color: #6a040f;
-        }
-    </style>
+    #seleccion-planillas {
+      display: none;
+      margin-top: 18px;
+    }
 
-    <script>
-        if ("serviceWorker" in navigator) {
-            window.addEventListener("load", () => {
-                navigator.serviceWorker.register("./service-worker.js")
-                    .then(() => console.log("✅ SW OK"))
-                    .catch(err => console.error("❌ SW error", err));
-            });
-        }
-    </script>
+    #seleccion-planillas.active {
+      display: block;
+    }
+
+    .titulo-modulos {
+      text-align: center;
+      margin: 0 0 10px 0;
+      font-size: 18px;
+      font-weight: bold;
+    }
+
+    .acciones-secundarias {
+      margin-top: 16px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .separador {
+      height: 1px;
+      background: rgba(255,255,255,0.12);
+      margin: 18px 0;
+    }
+
+    #admin-manager-hook {
+      margin-top: 18px;
+    }
+
+    .footer-mini {
+      text-align: center;
+      margin-top: 14px;
+      font-size: 12px;
+      color: rgba(255,255,255,0.65);
+    }
+  </style>
+
+  <script>
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("./service-worker.js")
+          .then(() => console.log("✅ SW registrado"))
+          .catch(err => console.error("❌ Error SW:", err));
+      });
+    }
+  </script>
 </head>
 <body>
-    <img src="images/logo_blanco.jpg" alt="Logo Señalco" class="logo" />
-    <h1>Ingreso al sistema Señalco</h1>
-    <div class="subtitulo">Relevamiento, Base de Datos y CCTV</div>
+  <div class="contenedor">
+    <div class="card">
+      <img src="images/logo_blanco.jpg" alt="Logo Señalco" class="logo" />
 
-    <div id="panel-login" class="panel-login">
-        <h3>Acceso</h3>
-        <input type="text" id="usuario" placeholder="Usuario" />
-        <input type="password" id="clave" placeholder="Clave" />
-        <button onclick="validarLogin()">Entrar</button>
-        <div id="mensaje-login" class="mensaje"></div>
+      <h1>Ingreso al sistema</h1>
+      <div class="sub">Relevamiento, Base de Datos, CCTV y accesos web</div>
+
+      <div id="login-block">
+        <input type="text" id="usuario" class="login-input" placeholder="Usuario" autocomplete="username" />
+        <input type="password" id="clave" class="login-input" placeholder="Clave" autocomplete="current-password" />
+
+        <button type="button" id="btn-login" class="login-btn">Ingresar</button>
+
+        <div class="acciones-secundarias">
+          <button type="button" id="btn-actualizar-app" class="btn-full ghost">Actualizar app</button>
+        </div>
+      </div>
+
+      <div id="estado-login"></div>
+
+      <div id="seleccion-planillas">
+        <div class="separador"></div>
+        <div class="titulo-modulos">Módulos habilitados</div>
+
+        <button type="button" id="btn-relevamiento" class="btn-full" style="display:none;">
+          📋 Relevamiento Alarmas
+        </button>
+
+        <button type="button" id="btn-base" class="btn-full" style="display:none;">
+          📊 Base de Datos
+        </button>
+
+        <button type="button" id="btn-cctv" class="btn-full" style="display:none;">
+          🎥 Relevamiento CCTV
+        </button>
+
+        <button type="button" id="btn-monitoreo-web" class="btn-full" style="display:none;">
+          🖥️ Monitoreo Web
+        </button>
+      </div>
+
+      <div class="acciones-secundarias">
+        <button type="button" id="btn-cerrar-sesion" class="btn-full ghost" style="display:none;">
+          Cerrar sesión
+        </button>
+      </div>
+
+      <div id="admin-manager-hook"></div>
+
+      <div class="footer-mini">
+        Señalco
+      </div>
     </div>
-
-    <div id="panel-modulos" class="panel-modulos">
-        <div id="usuario-logueado" class="usuario-logueado"></div>
-
-        <h3>Módulos habilitados</h3>
-
-        <button id="btn-relevamiento" class="modulo-btn" style="display:none;">
-            Abrir Relevamiento
-        </button>
-
-        <button id="btn-base" class="modulo-btn" style="display:none;">
-            Abrir Base de Datos
-        </button>
-
-        <button id="btn-cctv" class="modulo-btn" style="display:none;">
-            Abrir CCTV
-        </button>
-
-        <button class="btn-salir" onclick="cerrarSesion()">Cerrar sesión</button>
-    </div>
+  </div>
 </body>
 </html>
