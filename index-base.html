@@ -8,14 +8,13 @@
 
   <link rel="stylesheet" href="estilo.css" />
   <script src="auth-guard.js"></script>
+
   <!-- PDF (salida) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.7.0/jspdf.plugin.autotable.min.js"></script>
 
   <!-- Excel -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
-
-  <!-- Seguridad: si no está logueado -->
 
   <style>
     body {
@@ -206,7 +205,6 @@
       margin-bottom: 10px;
     }
 
-    /* Ventanita abajo */
     .bases-window {
       margin-top: 14px;
       padding: 12px;
@@ -252,12 +250,10 @@
       margin-bottom: 10px;
     }
 
-    /* No mostrar update bar */
     #update-bar {
       display: none !important;
     }
 
-    /* Modal preview básico */
     .modal {
       position: fixed;
       inset: 0;
@@ -292,7 +288,6 @@
 <body>
 
   <img id="logo-pdf" src="images/logo.jpg" alt="logo" />
-
   <img src="images/logo_blanco.jpg" alt="Logo Señalco" class="logo-entrada">
 
   <h1>📊 Base de Datos - Señalco</h1>
@@ -326,7 +321,6 @@
     <tbody></tbody>
   </table>
 
-  <!-- IMPORTAR (reducido, relevante) -->
   <div class="section" id="sec-importar">
     <div class="section-head" onclick="toggleSection('sec-importar')">
       <div class="section-title">📥 Importar</div>
@@ -344,7 +338,6 @@
         <input id="input-json-base-top" type="file" accept="application/json,.json"
           style="position:absolute; left:-9999px; width:1px; height:1px;" />
 
-        <!-- ✅ Android-friendly: multiple -->
         <button class="bigbtn" id="btn-importar-muchos-json">📦 Importar varios JSON</button>
         <input id="input-json-muchos" type="file" accept="application/json,.json" multiple webkitdirectory directory
           style="position:absolute; left:-9999px; width:1px; height:1px;" />
@@ -356,7 +349,6 @@
     </div>
   </div>
 
-  <!-- ACCIONES -->
   <div class="section open" id="sec-acciones">
     <div class="section-head" onclick="toggleSection('sec-acciones')">
       <div class="section-title">⚙️ Acciones</div>
@@ -366,25 +358,17 @@
     <div class="section-body">
       <div class="btn-grid">
         <button class="bigbtn" id="btn-limpiar-base">🧹 Limpiar</button>
-
-        <!-- Guardar + backup JSON -->
         <button class="bigbtn" id="btn-guardar-rapido">💾 Guardar en Bases + Backup JSON</button>
-
         <button class="bigbtn" id="btn-previsualizar">👁️ Previsualizar</button>
-
         <button class="bigbtn" id="btn-generar-pdf-base">📄 Exportar PDF</button>
-
         <button class="bigbtn" id="btn-excel-base">📊 Exportar Excel</button>
-
         <button class="bigbtn" id="btn-editar-zonas123">🔓 Editar Zonas 1-3</button>
         <button class="bigbtn" id="btn-bloquear-zonas123" style="display:none;">🔒 Bloquear Zonas 1-3</button>
-
         <button class="bigbtn" onclick="cerrarSesion()">🔒 Cerrar sesión</button>
       </div>
     </div>
   </div>
 
-  <!-- BUSCADOR -->
   <div class="buscador-wrap">
     <h3 style="margin:0 0 8px;">🔎 Buscador rápido de Bases (teléfono)</h3>
 
@@ -410,7 +394,6 @@
     </div>
   </div>
 
-  <!-- Ventanita -->
   <div class="bases-window open" id="bases-window">
     <div class="bases-window-head" onclick="toggleBasesWindow()">
       <div class="bases-window-title">📁 Bases guardadas (lista)</div>
@@ -422,7 +405,6 @@
     </div>
   </div>
 
-  <!-- Modal Previsualizar -->
   <div id="modal-prev" class="modal">
     <div class="box">
       <div class="row">
@@ -438,11 +420,19 @@
 
   <script>
     function cerrarSesion() {
+      try {
+        if (typeof logout === "function") {
+          logout();
+          return;
+        }
+      } catch (e) {}
+
       localStorage.removeItem("logueado");
       localStorage.removeItem("perfil");
       localStorage.removeItem("usuario");
       localStorage.removeItem("rol");
-      window.location.href = "login.html";
+      localStorage.removeItem("senalco_session_v2");
+      window.location.href = "index.html";
     }
 
     function toggleSection(id) {
@@ -466,4 +456,4 @@
   <script src="java-base.js"></script>
 </body>
 
-</html
+</html>
