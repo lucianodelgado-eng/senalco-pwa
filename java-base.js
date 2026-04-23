@@ -1020,19 +1020,21 @@ async function importarExcelBase(file) {
  *  ========================================== */
 function detectHeaderMap(values) {
   const map = {};
-  values.forEach((v, i) => {
-    const key = normKey(v);
-    if (!key) return;
 
-    if (["id de central", "id central", "central", "id_central"].includes(key)) map.central = i + 1;
-    if (["abo", "abonado", "abonado nro", "numero de abonado", "nro abonado"].includes(key)) map.abonado = i + 1;
-    if (["entidad"].includes(key)) map.entidad = i + 1;
-    if (["sucursal"].includes(key)) map.sucursal = i + 1;
-    if (["localidad"].includes(key)) map.localidad = i + 1;
-    if (["provincia"].includes(key)) map.provincia = i + 1;
-    if (["tecnico", "tecnico asignado"].includes(key)) map.tecnico = i + 1;
-    if (["pt", "485", "rs485", "tiene pt", "tiene 485"].includes(key)) map.pt = i + 1;
-  });
+  for (let col = 1; col < values.length; col++) {
+    const key = normKey(values[col]);
+    if (!key) continue;
+
+    if (["id de central", "id central", "central", "id_central"].includes(key)) map.central = col;
+    if (["abo", "abonado", "abonado nro", "numero de abonado", "nro abonado"].includes(key)) map.abonado = col;
+    if (["entidad"].includes(key)) map.entidad = col;
+    if (["sucursal"].includes(key)) map.sucursal = col;
+    if (["localidad"].includes(key)) map.localidad = col;
+    if (["provincia"].includes(key)) map.provincia = col;
+    if (["tecnico", "tecnico asignado"].includes(key)) map.tecnico = col;
+    if (["pt", "485", "rs485", "tiene pt", "tiene 485"].includes(key)) map.pt = col;
+  }
+
   return map;
 }
 
@@ -1052,8 +1054,11 @@ async function importarPadronMasivoExcel(file) {
     const headerRow = ws.getRow(1);
     const map = detectHeaderMap(headerRow.values || []);
 
-    if (!map.central && !map.abonado && !map.entidad && !map.sucursal) {
-      return alert("❌ No pude detectar encabezados del padrón.");
+    console.log("MAP PADRON:", map);
+
+    if (!map.central || !map.abonado || !map.entidad || !map.sucursal || !map.localidad || !map.provincia) {
+      console.log("MAP PADRON INCOMPLETO:", map);
+      return alert("❌ Encabezados incompletos en el padrón. Revisá que existan: Id de central, Abo, Entidad, Sucursal, Localidad, Provincia.");
     }
 
     let ok = 0;
@@ -1860,7 +1865,7 @@ window.addEventListener("DOMContentLoaded", () => {
   renderPTUI();
 
 
-  
+
   const raw = localStorage.getItem(AUTOSAVE_KEY);
   if (raw) {
     try {
