@@ -621,50 +621,7 @@ function limpiarBase() {
   resetPTState();
   autosaveBase();
 }
-function borrarTodoBases() {
-  const confirm1 = confirm("⚠️ Esto va a borrar TODAS las bases.\n\n¿Querés continuar?");
-  if (!confirm1) return;
 
-  const confirm2 = confirm("🚨 ÚLTIMA CONFIRMACIÓN\n\nSe pierde TODO definitivamente.\n\n¿Seguro?");
-  if (!confirm2) return;
-
-  // 1) borrar SOLO bases guardadas
-  Object.keys(localStorage)
-    .filter(k => k.startsWith("senalco_base_") && k !== "senalco_base_autosave")
-    .forEach(k => localStorage.removeItem(k));
-
-  // 2) borrar índice y autosave
-  localStorage.removeItem("senalco_bases_index");
-  localStorage.removeItem("senalco_base_autosave");
-
-  // 3) reset base actual
-  setCurrentBaseName("");
-
-  // 4) limpiar cabecera manualmente
-  if ($("entidad")) $("entidad").value = "";
-  if ($("sucursal")) $("sucursal").value = "";
-  if ($("abonado")) $("abonado").value = "";
-  if ($("central")) $("central").value = "";
-  if ($("provincia")) $("provincia").value = "";
-
-  // 5) reset flags
-  zonas123Editables = false;
-
-  // 6) reconstruir tabla SI O SI
-  precargarZonas();
-  aplicarBloqueoZonas123();
-
-  // 7) reset PT si lo tenés
-  if (typeof resetPTState === "function") {
-    resetPTState();
-  }
-
-  // 8) refrescar UI
-  renderBuscadorRapido();
-  renderBasesMini();
-
-  alert("✅ Todas las bases fueron eliminadas");
-}
 /** ==========================================
  *  JSON Base
  *  ========================================== */
@@ -815,7 +772,50 @@ function descargarRawComoJSON(nombre, rawJsonString) {
   a.click();
   URL.revokeObjectURL(url);
 }
+function borrarTodoBases() {
+  const confirm1 = confirm("⚠️ Esto va a borrar TODAS las bases.\n\n¿Querés continuar?");
+  if (!confirm1) return;
 
+  const confirm2 = confirm("🚨 ÚLTIMA CONFIRMACIÓN\n\nSe pierde TODO definitivamente.\n\n¿Seguro?");
+  if (!confirm2) return;
+
+  // 1) borrar SOLO bases guardadas
+  Object.keys(localStorage)
+    .filter(k => k.startsWith("senalco_base_") && k !== "senalco_base_autosave")
+    .forEach(k => localStorage.removeItem(k));
+
+  // 2) borrar índice y autosave
+  localStorage.removeItem("senalco_bases_index");
+  localStorage.removeItem("senalco_base_autosave");
+
+  // 3) reset base actual
+  setCurrentBaseName("");
+
+  // 4) limpiar cabecera manualmente
+  if ($("entidad")) $("entidad").value = "";
+  if ($("sucursal")) $("sucursal").value = "";
+  if ($("abonado")) $("abonado").value = "";
+  if ($("central")) $("central").value = "";
+  if ($("provincia")) $("provincia").value = "";
+
+  // 5) reset flags
+  zonas123Editables = false;
+
+  // 6) reconstruir tabla SI O SI
+  precargarZonas();
+  aplicarBloqueoZonas123();
+
+  // 7) reset PT si lo tenés
+  if (typeof resetPTState === "function") {
+    resetPTState();
+  }
+
+  // 8) refrescar UI
+  renderBuscadorRapido();
+  renderBasesMini();
+
+  alert("✅ Todas las bases fueron eliminadas");
+}
 /** ==========================================
  *  Importar JSON
  *  ========================================== */
