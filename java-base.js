@@ -1677,6 +1677,15 @@ function borrarTodoBases() {
   const confirm2 = confirm("🚨 ÚLTIMA CONFIRMACIÓN\n\nSe pierde TODO definitivamente.\n\n¿Seguro?");
   if (!confirm2) return;
 
+}
+function borrarTodoBases() {
+
+  const confirm1 = confirm("⚠️ Esto va a borrar TODAS las bases.\n\n¿Querés continuar?");
+  if (!confirm1) return;
+
+  const confirm2 = confirm("🚨 ÚLTIMA CONFIRMACIÓN\n\nSe pierde TODO definitivamente.\n\n¿Seguro?");
+  if (!confirm2) return;
+
   // borrar bases
   Object.keys(localStorage)
     .filter(k => k.startsWith("senalco_base_"))
