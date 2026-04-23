@@ -9,24 +9,21 @@
   <link rel="stylesheet" href="estilo.css" />
   <script src="auth-guard.js"></script>
 
-  <!-- PDF (salida) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.7.0/jspdf.plugin.autotable.min.js"></script>
-
-  <!-- Excel -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
 
   <style>
     body {
       font-family: Arial, sans-serif;
       margin: 20px;
-      max-width: 1000px;
+      max-width: 1100px;
       margin: auto;
       background: #0b0b20;
       color: #fff;
     }
 
-    h1 {
+    h1, h2, h3 {
       text-align: center;
       margin-top: 10px;
     }
@@ -38,7 +35,8 @@
     }
 
     input,
-    select {
+    select,
+    textarea {
       width: 100%;
       padding: 10px;
       margin: 6px 0;
@@ -49,6 +47,11 @@
       color: #fff;
     }
 
+    textarea {
+      min-height: 70px;
+      resize: vertical;
+    }
+
     table {
       width: 100%;
       border-collapse: collapse;
@@ -56,20 +59,17 @@
       background: #0d0d2a;
     }
 
-    table,
-    th,
-    td {
+    table, th, td {
       border: 1px solid #0a0a0a;
     }
 
-    th,
-    td {
+    th, td {
       padding: 6px;
       text-align: center;
       vertical-align: middle;
     }
 
-    td input {
+    td input, td select, td textarea {
       width: 100%;
       border-radius: 8px;
       padding: 8px;
@@ -101,7 +101,8 @@
       font-weight: bold;
     }
 
-    .mini-btn:hover {
+    .mini-btn:hover,
+    .bigbtn:hover {
       opacity: .92;
     }
 
@@ -142,7 +143,7 @@
       gap: 10px;
     }
 
-    @media (min-width: 700px) {
+    @media (min-width: 760px) {
       .btn-grid {
         grid-template-columns: 1fr 1fr;
       }
@@ -160,11 +161,9 @@
       font-size: 15px;
     }
 
-    .bigbtn:hover {
-      opacity: .92;
-    }
-
-    .buscador-wrap {
+    .buscador-wrap,
+    .bases-window,
+    .pt-wrap {
       margin-top: 14px;
       padding: 12px;
       border-radius: 14px;
@@ -197,20 +196,14 @@
       transform: scale(1.1);
     }
 
-    #buscador-resultados .card {
+    #buscador-resultados .card,
+    #lista-bases-inline .card,
+    .pt-card {
       background: #fff;
       color: #000;
       border-radius: 12px;
       padding: 12px;
       margin-bottom: 10px;
-    }
-
-    .bases-window {
-      margin-top: 14px;
-      padding: 12px;
-      border-radius: 14px;
-      background: rgba(255, 255, 255, .06);
-      border: 1px solid rgba(255, 255, 255, .08);
     }
 
     .bases-window-head {
@@ -237,17 +230,9 @@
     }
 
     #lista-bases-inline {
-      max-height: 260px;
+      max-height: 280px;
       overflow-y: auto;
       padding-right: 6px;
-    }
-
-    #lista-bases-inline .card {
-      background: #fff;
-      color: #000;
-      border-radius: 12px;
-      padding: 12px;
-      margin-bottom: 10px;
     }
 
     #update-bar {
@@ -273,6 +258,7 @@
       border: 1px solid rgba(255, 255, 255, .12);
       border-radius: 14px;
       padding: 14px;
+      color: #fff;
     }
 
     .modal .row {
@@ -281,6 +267,51 @@
       justify-content: space-between;
       gap: 10px;
       flex-wrap: wrap;
+    }
+
+    .pt-top-grid,
+    .pt-main-grid {
+      display: grid;
+      gap: 10px;
+    }
+
+    .pt-top-grid {
+      grid-template-columns: 1fr;
+      margin-top: 10px;
+    }
+
+    .pt-main-grid {
+      grid-template-columns: 1fr;
+    }
+
+    @media (min-width: 760px) {
+      .pt-top-grid {
+        grid-template-columns: repeat(5, 1fr);
+      }
+
+      .pt-main-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    .pt-subbox {
+      background: rgba(0,0,0,.08);
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 12px;
+      padding: 10px;
+    }
+
+    .pt-subbox h4 {
+      margin: 0 0 8px 0;
+      text-align: left;
+    }
+
+    .pt-card input,
+    .pt-card select,
+    .pt-card textarea {
+      background: #1c1c1c;
+      color: #fff;
+      border: 1px solid #555;
     }
   </style>
 </head>
@@ -329,7 +360,7 @@
 
     <div class="section-body">
       <div class="btn-grid">
-        <button class="bigbtn" id="btn-subir-excel">📂 Importar Excel</button>
+        <button class="bigbtn" id="btn-subir-excel">📂 Importar Excel Base</button>
         <input id="input-excel-base" type="file"
           accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
           style="position:absolute; left:-9999px; width:1px; height:1px;" />
@@ -341,10 +372,25 @@
         <button class="bigbtn" id="btn-importar-muchos-json">📦 Importar varios JSON</button>
         <input id="input-json-muchos" type="file" accept="application/json,.json" multiple webkitdirectory directory
           style="position:absolute; left:-9999px; width:1px; height:1px;" />
+
+        <button class="bigbtn" id="btn-importar-padron-masivo">🏗️ Importar padrón masivo Excel</button>
+        <input id="input-padron-masivo" type="file"
+          accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          style="position:absolute; left:-9999px; width:1px; height:1px;" />
+
+        <button class="bigbtn" id="btn-lineas-basico">📥 Cargar líneas Excel básico</button>
+        <input id="input-lineas-basico" type="file"
+          accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          style="position:absolute; left:-9999px; width:1px; height:1px;" />
+
+        <button class="bigbtn" id="btn-lineas-amba">📥 Cargar líneas Excel completo / AMBA</button>
+        <input id="input-lineas-amba" type="file"
+          accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          style="position:absolute; left:-9999px; width:1px; height:1px;" />
       </div>
 
       <div style="margin-top:10px; font-size:12px; opacity:.85;">
-        Tip: en Android a veces “carpeta” no aparece. Igual podés seleccionar varios archivos a la vez.
+        Tip: el padrón masivo crea bases automáticas. Los Excel de líneas cargan sobre la base abierta.
       </div>
     </div>
   </div>
@@ -369,13 +415,30 @@
     </div>
   </div>
 
+  <div class="pt-wrap">
+    <h3 style="margin:0 0 8px;">🔌 PT4000 / RS485</h3>
+
+    <div class="btn-grid">
+      <button class="bigbtn" id="btn-toggle-pt">Activar / Desactivar PT4000</button>
+      <button class="bigbtn" id="btn-agregar-pt">➕ Agregar PT4000</button>
+    </div>
+
+    <div style="margin-top:10px; font-size:13px; opacity:.9;">
+      Si la sucursal no tiene 485, dejalo apagado. Si tiene, queda integrado dentro del mismo JSON.
+    </div>
+
+    <div id="estado-pt" style="margin-top:10px; font-weight:bold;">PT4000 desactivado</div>
+
+    <div id="pt-contenedor" style="margin-top:12px;"></div>
+  </div>
+
   <div class="buscador-wrap">
-    <h3 style="margin:0 0 8px;">🔎 Buscador rápido de Bases (teléfono)</h3>
+    <h3 style="margin:0 0 8px;">🔎 Buscador rápido de Bases</h3>
 
     <input id="buscar-rapido" placeholder="Escribí (ej: gal) y filtra al toque..." />
 
     <div style="opacity:.9; font-size:13px; margin-top:6px;">
-      ✅ Elegí en qué campos buscar (si destildás todo, busca en todos):
+      Elegí en qué campos buscar:
     </div>
 
     <div class="chips" id="filtros-wrap">

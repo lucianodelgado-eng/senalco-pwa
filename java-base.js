@@ -1,7 +1,7 @@
 /***********************
  *   Señalco - Base    *
  * java-base.js FULL   *
- * corregido sin romper
+ * integrado: guardado, padrón, líneas, PT4000
  ***********************/
 
 /** =========================
@@ -46,21 +46,24 @@ const dispositivos = [
   "Sensor de Humo",
   "Tamper Teclado",
   "Tapa Superior",
+  "PT4000",
+  "Teclado PT4000",
   "otros"
 ];
 
 /** ==========================================
- *  Flags / State
+ *  Estado
  *  ========================================== */
 let zonas123Editables = false;
 
-/** Base actual abierta */
 const CURRENT_NAME_KEY = "senalco_current_base_name";
 function getCurrentBaseName() { return localStorage.getItem(CURRENT_NAME_KEY) || ""; }
 function setCurrentBaseName(name) {
   if (!name) localStorage.removeItem(CURRENT_NAME_KEY);
   else localStorage.setItem(CURRENT_NAME_KEY, name);
 }
+
+const PT_KEY = "senalco_pt_state_v1";
 
 /** ==========================================
  *  Utilidades
@@ -83,7 +86,7 @@ function safeName(s) {
 }
 
 function getZonaNumberFromText(z) {
-  const m = String(z || "").match(/(\d{1,2})/);
+  const m = String(z || "").match(/(\d{1,3})/);
   return m ? parseInt(m[1], 10) : null;
 }
 
@@ -104,8 +107,19 @@ function escapeHtml(s) {
     .replaceAll("'", "&#039;");
 }
 
+function firstDefined(...vals) {
+  for (const v of vals) {
+    if (v !== undefined && v !== null && String(v).trim() !== "") return String(v).trim();
+  }
+  return "";
+}
+
+function toLower(v) {
+  return String(v || "").trim().toLowerCase();
+}
+
 /** ==========================================
- *  Entidades (datalist)
+ *  Entidades
  *  ========================================== */
 const ENTIDADES_AR = [
   "Banco de la Nación Argentina",
@@ -173,6 +187,186 @@ function setIndex(list) {
 function baseKey(nombre) { return BASE_PREFIX + nombre; }
 
 /** ==========================================
+ *  PT4000 / RS485
+ *  ========================================== */
+function getPTState() {
+  try {
+    return JSON.parse(localStorage.getItem(PT_KEY) || '{"habilitado":false,"equipos":[]}');
+  } catch {
+    return { habilitado: false, equipos: [] };
+  }
+}
+
+function setPTState(data) {
+  localStorage.setItem(PT_KEY, JSON.stringify(data));
+}
+
+function resetPTState() {
+  setPTState({ habilitado: false, equipos: [] });
+  renderPTUI();
+}
+
+function createEmptyPT() {
+  return {
+    nombre: "",
+    area: "",
+    numero: "",
+    ip: "",
+    clave: "",
+    salidas: {
+      clave: "",
+      ip: "",
+      sismico: "",
+      robo: ""
+    },
+    entradas: {
+      z1: "",
+      z2: "",
+      z3: "",
+      z4: "",
+      z5: "",
+      z6: ""
+    }
+  };
+}
+
+function renderPTUI() {
+  const state = getPTState();
+  const cont = $("pt-contenedor");
+  const estado = $("estado-pt");
+  if (!cont || !estado) return;
+
+  estado.textContent = state.habilitado
+    ? `PT4000 activado • Equipos: ${state.equipos.length}`
+    : "PT4000 desactivado";
+
+  cont.innerHTML = "";
+
+  if (!state.habilitado) return;
+
+  if (!state.equipos.length) {
+    cont.innerHTML = `<div class="pt-card"><b>No hay PT4000 cargados.</b><div style="margin-top:6px;">Usá "Agregar PT4000".</div></div>`;
+    return;
+  }
+
+  state.equipos.forEach((pt, idx) => {
+    const box = document.createElement("div");
+    box.className = "pt-card";
+    box.innerHTML = `
+      <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:center;">
+        <div style="font-weight:bold;">PT4000 ${idx + 1}</div>
+        <button class="mini-btn" data-del="${idx}" style="background:#b00020;">Borrar PT</button>
+      </div>
+
+      <div class="pt-top-grid">
+        <div>
+          <label>Nombre</label>
+          <input data-pt="${idx}" data-field="nombre" value="${escapeHtml(pt.nombre)}">
+        </div>
+        <div>
+          <label>Área</label>
+          <input data-pt="${idx}" data-field="area" value="${escapeHtml(pt.area)}">
+        </div>
+        <div>
+          <label>Número</label>
+          <input data-pt="${idx}" data-field="numero" value="${escapeHtml(pt.numero)}">
+        </div>
+        <div>
+          <label>IP</label>
+          <input data-pt="${idx}" data-field="ip" value="${escapeHtml(pt.ip)}">
+        </div>
+        <div>
+          <label>Clave</label>
+          <input data-pt="${idx}" data-field="clave" value="${escapeHtml(pt.clave)}">
+        </div>
+      </div>
+
+      <div class="pt-main-grid" style="margin-top:12px;">
+        <div class="pt-subbox">
+          <h4>Salidas</h4>
+          <label>Salida de Clave</label>
+          <input data-pt="${idx}" data-salida="clave" value="${escapeHtml(pt.salidas?.clave || "")}">
+          <label>Salida de IP</label>
+          <input data-pt="${idx}" data-salida="ip" value="${escapeHtml(pt.salidas?.ip || "")}">
+          <label>Salida de Sísmico</label>
+          <input data-pt="${idx}" data-salida="sismico" value="${escapeHtml(pt.salidas?.sismico || "")}">
+          <label>Salida de Robo</label>
+          <input data-pt="${idx}" data-salida="robo" value="${escapeHtml(pt.salidas?.robo || "")}">
+        </div>
+
+        <div class="pt-subbox">
+          <h4>Entradas / Zonas</h4>
+          <label>Z1</label>
+          <input data-pt="${idx}" data-entrada="z1" value="${escapeHtml(pt.entradas?.z1 || "")}">
+          <label>Z2</label>
+          <input data-pt="${idx}" data-entrada="z2" value="${escapeHtml(pt.entradas?.z2 || "")}">
+          <label>Z3</label>
+          <input data-pt="${idx}" data-entrada="z3" value="${escapeHtml(pt.entradas?.z3 || "")}">
+          <label>Z4</label>
+          <input data-pt="${idx}" data-entrada="z4" value="${escapeHtml(pt.entradas?.z4 || "")}">
+          <label>Z5</label>
+          <input data-pt="${idx}" data-entrada="z5" value="${escapeHtml(pt.entradas?.z5 || "")}">
+          <label>Z6</label>
+          <input data-pt="${idx}" data-entrada="z6" value="${escapeHtml(pt.entradas?.z6 || "")}">
+        </div>
+      </div>
+    `;
+
+    cont.appendChild(box);
+  });
+
+  cont.querySelectorAll("input[data-pt]").forEach(inp => {
+    inp.addEventListener("input", () => {
+      const state = getPTState();
+      const idx = parseInt(inp.dataset.pt, 10);
+      if (!state.equipos[idx]) return;
+
+      if (inp.dataset.field) {
+        state.equipos[idx][inp.dataset.field] = inp.value;
+      }
+      if (inp.dataset.salida) {
+        state.equipos[idx].salidas[inp.dataset.salida] = inp.value;
+      }
+      if (inp.dataset.entrada) {
+        state.equipos[idx].entradas[inp.dataset.entrada] = inp.value;
+      }
+
+      setPTState(state);
+      autosaveBase();
+    });
+  });
+
+  cont.querySelectorAll("button[data-del]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const idx = parseInt(btn.dataset.del, 10);
+      const state = getPTState();
+      state.equipos.splice(idx, 1);
+      setPTState(state);
+      renderPTUI();
+      autosaveBase();
+    });
+  });
+}
+
+function togglePT() {
+  const state = getPTState();
+  state.habilitado = !state.habilitado;
+  if (state.habilitado && !Array.isArray(state.equipos)) state.equipos = [];
+  setPTState(state);
+  renderPTUI();
+  autosaveBase();
+}
+
+function addPT() {
+  const state = getPTState();
+  state.habilitado = true;
+  state.equipos.push(createEmptyPT());
+  setPTState(state);
+  renderPTUI();
+  autosaveBase();
+}
+
+/** ==========================================
  *  DOM Bindings
  *  ========================================== */
 function asignarEventosBase() {
@@ -203,6 +397,27 @@ function asignarEventosBase() {
       return;
     }
     await importarMuchosJSON(files);
+    e.target.value = "";
+  });
+
+  $("btn-importar-padron-masivo")?.addEventListener("click", () => $("input-padron-masivo")?.click());
+  $("input-padron-masivo")?.addEventListener("change", async (e) => {
+    const f = e.target.files?.[0];
+    if (f) await importarPadronMasivoExcel(f);
+    e.target.value = "";
+  });
+
+  $("btn-lineas-basico")?.addEventListener("click", () => $("input-lineas-basico")?.click());
+  $("input-lineas-basico")?.addEventListener("change", async (e) => {
+    const f = e.target.files?.[0];
+    if (f) await importarLineasExcelBasico(f);
+    e.target.value = "";
+  });
+
+  $("btn-lineas-amba")?.addEventListener("click", () => $("input-lineas-amba")?.click());
+  $("input-lineas-amba")?.addEventListener("change", async (e) => {
+    const f = e.target.files?.[0];
+    if (f) await importarLineasExcelCompleto(f);
     e.target.value = "";
   });
 
@@ -237,6 +452,9 @@ function asignarEventosBase() {
     aplicarBloqueoZonas123();
     alert("🔒 Zonas 1-3 bloqueadas");
   });
+
+  $("btn-toggle-pt")?.addEventListener("click", togglePT);
+  $("btn-agregar-pt")?.addEventListener("click", addPT);
 
   ["entidad", "sucursal", "abonado", "central", "provincia"].forEach(id => {
     $(id)?.addEventListener("input", autosaveBase);
@@ -340,7 +558,6 @@ function crearFilaZona(numeroZona) {
 
 function aplicarDefaultsZonas123SiVacias() {
   const filas = document.querySelectorAll("#tabla-base tbody tr");
-
   const defaults = {
     1: "Avería de linea",
     2: "Apertura de Equipo",
@@ -401,13 +618,16 @@ function limpiarBase() {
   zonas123Editables = false;
   setCurrentBaseName("");
   precargarZonas();
+  resetPTState();
   autosaveBase();
 }
 
 /** ==========================================
- *  Construir JSON Base
+ *  JSON Base
  *  ========================================== */
 function construirJSONBase() {
+  const ptState = getPTState();
+
   const datos = {
     meta: { generado: fechaGeneradoLocal() },
     entidad: $("entidad").value,
@@ -415,7 +635,11 @@ function construirJSONBase() {
     abonado: $("abonado").value,
     central: $("central").value,
     provincia: $("provincia")?.value || "",
-    zonas: []
+    zonas: [],
+    pt4000: {
+      habilitado: !!ptState.habilitado,
+      equipos: Array.isArray(ptState.equipos) ? ptState.equipos : []
+    }
   };
 
   const filas = document.querySelectorAll("#tabla-base tbody tr");
@@ -471,7 +695,7 @@ function addToIndex(nombre) {
 }
 
 /** ==========================================
- *  Guardar rápido + Backup
+ *  Guardado
  *  ========================================== */
 function guardarRapidoConBackup() {
   const data = construirJSONBase();
@@ -550,7 +774,7 @@ function descargarRawComoJSON(nombre, rawJsonString) {
 }
 
 /** ==========================================
- *  Importar JSON (1)
+ *  Importar JSON
  *  ========================================== */
 function importarJSONBase(file) {
   const reader = new FileReader();
@@ -559,17 +783,14 @@ function importarJSONBase(file) {
       const data = JSON.parse(reader.result);
       cargarDataEnPantalla(data);
       setCurrentBaseName("");
-      alert("✅ JSON importado (cabecera + zonas)");
-    } catch (e) {
+      alert("✅ JSON importado");
+    } catch {
       alert("❌ JSON inválido");
     }
   };
   reader.readAsText(file);
 }
 
-/** ==========================================
- *  Importar muchos JSON
- *  ========================================== */
 async function importarMuchosJSON(files) {
   let ok = 0, bad = 0;
 
@@ -595,11 +816,11 @@ async function importarMuchosJSON(files) {
 
   renderBuscadorRapido();
   renderBasesMini();
-  alert(`✅ Importación lista\nOK: ${ok}  •  Fallidos: ${bad}`);
+  alert(`✅ Importación lista\nOK: ${ok} • Fallidos: ${bad}`);
 }
 
 /** ==========================================
- *  Cargar data a pantalla
+ *  Cargar data en pantalla
  *  ========================================== */
 function cargarDataEnPantalla(data) {
   $("entidad").value = data.entidad || "";
@@ -636,10 +857,14 @@ function cargarDataEnPantalla(data) {
       sa.value = zObj.area;
       ia.value = "";
       ia.style.display = "none";
-    } else {
+    } else if (zObj.area) {
       sa.value = "Otros";
       ia.value = zObj.area || "";
       ia.style.display = "inline-block";
+    } else {
+      sa.value = "-";
+      ia.value = "";
+      ia.style.display = "none";
     }
 
     const sd = celdas[3].querySelector("select");
@@ -648,22 +873,36 @@ function cargarDataEnPantalla(data) {
       sd.value = zObj.dispositivo;
       id.value = "";
       id.style.display = "none";
-    } else {
+    } else if (zObj.dispositivo) {
       sd.value = "otros";
       id.value = zObj.dispositivo || "";
       id.style.display = "inline-block";
+    } else {
+      sd.value = "-";
+      id.value = "";
+      id.style.display = "none";
     }
 
     celdas[4].querySelector("input").value = zObj.descripcion || "";
   });
 
+  if (data.pt4000) {
+    setPTState({
+      habilitado: !!data.pt4000.habilitado,
+      equipos: Array.isArray(data.pt4000.equipos) ? data.pt4000.equipos : []
+    });
+  } else {
+    resetPTState();
+  }
+
+  renderPTUI();
   aplicarDefaultsZonas123SiVacias();
   aplicarBloqueoZonas123();
   autosaveBase();
 }
 
 /** ==========================================
- *  Excel IMPORT
+ *  Excel IMPORT Base común
  *  ========================================== */
 async function importarExcelBase(file) {
   try {
@@ -767,7 +1006,7 @@ async function importarExcelBase(file) {
     aplicarBloqueoZonas123();
     autosaveBase();
     setCurrentBaseName("");
-    alert("✅ Excel importado (cabecera + zonas, 1-3 ignoradas)");
+    alert("✅ Excel base importado");
   } catch (e) {
     console.error(e);
     alert("❌ Error leyendo Excel");
@@ -775,11 +1014,318 @@ async function importarExcelBase(file) {
 }
 
 /** ==========================================
+ *  Importar padrón masivo
+ *  Columnas esperadas tolerantes:
+ *  id central / central, abo / abonado, entidad, sucursal, localidad, provincia, tecnico, pt / 485 / rs485
+ *  ========================================== */
+function detectHeaderMap(values) {
+  const map = {};
+  values.forEach((v, i) => {
+    const key = normKey(v);
+    if (!key) return;
+
+    if (["id de central", "id central", "central", "id_central"].includes(key)) map.central = i + 1;
+    if (["abo", "abonado", "abonado nro", "numero de abonado", "nro abonado"].includes(key)) map.abonado = i + 1;
+    if (["entidad"].includes(key)) map.entidad = i + 1;
+    if (["sucursal"].includes(key)) map.sucursal = i + 1;
+    if (["localidad"].includes(key)) map.localidad = i + 1;
+    if (["provincia"].includes(key)) map.provincia = i + 1;
+    if (["tecnico", "tecnico asignado"].includes(key)) map.tecnico = i + 1;
+    if (["pt", "485", "rs485", "tiene pt", "tiene 485"].includes(key)) map.pt = i + 1;
+  });
+  return map;
+}
+
+function boolFromCell(v) {
+  const t = toLower(v);
+  return ["si", "sí", "s", "1", "true", "x", "ok"].includes(t);
+}
+
+async function importarPadronMasivoExcel(file) {
+  try {
+    const buf = await file.arrayBuffer();
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(buf);
+    const ws = wb.worksheets[0];
+    if (!ws) return alert("❌ El Excel no tiene hojas.");
+
+    const headerRow = ws.getRow(1);
+    const map = detectHeaderMap(headerRow.values || []);
+
+    if (!map.central && !map.abonado && !map.entidad && !map.sucursal) {
+      return alert("❌ No pude detectar encabezados del padrón.");
+    }
+
+    let ok = 0;
+    let dup = 0;
+    let bad = 0;
+
+    for (let r = 2; r <= ws.rowCount; r++) {
+      const row = ws.getRow(r);
+
+      const central = firstDefined(map.central ? row.getCell(map.central).value : "");
+      const abonado = firstDefined(map.abonado ? row.getCell(map.abonado).value : "");
+      const entidad = firstDefined(map.entidad ? row.getCell(map.entidad).value : "");
+      const sucursal = firstDefined(map.sucursal ? row.getCell(map.sucursal).value : "");
+      const localidad = firstDefined(map.localidad ? row.getCell(map.localidad).value : "");
+      const provincia = firstDefined(map.provincia ? row.getCell(map.provincia).value : "");
+      const tecnico = firstDefined(map.tecnico ? row.getCell(map.tecnico).value : "");
+      const tienePT = map.pt ? boolFromCell(row.getCell(map.pt).value) : false;
+
+      if (!entidad && !sucursal && !abonado && !central) {
+        continue;
+      }
+
+      try {
+        const data = {
+          meta: {
+            generado: fechaGeneradoLocal(),
+            origen: "padron_masivo_excel",
+            localidad,
+            tecnico
+          },
+          entidad,
+          sucursal,
+          abonado,
+          central,
+          provincia,
+          zonas: [],
+          pt4000: {
+            habilitado: !!tienePT,
+            equipos: []
+          }
+        };
+
+        for (let i = 1; i <= 24; i++) {
+          const evDefault = i === 1 ? "Avería de linea" : i === 2 ? "Apertura de Equipo" : i === 3 ? "Falta de 220V" : "- Sin tipo definido -";
+          data.zonas.push({
+            zona: `Zona ${i}`,
+            evento: evDefault,
+            area: "-",
+            dispositivo: "-",
+            descripcion: ""
+          });
+        }
+
+        const nombre = safeName([entidad || "Entidad", sucursal || "Suc", abonado || ""].filter(Boolean).join("_") || `Base_${r}`);
+        if (localStorage.getItem(baseKey(nombre))) {
+          dup++;
+          continue;
+        }
+
+        localStorage.setItem(baseKey(nombre), JSON.stringify(data));
+        if (typeof idbPutBase === "function") {
+          idbPutBase(baseKey(nombre), data).catch(console.warn);
+        }
+
+        addToIndex(nombre);
+        ok++;
+      } catch {
+        bad++;
+      }
+    }
+
+    renderBuscadorRapido();
+    renderBasesMini();
+    alert(`✅ Padrón importado\nCreadas: ${ok}\nDuplicadas salteadas: ${dup}\nFallidas: ${bad}`);
+  } catch (e) {
+    console.error(e);
+    alert("❌ Error importando padrón masivo");
+  }
+}
+
+/** ==========================================
+ *  Importar líneas - Excel básico
+ *  Num -> zona
+ *  Tipo Ev -> evento
+ *  Area/Desc -> descripción
+ *  ========================================== */
+async function importarLineasExcelBasico(file) {
+  try {
+    const buf = await file.arrayBuffer();
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(buf);
+    const ws = wb.worksheets[0];
+    if (!ws) return alert("❌ El Excel no tiene hojas.");
+
+    let headerRowNum = null;
+    let map = {};
+
+    for (let r = 1; r <= Math.min(ws.rowCount, 10); r++) {
+      const vals = (ws.getRow(r).values || []).map(v => normKey(v));
+      const candidate = {};
+      vals.forEach((v, i) => {
+        if (["num", "zona"].includes(v)) candidate.zona = i;
+        if (["tipo ev", "tipo evento", "evento"].includes(v)) candidate.evento = i;
+        if (["area / desc", "area/desc", "descripcion", "descripcion/area"].includes(v)) candidate.desc = i;
+      });
+      if (candidate.zona && candidate.evento && candidate.desc) {
+        headerRowNum = r;
+        map = candidate;
+        break;
+      }
+    }
+
+    if (!headerRowNum) return alert("❌ No encontré columnas Num / Tipo Ev / Area-Desc.");
+
+    let ok = 0;
+    for (let r = headerRowNum + 1; r <= ws.rowCount; r++) {
+      const row = ws.getRow(r);
+      const zonaTxt = firstDefined(row.getCell(map.zona).value);
+      const eventoTxt = firstDefined(row.getCell(map.evento).value);
+      const descTxt = firstDefined(row.getCell(map.desc).value);
+
+      const n = getZonaNumberFromText(zonaTxt);
+      if (!n || n < 1 || n > 24) continue;
+      if ([1, 2, 3].includes(n)) continue;
+
+      const tr = document.querySelector(`#tabla-base tbody tr[data-zona="${n}"]`);
+      if (!tr) continue;
+
+      const celdas = tr.querySelectorAll("td");
+
+      const se = celdas[1].querySelector("select");
+      const ie = celdas[1].querySelector("input");
+      if (eventoTxt && eventos.includes(eventoTxt)) {
+        se.value = eventoTxt;
+        ie.value = "";
+        ie.style.display = "none";
+      } else if (eventoTxt) {
+        se.value = "Otros";
+        ie.value = eventoTxt;
+        ie.style.display = "inline-block";
+      }
+
+      if (descTxt && descTxt !== "-") {
+        celdas[4].querySelector("input").value = descTxt;
+      }
+
+      ok++;
+    }
+
+    autosaveBase();
+    alert(`✅ Líneas básicas cargadas\nZonas actualizadas: ${ok}`);
+  } catch (e) {
+    console.error(e);
+    alert("❌ Error cargando Excel básico");
+  }
+}
+
+/** ==========================================
+ *  Importar líneas - Excel completo / AMBA
+ *  Soporta nombres tolerantes
+ *  zona / num, evento / tipo ev, area, dispositivo, descripcion
+ *  ========================================== */
+async function importarLineasExcelCompleto(file) {
+  try {
+    const buf = await file.arrayBuffer();
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(buf);
+    const ws = wb.worksheets[0];
+    if (!ws) return alert("❌ El Excel no tiene hojas.");
+
+    let headerRowNum = null;
+    let map = {};
+
+    for (let r = 1; r <= Math.min(ws.rowCount, 15); r++) {
+      const vals = (ws.getRow(r).values || []).map(v => normKey(v));
+      const candidate = {};
+      vals.forEach((v, i) => {
+        if (["num", "zona"].includes(v)) candidate.zona = i;
+        if (["tipo ev", "tipo evento", "evento"].includes(v)) candidate.evento = i;
+        if (["area", "área"].includes(v)) candidate.area = i;
+        if (["dispositivo"].includes(v)) candidate.dispositivo = i;
+        if (["descripcion", "descripción", "area / desc", "area/desc"].includes(v)) candidate.descripcion = i;
+      });
+      if (candidate.zona && candidate.evento) {
+        headerRowNum = r;
+        map = candidate;
+        break;
+      }
+    }
+
+    if (!headerRowNum) return alert("❌ No encontré columnas del Excel completo.");
+
+    let ok = 0;
+    for (let r = headerRowNum + 1; r <= ws.rowCount; r++) {
+      const row = ws.getRow(r);
+
+      const zonaTxt = firstDefined(row.getCell(map.zona).value);
+      const eventoTxt = map.evento ? firstDefined(row.getCell(map.evento).value) : "";
+      const areaTxt = map.area ? firstDefined(row.getCell(map.area).value) : "";
+      const dispTxt = map.dispositivo ? firstDefined(row.getCell(map.dispositivo).value) : "";
+      const descTxt = map.descripcion ? firstDefined(row.getCell(map.descripcion).value) : "";
+
+      const n = getZonaNumberFromText(zonaTxt);
+      if (!n || n < 1 || n > 24) continue;
+      if ([1, 2, 3].includes(n)) continue;
+
+      const tr = document.querySelector(`#tabla-base tbody tr[data-zona="${n}"]`);
+      if (!tr) continue;
+
+      const celdas = tr.querySelectorAll("td");
+
+      const se = celdas[1].querySelector("select");
+      const ie = celdas[1].querySelector("input");
+      if (eventoTxt) {
+        if (eventos.includes(eventoTxt)) {
+          se.value = eventoTxt;
+          ie.value = "";
+          ie.style.display = "none";
+        } else {
+          se.value = "Otros";
+          ie.value = eventoTxt;
+          ie.style.display = "inline-block";
+        }
+      }
+
+      const sa = celdas[2].querySelector("select");
+      const ia = celdas[2].querySelector("input");
+      if (areaTxt) {
+        if (areas.includes(areaTxt)) {
+          sa.value = areaTxt;
+          ia.value = "";
+          ia.style.display = "none";
+        } else {
+          sa.value = "Otros";
+          ia.value = areaTxt;
+          ia.style.display = "inline-block";
+        }
+      }
+
+      const sd = celdas[3].querySelector("select");
+      const id = celdas[3].querySelector("input");
+      if (dispTxt) {
+        if (dispositivos.includes(dispTxt)) {
+          sd.value = dispTxt;
+          id.value = "";
+          id.style.display = "none";
+        } else {
+          sd.value = "otros";
+          id.value = dispTxt;
+          id.style.display = "inline-block";
+        }
+      }
+
+      if (descTxt && descTxt !== "-") {
+        celdas[4].querySelector("input").value = descTxt;
+      }
+
+      ok++;
+    }
+
+    autosaveBase();
+    alert(`✅ Líneas AMBA cargadas\nZonas actualizadas: ${ok}`);
+  } catch (e) {
+    console.error(e);
+    alert("❌ Error cargando Excel completo / AMBA");
+  }
+}
+
+/** ==========================================
  *  PDF
  *  ========================================== */
-function generarPDF() {
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF();
+function dibujarBaseEnPDF(doc, incluirPT = false) {
   doc.setFontSize(14);
   doc.text("Base de Datos - Señalco", 14, 14);
 
@@ -794,7 +1340,7 @@ function generarPDF() {
       const dataURL = canvas.toDataURL("image/jpeg");
       doc.addImage(dataURL, "JPEG", 160, 10, 40, 20);
     }
-  } catch {}
+  } catch { }
 
   const entidad = $("entidad").value;
   const sucursal = $("sucursal").value;
@@ -846,7 +1392,74 @@ function generarPDF() {
   });
 
   doc.autoTable({ head: [columnas], body: filas, startY: 60 });
-  doc.save(`base_${safeName(entidad)}_${safeName(sucursal)}_${safeName(fechaStamp())}.pdf`);
+
+  if (incluirPT) {
+    const state = getPTState();
+    if (state.habilitado && state.equipos.length) {
+      doc.addPage();
+      doc.setFontSize(14);
+      doc.text("Detalle PT4000 / RS485", 14, 16);
+
+      let y = 24;
+
+      state.equipos.forEach((pt, idx) => {
+        doc.setFontSize(11);
+        doc.text(`PT ${idx + 1}`, 14, y);
+        y += 6;
+        doc.text(`Nombre: ${pt.nombre || "-"}`, 14, y); y += 6;
+        doc.text(`Área: ${pt.area || "-"}`, 14, y); y += 6;
+        doc.text(`Número: ${pt.numero || "-"}`, 14, y); y += 6;
+        doc.text(`IP: ${pt.ip || "-"}`, 14, y); y += 6;
+        doc.text(`Clave: ${pt.clave || "-"}`, 14, y); y += 8;
+
+        const ptRows = [
+          ["Salida Clave", pt.salidas?.clave || "-"],
+          ["Salida IP", pt.salidas?.ip || "-"],
+          ["Salida Sísmico", pt.salidas?.sismico || "-"],
+          ["Salida Robo", pt.salidas?.robo || "-"],
+          ["Z1", pt.entradas?.z1 || "-"],
+          ["Z2", pt.entradas?.z2 || "-"],
+          ["Z3", pt.entradas?.z3 || "-"],
+          ["Z4", pt.entradas?.z4 || "-"],
+          ["Z5", pt.entradas?.z5 || "-"],
+          ["Z6", pt.entradas?.z6 || "-"]
+        ];
+
+        doc.autoTable({
+          head: [["Campo", "Valor"]],
+          body: ptRows,
+          startY: y,
+          margin: { left: 14, right: 14 }
+        });
+
+        y = doc.lastAutoTable.finalY + 10;
+        if (y > 250 && idx < state.equipos.length - 1) {
+          doc.addPage();
+          y = 20;
+        }
+      });
+    }
+  }
+}
+
+function generarPDF() {
+  const ptState = getPTState();
+  let incluirPT = false;
+
+  if (ptState.habilitado && ptState.equipos.length) {
+    const decision = prompt(
+      "Exportación PDF:\n\nEscribí una opción:\n- BASE para solo base abonado\n- PT para base + PT4000",
+      "BASE"
+    );
+
+    if (decision === null) return;
+    incluirPT = String(decision).trim().toUpperCase() === "PT";
+  }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  dibujarBaseEnPDF(doc, incluirPT);
+  doc.save(`base_${safeName($("entidad").value || "base")}_${safeName($("sucursal").value || "")}_${safeName(fechaStamp())}.pdf`);
 }
 
 /** ==========================================
@@ -896,6 +1509,31 @@ function generarExcel() {
     ]);
   });
 
+  const ptState = getPTState();
+  if (ptState.habilitado && ptState.equipos.length) {
+    sheet.addRow([]);
+    sheet.addRow(["PT4000 / RS485"]);
+    ptState.equipos.forEach((pt, idx) => {
+      sheet.addRow([`PT ${idx + 1}`]);
+      sheet.addRow(["Nombre", pt.nombre || ""]);
+      sheet.addRow(["Área", pt.area || ""]);
+      sheet.addRow(["Número", pt.numero || ""]);
+      sheet.addRow(["IP", pt.ip || ""]);
+      sheet.addRow(["Clave", pt.clave || ""]);
+      sheet.addRow(["Salida Clave", pt.salidas?.clave || ""]);
+      sheet.addRow(["Salida IP", pt.salidas?.ip || ""]);
+      sheet.addRow(["Salida Sísmico", pt.salidas?.sismico || ""]);
+      sheet.addRow(["Salida Robo", pt.salidas?.robo || ""]);
+      sheet.addRow(["Z1", pt.entradas?.z1 || ""]);
+      sheet.addRow(["Z2", pt.entradas?.z2 || ""]);
+      sheet.addRow(["Z3", pt.entradas?.z3 || ""]);
+      sheet.addRow(["Z4", pt.entradas?.z4 || ""]);
+      sheet.addRow(["Z5", pt.entradas?.z5 || ""]);
+      sheet.addRow(["Z6", pt.entradas?.z6 || ""]);
+      sheet.addRow([]);
+    });
+  }
+
   workbook.xlsx.writeBuffer().then(buffer => {
     const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
     const url = URL.createObjectURL(blob);
@@ -927,6 +1565,7 @@ function abrirPrevisualizacion() {
         Central: ${escapeHtml(data.central || "-")}<br>
         Provincia: ${escapeHtml(data.provincia || "-")}<br>
         Generado: ${escapeHtml(generado)}<br>
+        PT4000: ${data.pt4000?.habilitado ? "Sí" : "No"}<br>
       </div>
 
       <div style="overflow:auto; border:1px solid #ddd; border-radius:10px;">
@@ -953,6 +1592,32 @@ function abrirPrevisualizacion() {
           </tbody>
         </table>
       </div>
+
+      ${data.pt4000?.habilitado && data.pt4000?.equipos?.length ? `
+      <div style="margin-top:16px;">
+        <h3 style="margin:0 0 10px 0;">PT4000 / RS485</h3>
+        ${data.pt4000.equipos.map((pt, i) => `
+          <div style="border:1px solid #ddd; border-radius:10px; padding:10px; margin-bottom:10px;">
+            <b>PT ${i + 1}</b><br>
+            Nombre: ${escapeHtml(pt.nombre || "-")}<br>
+            Área: ${escapeHtml(pt.area || "-")}<br>
+            Número: ${escapeHtml(pt.numero || "-")}<br>
+            IP: ${escapeHtml(pt.ip || "-")}<br>
+            Clave: ${escapeHtml(pt.clave || "-")}<br>
+            Salida Clave: ${escapeHtml(pt.salidas?.clave || "-")}<br>
+            Salida IP: ${escapeHtml(pt.salidas?.ip || "-")}<br>
+            Salida Sísmico: ${escapeHtml(pt.salidas?.sismico || "-")}<br>
+            Salida Robo: ${escapeHtml(pt.salidas?.robo || "-")}<br>
+            Z1: ${escapeHtml(pt.entradas?.z1 || "-")}<br>
+            Z2: ${escapeHtml(pt.entradas?.z2 || "-")}<br>
+            Z3: ${escapeHtml(pt.entradas?.z3 || "-")}<br>
+            Z4: ${escapeHtml(pt.entradas?.z4 || "-")}<br>
+            Z5: ${escapeHtml(pt.entradas?.z5 || "-")}<br>
+            Z6: ${escapeHtml(pt.entradas?.z6 || "-")}<br>
+          </div>
+        `).join("")}
+      </div>
+      ` : ""}
     </div>
   `;
 
@@ -965,7 +1630,7 @@ function cerrarPrevisualizacion() {
 }
 
 /** ==========================================
- *  Bases
+ *  Bases guardadas
  *  ========================================== */
 function leerBase(nombre) {
   const raw = localStorage.getItem(baseKey(nombre));
@@ -979,7 +1644,6 @@ function abrirBaseGuardada(nombre) {
 
   cargarDataEnPantalla(data);
   setCurrentBaseName(nombre);
-
   alert("✅ Base abierta:\n" + nombre);
 }
 
@@ -1002,7 +1666,7 @@ function descargarBaseComoJSON(nombre) {
 }
 
 /** ==========================================
- *  Buscador rápido
+ *  Buscador
  *  ========================================== */
 function getCamposSeleccionados() {
   const checks = Array.from(document.querySelectorAll(".filtro-check"))
@@ -1016,7 +1680,7 @@ function guardarPreferenciaFiltros() {
   try {
     const campos = getCamposSeleccionados();
     localStorage.setItem(FILTER_PREF_KEY, JSON.stringify(campos));
-  } catch {}
+  } catch { }
 }
 
 function aplicarPreferenciaFiltros() {
@@ -1030,7 +1694,7 @@ function aplicarPreferenciaFiltros() {
     document.querySelectorAll(".filtro-check").forEach(ch => {
       ch.checked = campos.includes(ch.value);
     });
-  } catch {}
+  } catch { }
 }
 
 function renderBuscadorRapido() {
@@ -1071,7 +1735,6 @@ function renderBuscadorRapido() {
 
     const ok = campos.some(c => String(map[c] || "").toLowerCase().includes(q));
     if (!ok) return;
-
     if (modoSuave && count >= 12) return;
 
     count++;
@@ -1089,9 +1752,7 @@ function renderBuscadorRapido() {
             • Ab: ${escapeHtml(data.abonado || "-")}
             • Central: ${escapeHtml(data.central || "-")}
             • ${escapeHtml(data.provincia || "-")}
-          </div>
-          <div style="margin-top:6px; font-size:12px; opacity:.8;">
-            👉 Tocá la tarjeta o el botón Abrir
+            • PT: ${data.pt4000?.habilitado ? "Sí" : "No"}
           </div>
         </div>
         <div style="display:flex; gap:8px; flex-wrap:wrap;">
@@ -1127,9 +1788,6 @@ function renderBuscadorRapido() {
   }
 }
 
-/** ==========================================
- *  Lista bases guardadas
- *  ========================================== */
 function renderBasesMini() {
   const cont = $("lista-bases-inline");
   if (!cont) return;
@@ -1158,7 +1816,7 @@ function renderBasesMini() {
         <div>
           <div style="font-weight:bold;">${escapeHtml(nombre)}</div>
           <div style="font-size:12px; opacity:.85;">
-            ${escapeHtml(data.entidad || "-")} • Suc: ${escapeHtml(data.sucursal || "-")} • Ab: ${escapeHtml(data.abonado || "-")}
+            ${escapeHtml(data.entidad || "-")} • Suc: ${escapeHtml(data.sucursal || "-")} • Ab: ${escapeHtml(data.abonado || "-")} • PT: ${data.pt4000?.habilitado ? "Sí" : "No"}
           </div>
         </div>
         <div style="display:flex; gap:8px; flex-wrap:wrap;">
@@ -1183,7 +1841,7 @@ function renderBasesMini() {
 function autosaveBase() {
   try {
     localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(construirJSONBase()));
-  } catch {}
+  } catch { }
 }
 
 /** ==========================================
@@ -1199,6 +1857,7 @@ window.addEventListener("DOMContentLoaded", () => {
   poblarDatalistEntidades();
   precargarZonas();
   aplicarPreferenciaFiltros();
+  renderPTUI();
 
   const raw = localStorage.getItem(AUTOSAVE_KEY);
   if (raw) {
@@ -1206,7 +1865,7 @@ window.addEventListener("DOMContentLoaded", () => {
       const data = JSON.parse(raw);
       cargarDataEnPantalla(data);
       setCurrentBaseName("");
-    } catch {}
+    } catch { }
   }
 
   asignarEventosBase();
