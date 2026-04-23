@@ -1678,39 +1678,7 @@ function borrarTodoBases() {
   if (!confirm2) return;
 
 }
-function borrarTodoBases() {
 
-  const confirm1 = confirm("⚠️ Esto va a borrar TODAS las bases.\n\n¿Querés continuar?");
-  if (!confirm1) return;
-
-  const confirm2 = confirm("🚨 ÚLTIMA CONFIRMACIÓN\n\nSe pierde TODO definitivamente.\n\n¿Seguro?");
-  if (!confirm2) return;
-
-  // borrar bases
-  Object.keys(localStorage)
-    .filter(k => k.startsWith("senalco_base_"))
-    .forEach(k => localStorage.removeItem(k));
-
-  // borrar índice
-  localStorage.removeItem("senalco_bases_index");
-
-  // borrar autosave
-  localStorage.removeItem("senalco_base_autosave");
-
-  // reset base actual
-  setCurrentBaseName("");
-
-  // limpiar pantalla
-  limpiarBase();
-
-  // refrescar UI
-  renderBuscadorRapido();
-  renderBasesMini();
-
-  alert("✅ Todas las bases fueron eliminadas");
-}v
-
-$("btn-reset-total")?.addEventListener("click", borrarTodoBases);
 /** ==========================================
  *  Buscador
  *  ========================================== */
