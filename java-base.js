@@ -1859,6 +1859,8 @@ window.addEventListener("DOMContentLoaded", () => {
   aplicarPreferenciaFiltros();
   renderPTUI();
 
+
+  
   const raw = localStorage.getItem(AUTOSAVE_KEY);
   if (raw) {
     try {
