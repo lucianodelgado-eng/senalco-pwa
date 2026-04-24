@@ -365,7 +365,107 @@ function addPT() {
   renderPTUI();
   autosaveBase();
 }
+async function borrarIndexedDBSenalco() {
+  try {
+    if (indexedDB.databases) {
+      const dbs = await indexedDB.databases();
 
+      const objetivos = dbs
+        .map(db => db.name)
+        .filter(name =>
+          name &&
+          (
+            name.toLowerCase().includes("senalco") ||
+            name.toLowerCase().includes("base")
+          )
+        );
+
+      for (const name of objetivos) {
+        await new Promise((resolve) => {
+          const req = indexedDB.deleteDatabase(name);
+          req.onsuccess = () => resolve(true);
+          req.onerror = () => resolve(false);
+          req.onblocked = () => resolve(false);
+        });
+      }
+
+      return objetivos.length;
+    }
+  } catch (e) {
+    console.warn("No se pudo listar IndexedDB:", e);
+  }
+
+  const posibles = [
+    "senalcoBaseDB",
+    "SeñalcoBaseDB",
+    "senalco-base-db",
+    "senalco_bases_db",
+    "bases"
+  ];
+
+  let borradas = 0;
+
+  for (const name of posibles) {
+    await new Promise((resolve) => {
+      const req = indexedDB.deleteDatabase(name);
+      req.onsuccess = () => {
+        borradas++;
+        resolve(true);
+      };
+      req.onerror = () => resolve(false);
+      req.onblocked = () => resolve(false);
+    });
+  }
+
+  return borradas;
+}
+
+async function borrarTodoBases() {
+  const confirm1 = confirm("⚠️ Esto va a borrar TODAS las bases guardadas.\n\n¿Querés continuar?");
+  if (!confirm1) return;
+
+  const confirm2 = confirm("🚨 ÚLTIMA CONFIRMACIÓN\n\nSe pierden todas las bases locales.\n\n¿Seguro?");
+  if (!confirm2) return;
+
+  let borradasLS = 0;
+
+  Object.keys(localStorage)
+    .filter(k =>
+      k.startsWith("senalco_base_") ||
+      k === "senalco_bases_index" ||
+      k === "senalco_base_autosave" ||
+      k === "senalco_current_base_name"
+    )
+    .forEach(k => {
+      localStorage.removeItem(k);
+      borradasLS++;
+    });
+
+  const borradasIDB = await borrarIndexedDBSenalco();
+
+  setCurrentBaseName("");
+
+  if ($("entidad")) $("entidad").value = "";
+  if ($("sucursal")) $("sucursal").value = "";
+  if ($("abonado")) $("abonado").value = "";
+  if ($("central")) $("central").value = "";
+  if ($("provincia")) $("provincia").value = "";
+
+  zonas123Editables = false;
+
+  if (typeof resetPTState === "function") resetPTState();
+
+  precargarZonas();
+  aplicarBloqueoZonas123();
+  renderBuscadorRapido();
+  renderBasesMini();
+
+  alert(
+    "✅ Borrado total terminado\n\n" +
+    "LocalStorage borrado: " + borradasLS + "\n" +
+    "IndexedDB detectadas/borradas: " + borradasIDB
+  );
+}
 /** ==========================================
  *  DOM Bindings
  *  ========================================== */
@@ -373,6 +473,7 @@ function asignarEventosBase() {
   $("btn-limpiar-base")?.addEventListener("click", limpiarBase);
   $("btn-generar-pdf-base")?.addEventListener("click", generarPDF);
   $("btn-excel-base")?.addEventListener("click", generarExcel);
+
 
   $("btn-subir-excel")?.addEventListener("click", () => $("input-excel-base")?.click());
   $("input-excel-base")?.addEventListener("change", async (e) => {
@@ -460,6 +561,12 @@ function asignarEventosBase() {
     $(id)?.addEventListener("input", autosaveBase);
   });
 }
+
+  $("btn-reset-total")?.addEventListener("click", async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    await borrarTodoBases();
+  });
 
 /** ==========================================
  *  Tabla zonas 1..24
@@ -1340,7 +1447,7 @@ function dibujarBaseEnPDF(doc, incluirPT = false) {
       const dataURL = canvas.toDataURL("image/jpeg");
       doc.addImage(dataURL, "JPEG", 160, 10, 40, 20);
     }
-  } catch {}
+  } catch { }
 
   const entidad = $("entidad").value;
   const sucursal = $("sucursal").value;
@@ -1680,7 +1787,7 @@ function guardarPreferenciaFiltros() {
   try {
     const campos = getCamposSeleccionados();
     localStorage.setItem(FILTER_PREF_KEY, JSON.stringify(campos));
-  } catch {}
+  } catch { }
 }
 
 function aplicarPreferenciaFiltros() {
@@ -1694,7 +1801,7 @@ function aplicarPreferenciaFiltros() {
     document.querySelectorAll(".filtro-check").forEach(ch => {
       ch.checked = campos.includes(ch.value);
     });
-  } catch {}
+  } catch { }
 }
 
 function renderBuscadorRapido() {
@@ -1841,7 +1948,7 @@ function renderBasesMini() {
 function autosaveBase() {
   try {
     localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(construirJSONBase()));
-  } catch {}
+  } catch { }
 }
 
 /** ==========================================
@@ -1865,7 +1972,7 @@ window.addEventListener("DOMContentLoaded", () => {
       const data = JSON.parse(raw);
       cargarDataEnPantalla(data);
       setCurrentBaseName("");
-    } catch {}
+    } catch { }
   }
 
   asignarEventosBase();
