@@ -562,11 +562,11 @@ function asignarEventosBase() {
   });
 }
 
-  $("btn-reset-total")?.addEventListener("click", async (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    await borrarTodoBases();
-  });
+$("btn-reset-total")?.addEventListener("click", async (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  await borrarTodoBases();
+});
 
 /** ==========================================
  *  Tabla zonas 1..24
@@ -1127,19 +1127,22 @@ async function importarExcelBase(file) {
  *  ========================================== */
 function detectHeaderMap(values) {
   const map = {};
-  values.forEach((v, i) => {
-    const key = normKey(v);
-    if (!key) return;
 
-    if (["id de central", "id central", "central", "id_central"].includes(key)) map.central = i + 1;
-    if (["abo", "abonado", "abonado nro", "numero de abonado", "nro abonado"].includes(key)) map.abonado = i + 1;
-    if (["entidad"].includes(key)) map.entidad = i + 1;
-    if (["sucursal"].includes(key)) map.sucursal = i + 1;
-    if (["localidad"].includes(key)) map.localidad = i + 1;
-    if (["provincia"].includes(key)) map.provincia = i + 1;
-    if (["tecnico", "tecnico asignado"].includes(key)) map.tecnico = i + 1;
-    if (["pt", "485", "rs485", "tiene pt", "tiene 485"].includes(key)) map.pt = i + 1;
-  });
+  for (let col = 1; col < values.length; col++) {
+    const key = normKey(values[col]);
+    if (!key) continue;
+
+    if (["id de central", "id central", "central", "id_central"].includes(key)) map.central = col;
+    if (["abo", "abonado", "abonado nro", "numero de abonado", "nro abonado"].includes(key)) map.abonado = col;
+    if (["entidad"].includes(key)) map.entidad = col;
+    if (["sucursal"].includes(key)) map.sucursal = col;
+    if (["localidad"].includes(key)) map.localidad = col;
+    if (["provincia"].includes(key)) map.provincia = col;
+    if (["tecnico", "tecnico asignado"].includes(key)) map.tecnico = col;
+    if (["pt", "485", "rs485", "tiene pt", "tiene 485"].includes(key)) map.pt = col;
+  }
+
+  console.log("MAP PADRON:", map);
   return map;
 }
 
@@ -1159,8 +1162,9 @@ async function importarPadronMasivoExcel(file) {
     const headerRow = ws.getRow(1);
     const map = detectHeaderMap(headerRow.values || []);
 
-    if (!map.central && !map.abonado && !map.entidad && !map.sucursal) {
-      return alert("❌ No pude detectar encabezados del padrón.");
+    if (!map.central || !map.abonado || !map.entidad || !map.sucursal || !map.localidad || !map.provincia) {
+      console.log("MAP PADRON INCOMPLETO:", map);
+      return alert("❌ Encabezados incompletos. Revisá: Id de central, Abo, Entidad, Sucursal, Localidad, Provincia.");
     }
 
     let ok = 0;
@@ -1979,3 +1983,81 @@ window.addEventListener("DOMContentLoaded", () => {
   renderBuscadorRapido();
   renderBasesMini();
 });
+document.addEventListener("paste", (e) => {
+  const texto = (e.clipboardData || window.clipboardData).getData("text");
+
+  if (texto.includes("\t") && texto.includes("Zona")) {
+    e.preventDefault();
+    pegarDesdeExcel(texto);
+  }
+});
+
+function pegarDesdeExcel(texto) {
+  const lineas = texto.split("\n").filter(l => l.trim());
+
+  let cargadas = 0;
+
+  lineas.forEach(linea => {
+    const cols = linea.split("\t"); // Excel usa TAB
+
+    if (cols.length < 2) return;
+
+    const zonaTxt = cols[0];
+    const eventoTxt = cols[1] || "";
+    const areaTxt = cols[2] || "";
+    const dispTxt = cols[3] || "";
+    const descTxt = cols[4] || "";
+
+    const n = getZonaNumberFromText(zonaTxt);
+    if (!n || n < 1 || n > 24) return;
+
+    const tr = document.querySelector(`#tabla-base tbody tr[data-zona="${n}"]`);
+    if (!tr) return;
+
+    const celdas = tr.querySelectorAll("td");
+
+    // Evento
+    const se = celdas[1].querySelector("select");
+    const ie = celdas[1].querySelector("input");
+    if (eventos.includes(eventoTxt)) {
+      se.value = eventoTxt;
+      ie.style.display = "none";
+    } else if (eventoTxt) {
+      se.value = "Otros";
+      ie.value = eventoTxt;
+      ie.style.display = "inline-block";
+    }
+
+    // Área
+    const sa = celdas[2].querySelector("select");
+    const ia = celdas[2].querySelector("input");
+    if (areas.includes(areaTxt)) {
+      sa.value = areaTxt;
+      ia.style.display = "none";
+    } else if (areaTxt) {
+      sa.value = "Otros";
+      ia.value = areaTxt;
+      ia.style.display = "inline-block";
+    }
+
+    // Dispositivo
+    const sd = celdas[3].querySelector("select");
+    const id = celdas[3].querySelector("input");
+    if (dispositivos.includes(dispTxt)) {
+      sd.value = dispTxt;
+      id.style.display = "none";
+    } else if (dispTxt) {
+      sd.value = "otros";
+      id.value = dispTxt;
+      id.style.display = "inline-block";
+    }
+
+    // Descripción
+    celdas[4].querySelector("input").value = descTxt;
+
+    cargadas++;
+  });
+
+  autosaveBase();
+  alert(`✅ Pegado rápido OK\nZonas cargadas: ${cargadas}`);
+}
