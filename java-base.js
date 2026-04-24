@@ -466,6 +466,20 @@ async function borrarTodoBases() {
     "IndexedDB detectadas/borradas: " + borradasIDB
   );
 }
+
+async function detectarClipboardExcel() {
+  try {
+    const text = await navigator.clipboard.readText();
+
+    if (text.includes("\t") && text.split("\n").length > 1) {
+      $("btn-pegar-excel").style.display = "block";
+    } else {
+      $("btn-pegar-excel").style.display = "none";
+    }
+  } catch (e) {
+    // No permisos → ignoramos
+  }
+}
 /** ==========================================
  *  DOM Bindings
  *  ========================================== */
@@ -568,6 +582,14 @@ $("btn-reset-total")?.addEventListener("click", async (e) => {
   await borrarTodoBases();
 });
 
+$("btn-pegar-excel")?.addEventListener("click", async () => {
+  try {
+    const text = await navigator.clipboard.readText();
+    pegarDesdeExcel(text);
+  } catch {
+    alert("❌ No se pudo acceder al portapapeles");
+  }
+});
 /** ==========================================
  *  Tabla zonas 1..24
  *  ========================================== */
@@ -1983,14 +2005,8 @@ window.addEventListener("DOMContentLoaded", () => {
   renderBuscadorRapido();
   renderBasesMini();
 });
-document.addEventListener("paste", (e) => {
-  const texto = (e.clipboardData || window.clipboardData).getData("text");
+setInterval(detectarClipboardExcel, 1500);
 
-  if (texto.includes("\t") && texto.includes("Zona")) {
-    e.preventDefault();
-    pegarDesdeExcel(texto);
-  }
-});
 
 function pegarDesdeExcel(texto) {
   const lineas = texto.split("\n").filter(l => l.trim());
