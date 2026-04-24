@@ -476,7 +476,18 @@ function asignarEventosBase() {
   $("btn-generar-pdf-base")?.addEventListener("click", generarPDF);
   $("btn-excel-base")?.addEventListener("click", generarExcel);
 
+$("btn-reset-total")?.addEventListener("click", async (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  await borrarTodoBases();
+});
 
+$("btn-cargar-pegado-manual")?.addEventListener("click", () => {
+  const texto = $("pegado-manual-excel")?.value || "";
+  if (!texto.trim()) return alert("Pegá primero las líneas de Excel.");
+  pegarDesdeExcel(texto);
+  $("pegado-manual-excel").value = "";
+});
   $("btn-subir-excel")?.addEventListener("click", () => $("input-excel-base")?.click());
   $("input-excel-base")?.addEventListener("change", async (e) => {
     const f = e.target.files?.[0];
@@ -564,26 +575,7 @@ function asignarEventosBase() {
   });
 }
 
-$("btn-reset-total")?.addEventListener("click", async (e) => {
-  e.preventDefault();
-  e.stopPropagation();
-  await borrarTodoBases();
-});
 
-$("btn-pegar-excel")?.addEventListener("click", async () => {
-  try {
-    const text = await navigator.clipboard.readText();
-    pegarDesdeExcel(text);
-  } catch {
-    alert("❌ No se pudo acceder al portapapeles");
-  }
-});
-$("btn-cargar-pegado-manual")?.addEventListener("click", () => {
-  const texto = $("pegado-manual-excel")?.value || "";
-  if (!texto.trim()) return alert("Pegá primero las líneas de Excel.");
-  pegarDesdeExcel(texto);
-  $("pegado-manual-excel").value = "";
-});
 /** ==========================================
  *  Tabla zonas 1..24
  *  ========================================== */
@@ -2003,22 +1995,27 @@ window.addEventListener("DOMContentLoaded", () => {
 
 
 function pegarDesdeExcel(texto) {
-  const lineas = texto.split("\n").filter(l => l.trim());
-
+  const lineas = texto.split(/\r?\n/).filter(l => l.trim());
   let cargadas = 0;
 
   lineas.forEach(linea => {
-    const cols = linea.split("\t"); // Excel usa TAB
+    const cols = linea.split("\t");
 
     if (cols.length < 2) return;
 
-
+    // Excel básico:
+    // Columna 1 = Zona / Num
+    // Columna 2 = Tipo Ev
+    // Columna 3 = Area/Desc -> va a DESCRIPCIÓN
+    const zonaTxt = cols[0] || "";
+    const eventoTxt = cols[1] || "";
+    const descTxt = cols[2] || "";
 
     const n = getZonaNumberFromText(zonaTxt);
     if (!n || n < 1 || n > 24) return;
 
-
-    if ([1, 2, 3].includes(n)) return; 
+    // No pisar zonas default 1, 2 y 3
+    if ([1, 2, 3].includes(n)) return;
 
     const tr = document.querySelector(`#tabla-base tbody tr[data-zona="${n}"]`);
     if (!tr) return;
@@ -2028,8 +2025,10 @@ function pegarDesdeExcel(texto) {
     // Evento
     const se = celdas[1].querySelector("select");
     const ie = celdas[1].querySelector("input");
+
     if (eventos.includes(eventoTxt)) {
       se.value = eventoTxt;
+      ie.value = "";
       ie.style.display = "none";
     } else if (eventoTxt) {
       se.value = "Otros";
@@ -2037,32 +2036,12 @@ function pegarDesdeExcel(texto) {
       ie.style.display = "inline-block";
     }
 
-    // Área
-    const sa = celdas[2].querySelector("select");
-    const ia = celdas[2].querySelector("input");
-    if (areas.includes(areaTxt)) {
-      sa.value = areaTxt;
-      ia.style.display = "none";
-    } else if (areaTxt) {
-      sa.value = "Otros";
-      ia.value = areaTxt;
-      ia.style.display = "inline-block";
-    }
+    // NO tocar Área
+    // NO tocar Dispositivo
 
-    // Dispositivo
-    const sd = celdas[3].querySelector("select");
-    const id = celdas[3].querySelector("input");
-    if (dispositivos.includes(dispTxt)) {
-      sd.value = dispTxt;
-      id.style.display = "none";
-    } else if (dispTxt) {
-      sd.value = "otros";
-      id.value = dispTxt;
-      id.style.display = "inline-block";
+    if (descTxt && descTxt !== "-") {
+      celdas[4].querySelector("input").value = descTxt;
     }
-
-    // Descripción
-    celdas[4].querySelector("input").value = descTxt;
 
     cargadas++;
   });
