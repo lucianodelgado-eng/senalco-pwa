@@ -2018,14 +2018,13 @@ function pegarDesdeExcel(texto) {
 
     if (cols.length < 2) return;
 
-    const zonaTxt = cols[0];
-    const eventoTxt = cols[1] || "";
-    const areaTxt = cols[2] || "";
-    const dispTxt = cols[3] || "";
-    const descTxt = cols[4] || "";
+
 
     const n = getZonaNumberFromText(zonaTxt);
     if (!n || n < 1 || n > 24) return;
+
+
+    if ([1, 2, 3].includes(n)) return; 
 
     const tr = document.querySelector(`#tabla-base tbody tr[data-zona="${n}"]`);
     if (!tr) return;
