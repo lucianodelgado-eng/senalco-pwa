@@ -1931,3 +1931,78 @@ window.addEventListener("DOMContentLoaded", () => {
   renderBuscadorRapido();
   renderBasesMini();
 });
+async function borrarTodoBases() {
+  const confirm1 = confirm("⚠️ Esto va a borrar TODAS las bases.\n\n¿Querés continuar?");
+  if (!confirm1) return;
+
+  const confirm2 = confirm("🚨 ÚLTIMA CONFIRMACIÓN\n\nSe pierde TODO definitivamente.\n\n¿Seguro?");
+  if (!confirm2) return;
+
+  let borradasLS = 0;
+
+  // borrar bases de localStorage
+  Object.keys(localStorage)
+    .filter(k => k.startsWith("senalco_base_"))
+    .forEach(k => {
+      localStorage.removeItem(k);
+      borradasLS++;
+    });
+
+  // borrar índice y autosave
+  localStorage.removeItem("senalco_bases_index");
+  localStorage.removeItem("senalco_base_autosave");
+
+  // reset nombre actual
+  setCurrentBaseName("");
+
+  // borrar IndexedDB si existe helper
+  try {
+    if (typeof idbClearBases === "function") {
+      await idbClearBases();
+    }
+  } catch (e) {
+    console.warn("Error limpiando IndexedDB:", e);
+  }
+
+  // limpiar formulario
+  if ($("entidad")) $("entidad").value = "";
+  if ($("sucursal")) $("sucursal").value = "";
+  if ($("abonado")) $("abonado").value = "";
+  if ($("central")) $("central").value = "";
+  if ($("provincia")) $("provincia").value = "";
+
+  zonas123Editables = false;
+
+  // reset PT
+  if (typeof resetPTState === "function") {
+    resetPTState();
+  }
+
+  // reconstruir tabla
+  precargarZonas();
+  aplicarBloqueoZonas123();
+
+  // refrescar UI
+  renderBuscadorRapido();
+  renderBasesMini();
+
+  alert(`✅ Limpieza total terminada\n\nBases borradas en localStorage: ${borradasLS}\nIndexedDB limpiada.`);
+}
+async function idbClearBases() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open("senalcoBaseDB");
+
+    req.onerror = () => reject(req.error);
+
+    req.onsuccess = () => {
+      const db = req.result;
+
+      const tx = db.transaction("bases", "readwrite");
+      const store = tx.objectStore("bases");
+      const clearReq = store.clear();
+
+      clearReq.onsuccess = () => resolve(true);
+      clearReq.onerror = () => reject(clearReq.error);
+    };
+  });
+}
