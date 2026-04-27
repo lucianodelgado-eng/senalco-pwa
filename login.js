@@ -1,5 +1,6 @@
 /* login.js - Señalco (Login único + permisos + usuarios.json + update app)
    ✅ NO auto-inicia sesión: pide "Continuar sesión"
+   ✅ Admin NO hardcodeado: ahora viene desde usuarios.json con role:"admin"
 */
 
 const USERS_JSON_URL = "./usuarios.json";
@@ -25,9 +26,6 @@ const FEATURES = [
   { id: "cctv",      label: "🎥 Relevamiento CCTV",    default: true },
   { id: "monitoreo", label: "🖥️ Monitoreo Web",        default: true }
 ];
-
-const ADMIN_USER = "admin";
-const ADMIN_PASS = "Senalco2025";
 
 function $(id){ return document.getElementById(id); }
 function norm(s){ return String(s || "").trim(); }
@@ -175,12 +173,10 @@ async function fetchUsersFromRepo(){
    UI State
    ========================= */
 function setUIState(mode){
-  // mode: "logged" | "logged_locked" | "guest"
   const loginBlock = $("login-block");
   const panelAccesos = $("seleccion-planillas");
   const btnLogout = $("btn-cerrar-sesion");
 
-  // Creamos btn continuar si no existe
   let btnCont = $("btn-continuar");
   if (!btnCont) {
     btnCont = document.createElement("button");
@@ -201,7 +197,6 @@ function setUIState(mode){
   }
 
   if (mode === "logged_locked") {
-    // ✅ sesión existe pero NO entra sola
     if (loginBlock) loginBlock.style.display = "none";
     if (panelAccesos) panelAccesos.classList.remove("active");
     if (btnLogout) btnLogout.style.display = "block";
@@ -334,7 +329,6 @@ async function adminCreateOrUpdateUser(){
 
   if (!user || user.length < 3) return alert("Usuario inválido (mínimo 3 caracteres).");
   if (!pass || pass.length < 4) return alert("Clave inválida (mínimo 4 caracteres).");
-  if (user === ADMIN_USER) return alert("Ese usuario está reservado.");
 
   const passHash = await sha256Hex(pass);
 
@@ -342,7 +336,14 @@ async function adminCreateOrUpdateUser(){
   const users = data.users;
 
   const i = users.findIndex(x => x.user === user);
-  const payload = { user, passHash, perms, updatedAt: Date.now() };
+
+  const payload = {
+    user,
+    passHash,
+    role: user === "admin" ? "admin" : "user",
+    perms,
+    updatedAt: Date.now()
+  };
 
   if (i >= 0) users[i] = payload;
   else users.push(payload);
@@ -382,11 +383,12 @@ function adminRenderUsers(){
     const perms = u.perms || {};
     const resumen = FEATURES.filter(f => perms[f.id]).map(f => f.label).join(" • ") || "Sin permisos";
     const safeUser = String(u.user || "").replace(/'/g, "\\'");
+    const roleLabel = u.role === "admin" ? " 👑 Admin" : "";
 
     return `
       <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px; border-radius:14px; border:1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.06); margin-top:8px;">
         <div>
-          <div style="font-weight:900;">${u.user}</div>
+          <div style="font-weight:900;">${u.user}${roleLabel}</div>
           <div style="font-size:12px; opacity:.85;">${resumen}</div>
         </div>
         <button type="button" class="login-btn ghost" onclick="adminDeleteUser('${safeUser}')">🗑️ Borrar</button>
@@ -403,6 +405,7 @@ function adminDownloadUsersJson(){
     users: (data.users || []).map(u => ({
       user: u.user,
       passHash: u.passHash,
+      role: u.role || (u.user === "admin" ? "admin" : "user"),
       perms: u.perms || defaultPerms(),
       updatedAt: u.updatedAt || Date.now()
     }))
@@ -434,7 +437,6 @@ function renderLockedOrGuest(){
     return;
   }
 
-  // ✅ No entra solo: queda “bloqueado”
   setUIState("logged_locked");
   setStatus(`Sesión detectada: ${s.user} (${s.role}). Tocá “Continuar sesión” o “Cerrar sesión”.`);
 }
@@ -471,12 +473,6 @@ async function loginGeneral(){
     return;
   }
 
-  if (usuario === ADMIN_USER && clave === ADMIN_PASS){
-    setSession({ user: ADMIN_USER, role: "admin", perms: defaultPerms(), ts: Date.now() });
-    continueSession();
-    return;
-  }
-
   let data;
   try {
     data = await fetchUsersFromRepo();
@@ -493,7 +489,13 @@ async function loginGeneral(){
   const passHash = await sha256Hex(clave);
   if (found.passHash !== passHash){ alert("Credenciales incorrectas"); return; }
 
-  setSession({ user: usuario, role: "user", perms: found.perms || defaultPerms(), ts: Date.now() });
+  setSession({
+    user: usuario,
+    role: found.role === "admin" ? "admin" : "user",
+    perms: found.perms || defaultPerms(),
+    ts: Date.now()
+  });
+
   continueSession();
 }
 
@@ -527,7 +529,6 @@ async function updateApp(){
    ========================= */
 document.addEventListener("DOMContentLoaded", async () => {
   try {
-    // Limpieza de residuos viejos (una vez)
     OLD_KEYS_TO_PURGE.forEach(k => {
       try { localStorage.removeItem(k); } catch {}
     });
@@ -536,20 +537,17 @@ document.addEventListener("DOMContentLoaded", async () => {
     $("btn-cerrar-sesion")?.addEventListener("click", logout);
     $("btn-actualizar-app")?.addEventListener("click", updateApp);
 
-    // si existe botón continuar en tu HTML, lo usamos
     $("btn-continuar")?.addEventListener("click", continueSession);
 
     $("clave")?.addEventListener("keydown", (e) => {
       if (e.key === "Enter") loginGeneral();
     });
 
-    // precarga users cache (no bloquea)
     try {
       const data = await fetchUsersFromRepo();
       setUsersCache(data);
     } catch {}
 
-    // ✅ NO auto-inicia: muestra lock o login
     renderLockedOrGuest();
   } catch (e) {
     console.error(e);
