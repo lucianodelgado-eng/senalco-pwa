@@ -166,6 +166,18 @@
         "monitoreo": true
       },
       "updatedAt": 1776886837312
+    },
+    {
+      "user": "admin",
+      "passHash": "bc182eb1e84d68dc566f3d9b70bdd588a2b29e6abe311012eaa82c0623f78b3c",
+      "role": "admin",
+      "perms": {
+        "relev": true,
+        "base": true,
+        "cctv": true,
+        "monitoreo": true
+      },
+      "updatedAt": 1740000000000
     }
   ]
 }
