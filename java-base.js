@@ -891,6 +891,15 @@ function descargarRawComoJSON(nombre, rawJsonString) {
 /** ==========================================
  *  Importar JSON
  *  ========================================== */
+function descargarBases() {
+  const url = "https://drive.google.com/drive/folders/1gNeZpPdGxUyFcdPj72Dgn3aSFGtfaPJE?usp=sharing";
+
+  window.open(url, "_blank");
+
+  setTimeout(() => {
+    alert("📦 Cuando termine la descarga:\n\n1. Volvé a la app\n2. Tocá 'Importar ZIP'");
+  }, 1200);
+}
 function importarJSONBase(file) {
   const reader = new FileReader();
   reader.onload = () => {
