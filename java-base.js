@@ -933,7 +933,70 @@ async function importarMuchosJSON(files) {
   renderBasesMini();
   alert(`✅ Importación lista\nOK: ${ok} • Fallidos: ${bad}`);
 }
+$("btn-importar-zip")?.addEventListener("click", () => {
+  $("input-zip-bases")?.click();
+});
 
+$("input-zip-bases")?.addEventListener("change", async (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+
+  await importarZipBases(file);
+  e.target.value = "";
+});
+
+async function importarZipBases(file) {
+  try {
+    const zip = await JSZip.loadAsync(file);
+    let ok = 0;
+    let bad = 0;
+
+    for (const nombreArchivo of Object.keys(zip.files)) {
+      const entrada = zip.files[nombreArchivo];
+
+      if (entrada.dir) continue;
+      if (!nombreArchivo.toLowerCase().endsWith(".json")) continue;
+
+      try {
+        const text = await entrada.async("string");
+        const data = JSON.parse(text);
+
+        let nombre = safeName(
+          nombreArchivo
+            .split("/")
+            .pop()
+            .replace(/\.json$/i, "")
+        );
+
+        if (!nombre) nombre = generarNombreAuto();
+
+        if (localStorage.getItem(baseKey(nombre))) {
+          nombre = `${nombre}_mod_${fechaStamp()}`;
+        }
+
+        localStorage.setItem(baseKey(nombre), JSON.stringify(data));
+
+        if (typeof idbPutBase === "function") {
+          idbPutBase(baseKey(nombre), data).catch(console.warn);
+        }
+
+        addToIndex(nombre);
+        ok++;
+      } catch {
+        bad++;
+      }
+    }
+
+    renderBuscadorRapido();
+    renderBasesMini();
+    renderConsultaBases?.();
+
+    alert(`✅ ZIP importado\nBases cargadas: ${ok}\nFallidas: ${bad}`);
+  } catch (e) {
+    console.error(e);
+    alert("❌ No pude leer el ZIP");
+  }
+}
 /** ==========================================
  *  Cargar data en pantalla
  *  ========================================== */
