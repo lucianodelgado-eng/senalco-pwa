@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
   <meta charset="UTF-8" />
   <title>Base de Datos - Señalco</title>
@@ -14,529 +13,316 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
 
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 20px;
-      max-width: 1100px;
-      margin: auto;
-      background: #0b0b20;
-      color: #fff;
-    }
+    body{font-family:Arial,sans-serif;margin:20px auto;max-width:1100px;background:#0b0b20;color:#fff;padding:0 12px;}
+    h1,h2,h3{text-align:center;margin-top:10px;}
+    label{display:block;margin-top:10px;font-weight:bold;}
+    input,select,textarea{width:100%;padding:10px;margin:6px 0;box-sizing:border-box;border-radius:8px;border:1px solid #333;background:#121235;color:#fff;}
+    textarea{min-height:70px;resize:vertical;}
+    table{width:100%;border-collapse:collapse;margin-top:15px;background:#0d0d2a;}
+    table,th,td{border:1px solid #0a0a0a;}
+    th,td{padding:6px;text-align:center;vertical-align:middle;}
+    td input,td select,td textarea{width:100%;border-radius:8px;padding:8px;border:1px solid #333;background:#14143a;color:#fff;box-sizing:border-box;}
+    #logo-pdf{display:none;}
+    .logo-entrada{width:140px;display:block;margin:10px auto 0;border-radius:8px;box-shadow:0 0 10px rgba(0,0,0,.5);}
+    .mini-btn{padding:10px 14px;border-radius:10px;background:#444;color:#fff;border:0;cursor:pointer;font-weight:bold;}
+    .mini-btn:hover,.bigbtn:hover{opacity:.92;}
+    .section{margin-top:14px;padding:12px;border-radius:14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);}
+    .section-head{display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer;user-select:none;}
+    .section-title{font-weight:bold;font-size:15px;}
+    .section-body{margin-top:10px;display:none;}
+    .section.open .section-body{display:block;}
+    .btn-grid{display:grid;grid-template-columns:1fr;gap:10px;}
+    @media(min-width:760px){.btn-grid{grid-template-columns:1fr 1fr;}}
+    .bigbtn{width:100%;padding:14px;font-weight:bold;cursor:pointer;border:0;border-radius:12px;background:#1976d2;color:#fff;font-size:15px;}
+    .buscador-wrap,.bases-window,.pt-wrap{margin-top:14px;padding:12px;border-radius:14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);}
+    .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;}
+    .chip{display:inline-flex;gap:8px;align-items:center;padding:8px 10px;border-radius:12px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);cursor:pointer;user-select:none;}
+    .chip input{width:auto;margin:0;transform:scale(1.1);}
+    #buscador-resultados .card,#lista-bases-inline .card,.pt-card{background:#fff;color:#000;border-radius:12px;padding:12px;margin-bottom:10px;}
+    .bases-window-head{display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;gap:10px;flex-wrap:wrap;}
+    .bases-window-title{font-weight:bold;font-size:15px;}
+    .bases-window-body{margin-top:10px;display:none;}
+    .bases-window.open .bases-window-body{display:block;}
+    #lista-bases-inline{max-height:280px;overflow-y:auto;padding-right:6px;}
+    #update-bar{display:none!important;}
+    .modal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;padding:14px;z-index:9999;}
+    .modal .box{width:min(980px,100%);max-height:86vh;overflow:auto;background:#0b0b20;border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:14px;color:#fff;}
+    .modal .row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+    .pt-top-grid,.pt-main-grid{display:grid;gap:10px;}
+    .pt-top-grid{grid-template-columns:1fr;margin-top:10px;}
+    .pt-main-grid{grid-template-columns:1fr;}
+    @media(min-width:760px){.pt-top-grid{grid-template-columns:repeat(5,1fr);}.pt-main-grid{grid-template-columns:1fr 1fr;}}
+    .pt-subbox{background:rgba(0,0,0,.08);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:10px;}
+    .pt-subbox h4{margin:0 0 8px 0;text-align:left;}
+    .pt-card input,.pt-card select,.pt-card textarea{background:#1c1c1c;color:#fff;border:1px solid #555;}
 
-    h1,
-    h2,
-    h3 {
-      text-align: center;
-      margin-top: 10px;
-    }
-
-    label {
-      display: block;
-      margin-top: 10px;
-      font-weight: bold;
-    }
-
-    input,
-    select,
-    textarea {
-      width: 100%;
-      padding: 10px;
-      margin: 6px 0;
-      box-sizing: border-box;
-      border-radius: 8px;
-      border: 1px solid #333;
-      background: #121235;
-      color: #fff;
-    }
-
-    textarea {
-      min-height: 70px;
-      resize: vertical;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 15px;
-      background: #0d0d2a;
-    }
-
-    table,
-    th,
-    td {
-      border: 1px solid #0a0a0a;
-    }
-
-    th,
-    td {
-      padding: 6px;
-      text-align: center;
-      vertical-align: middle;
-    }
-
-    td input,
-    td select,
-    td textarea {
-      width: 100%;
-      border-radius: 8px;
-      padding: 8px;
-      border: 1px solid #333;
-      background: #14143a;
-      color: #fff;
-      box-sizing: border-box;
-    }
-
-    #logo-pdf {
-      display: none;
-    }
-
-    .logo-entrada {
-      width: 140px;
-      display: block;
-      margin: 10px auto 0;
-      border-radius: 8px;
-      box-shadow: 0 0 10px rgba(0, 0, 0, .5);
-    }
-
-    .mini-btn {
-      padding: 10px 14px;
-      border-radius: 10px;
-      background: #444;
-      color: #fff;
-      border: 0;
-      cursor: pointer;
-      font-weight: bold;
-    }
-
-    .mini-btn:hover,
-    .bigbtn:hover {
-      opacity: .92;
-    }
-
-    .section {
-      margin-top: 14px;
-      padding: 12px;
-      border-radius: 14px;
-      background: rgba(255, 255, 255, .06);
-      border: 1px solid rgba(255, 255, 255, .08);
-    }
-
-    .section-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      cursor: pointer;
-      user-select: none;
-    }
-
-    .section-title {
-      font-weight: bold;
-      font-size: 15px;
-    }
-
-    .section-body {
-      margin-top: 10px;
-      display: none;
-    }
-
-    .section.open .section-body {
-      display: block;
-    }
-
-    .btn-grid {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 10px;
-    }
-
-    @media (min-width: 760px) {
-      .btn-grid {
-        grid-template-columns: 1fr 1fr;
-      }
-    }
-
-    .bigbtn {
-      width: 100%;
-      padding: 14px;
-      font-weight: bold;
-      cursor: pointer;
-      border: 0;
-      border-radius: 12px;
-      background: #1976d2;
-      color: #fff;
-      font-size: 15px;
-    }
-
-    .buscador-wrap,
-    .bases-window,
-    .pt-wrap {
-      margin-top: 14px;
-      padding: 12px;
-      border-radius: 14px;
-      background: rgba(255, 255, 255, .06);
-      border: 1px solid rgba(255, 255, 255, .08);
-    }
-
-    .chips {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-top: 8px;
-    }
-
-    .chip {
-      display: inline-flex;
-      gap: 8px;
-      align-items: center;
-      padding: 8px 10px;
-      border-radius: 12px;
-      background: rgba(255, 255, 255, .08);
-      border: 1px solid rgba(255, 255, 255, .12);
-      cursor: pointer;
-      user-select: none;
-    }
-
-    .chip input {
-      width: auto;
-      margin: 0;
-      transform: scale(1.1);
-    }
-
-    #buscador-resultados .card,
-    #lista-bases-inline .card,
-    .pt-card {
-      background: #fff;
-      color: #000;
-      border-radius: 12px;
-      padding: 12px;
-      margin-bottom: 10px;
-    }
-
-    .bases-window-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      cursor: pointer;
-      user-select: none;
-      gap: 10px;
-    }
-
-    .bases-window-title {
-      font-weight: bold;
-      font-size: 15px;
-    }
-
-    .bases-window-body {
-      margin-top: 10px;
-      display: none;
-    }
-
-    .bases-window.open .bases-window-body {
-      display: block;
-    }
-
-    #lista-bases-inline {
-      max-height: 280px;
-      overflow-y: auto;
-      padding-right: 6px;
-    }
-
-    #update-bar {
-      display: none !important;
-    }
-
-    .modal {
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, .55);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      padding: 14px;
-      z-index: 9999;
-    }
-
-    .modal .box {
-      width: min(980px, 100%);
-      max-height: 86vh;
-      overflow: auto;
-      background: #0b0b20;
-      border: 1px solid rgba(255, 255, 255, .12);
-      border-radius: 14px;
-      padding: 14px;
-      color: #fff;
-    }
-
-    .modal .row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-
-    .pt-top-grid,
-    .pt-main-grid {
-      display: grid;
-      gap: 10px;
-    }
-
-    .pt-top-grid {
-      grid-template-columns: 1fr;
-      margin-top: 10px;
-    }
-
-    .pt-main-grid {
-      grid-template-columns: 1fr;
-    }
-
-    @media (min-width: 760px) {
-      .pt-top-grid {
-        grid-template-columns: repeat(5, 1fr);
-      }
-
-      .pt-main-grid {
-        grid-template-columns: 1fr 1fr;
-      }
-    }
-
-    .pt-subbox {
-      background: rgba(0, 0, 0, .08);
-      border: 1px solid rgba(255, 255, 255, .08);
-      border-radius: 12px;
-      padding: 10px;
-    }
-
-    .pt-subbox h4 {
-      margin: 0 0 8px 0;
-      text-align: left;
-    }
-
-    .pt-card input,
-    .pt-card select,
-    .pt-card textarea {
-      background: #1c1c1c;
-      color: #fff;
-      border: 1px solid #555;
-    }
+    /* ===== Nueva vista consulta tipo PDF ===== */
+    .consulta-wrap{margin-top:14px;padding:14px;border-radius:16px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.10);}
+    .consulta-top{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;}
+    .base-consulta-card{background:#fff;color:#111;padding:12px;border-radius:14px;margin-top:10px;cursor:pointer;border:1px solid rgba(0,0,0,.08);box-shadow:0 8px 20px rgba(0,0,0,.18);}
+    .base-consulta-card:hover{transform:translateY(-1px);box-shadow:0 10px 24px rgba(0,0,0,.24);}
+    .visor-base-pdf{margin-top:14px;background:#fff;color:#111;border-radius:16px;padding:14px;overflow:auto;box-shadow:0 8px 24px rgba(0,0,0,.25);}
+    .visor-base-pdf *{color:#111;}
+    .visor-head{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:12px;font-size:14px;}
+    .visor-table{width:100%;border-collapse:collapse;background:#fff;color:#111;font-size:13px;}
+    .visor-table th{background:#1976d2;color:#fff!important;padding:8px;border:1px solid #ccc;text-align:left;}
+    .visor-table td{padding:7px;border:1px solid #ccc;text-align:left;color:#111;}
+    .visor-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;}
+    .visor-actions .mini-btn{background:#1976d2;}
+    @media(max-width:600px){.visor-head{grid-template-columns:1fr;}.visor-table{font-size:12px;}.consulta-top .bigbtn{width:100%;}}
   </style>
 </head>
 
 <body>
-
   <img id="logo-pdf" src="images/logo.jpg" alt="logo" />
   <img src="images/logo_blanco.jpg" alt="Logo Señalco" class="logo-entrada">
 
   <h1>📊 Base de Datos - Señalco</h1>
 
-  <label>Entidad</label>
-  <input type="text" id="entidad" list="lista-entidades" placeholder="Ej: Banco Galicia" />
-  <datalist id="lista-entidades"></datalist>
-
-  <label>Sucursal</label>
-  <input type="text" id="sucursal" placeholder="Ej: 1234" />
-
-  <label>Abonado</label>
-  <input type="text" id="abonado" placeholder="Ej: 000123" />
-
-  <label>Central</label>
-  <input type="text" id="central" placeholder="Ej: Acicomp" />
-
-  <label>Provincia</label>
-  <input type="text" id="provincia" placeholder="Ej: Buenos Aires" />
-
-  <table id="tabla-base">
-    <thead>
-      <tr>
-        <th>Zona</th>
-        <th>Evento</th>
-        <th>Área</th>
-        <th>Dispositivo</th>
-        <th>Descripción</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
-
-  <div class="section" id="sec-importar">
-    <div class="section-head" onclick="toggleSection('sec-importar')">
-      <div class="section-title">📥 Importar</div>
-      <div style="opacity:.9;">⬇️</div>
+  <!-- VISTA CONSULTA NUEVA -->
+  <div id="vista-consulta-base" class="consulta-wrap">
+    <div class="consulta-top">
+      <h2 style="margin:0;">🔎 Consultar Base</h2>
+      <button class="bigbtn" id="btn-nueva-base-consulta" style="max-width:220px;">➕ Nueva base</button>
     </div>
 
-    <div class="section-body">
+    <input id="buscar-consulta-base" placeholder="Buscar por entidad, sucursal, abonado, central o provincia..." />
+    <div id="resultados-consulta-base"></div>
+    <div id="visor-base-pdf" class="visor-base-pdf" style="display:none;"></div>
+  </div>
+
+  <!-- VISTA EDICIÓN ACTUAL -->
+  <div id="vista-edicion-base" style="display:none;">
+
+    <label>Entidad</label>
+    <input type="text" id="entidad" list="lista-entidades" placeholder="Ej: Banco Galicia" />
+    <datalist id="lista-entidades"></datalist>
+
+    <label>Sucursal</label>
+    <input type="text" id="sucursal" placeholder="Ej: 1234" />
+
+    <label>Abonado</label>
+    <input type="text" id="abonado" placeholder="Ej: 000123" />
+
+    <label>Central</label>
+    <input type="text" id="central" placeholder="Ej: Acicomp" />
+
+    <label>Provincia</label>
+    <input type="text" id="provincia" placeholder="Ej: Buenos Aires" />
+
+    <table id="tabla-base">
+      <thead>
+        <tr><th>Zona</th><th>Evento</th><th>Área</th><th>Dispositivo</th><th>Descripción</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+
+    <div class="section" id="sec-importar">
+      <div class="section-head" onclick="toggleSection('sec-importar')">
+        <div class="section-title">📥 Importar</div><div style="opacity:.9;">⬇️</div>
+      </div>
+      <div class="section-body">
+        <div class="btn-grid">
+          <button class="bigbtn" id="btn-subir-excel">📂 Importar Excel Base</button>
+          <input id="input-excel-base" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="position:absolute; left:-9999px; width:1px; height:1px;" />
+
+          <button class="bigbtn" id="btn-importar-json-top">📤 Importar 1 JSON</button>
+          <input id="input-json-base-top" type="file" accept="application/json,.json" style="position:absolute; left:-9999px; width:1px; height:1px;" />
+
+          <button class="bigbtn" id="btn-importar-muchos-json">📦 Importar varios JSON</button>
+          <input id="input-json-muchos" type="file" accept="application/json,.json" multiple webkitdirectory directory style="position:absolute; left:-9999px; width:1px; height:1px;" />
+
+          <button class="bigbtn" id="btn-importar-padron-masivo">🏗️ Importar padrón masivo Excel</button>
+          <input id="input-padron-masivo" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="position:absolute; left:-9999px; width:1px; height:1px;" />
+
+          <button class="bigbtn" id="btn-lineas-basico">📥 Cargar líneas Excel básico</button>
+          <input id="input-lineas-basico" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="position:absolute; left:-9999px; width:1px; height:1px;" />
+
+          <button class="bigbtn" id="btn-lineas-amba">📥 Cargar líneas Excel completo / AMBA</button>
+          <input id="input-lineas-amba" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="position:absolute; left:-9999px; width:1px; height:1px;" />
+        </div>
+        <textarea id="pegado-manual-excel" placeholder="Pegá acá las líneas copiadas desde Excel"></textarea>
+        <button type="button" class="bigbtn" id="btn-cargar-pegado-manual">📋 Cargar líneas pegadas</button>
+        <div style="margin-top:10px; font-size:12px; opacity:.85;">Tip: el padrón masivo crea bases automáticas. Los Excel de líneas cargan sobre la base abierta.</div>
+      </div>
+    </div>
+
+    <div class="section open" id="sec-acciones">
+      <div class="section-head" onclick="toggleSection('sec-acciones')">
+        <div class="section-title">⚙️ Acciones</div><div style="opacity:.9;">⬆️</div>
+      </div>
+      <div class="section-body">
+        <div class="btn-grid">
+          <button class="bigbtn" id="btn-limpiar-base">🧹 Limpiar</button>
+          <button class="bigbtn" id="btn-guardar-rapido">💾 Guardar en Bases + Backup JSON</button>
+          <button class="bigbtn" id="btn-previsualizar">👁️ Previsualizar</button>
+          <button class="bigbtn" id="btn-generar-pdf-base">📄 Exportar PDF</button>
+          <button class="bigbtn" id="btn-excel-base">📊 Exportar Excel</button>
+          <button class="bigbtn" id="btn-editar-zonas123">🔓 Editar Zonas 1-3</button>
+          <button class="bigbtn" id="btn-bloquear-zonas123" style="display:none;">🔒 Bloquear Zonas 1-3</button>
+          <button class="bigbtn" onclick="cerrarSesion()">🔒 Cerrar sesión</button>
+          <button class="bigbtn" type="button" onclick="mostrarConsultaBase()" style="background:#555;">⬅️ Volver a consulta</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="pt-wrap">
+      <h3 style="margin:0 0 8px;">🔌 PT4000 / RS485</h3>
       <div class="btn-grid">
-        <button class="bigbtn" id="btn-subir-excel">📂 Importar Excel Base</button>
-        <input id="input-excel-base" type="file"
-          accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-          style="position:absolute; left:-9999px; width:1px; height:1px;" />
-
-        <button class="bigbtn" id="btn-importar-json-top">📤 Importar 1 JSON</button>
-        <input id="input-json-base-top" type="file" accept="application/json,.json"
-          style="position:absolute; left:-9999px; width:1px; height:1px;" />
-
-        <button class="bigbtn" id="btn-importar-muchos-json">📦 Importar varios JSON</button>
-        <input id="input-json-muchos" type="file" accept="application/json,.json" multiple webkitdirectory directory
-          style="position:absolute; left:-9999px; width:1px; height:1px;" />
-
-        <button class="bigbtn" id="btn-importar-padron-masivo">🏗️ Importar padrón masivo Excel</button>
-        <input id="input-padron-masivo" type="file"
-          accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-          style="position:absolute; left:-9999px; width:1px; height:1px;" />
-
-        <button class="bigbtn" id="btn-lineas-basico">📥 Cargar líneas Excel básico</button>
-        <input id="input-lineas-basico" type="file"
-          accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-          style="position:absolute; left:-9999px; width:1px; height:1px;" />
-
-        <button class="bigbtn" id="btn-lineas-amba">📥 Cargar líneas Excel completo / AMBA</button>
-        <input id="input-lineas-amba" type="file"
-          accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-          style="position:absolute; left:-9999px; width:1px; height:1px;" />
+        <button class="bigbtn" id="btn-toggle-pt">Activar / Desactivar PT4000</button>
+        <button class="bigbtn" id="btn-agregar-pt">➕ Agregar PT4000</button>
       </div>
-      <textarea id="pegado-manual-excel" placeholder="Pegá acá las líneas copiadas desde Excel"></textarea>
+      <div style="margin-top:10px; font-size:13px; opacity:.9;">Si la sucursal no tiene 485, dejalo apagado. Si tiene, queda integrado dentro del mismo JSON.</div>
+      <div id="estado-pt" style="margin-top:10px; font-weight:bold;">PT4000 desactivado</div>
+      <div id="pt-contenedor" style="margin-top:12px;"></div>
+    </div>
 
-      <button type="button" class="bigbtn" id="btn-cargar-pegado-manual">
-        📋 Cargar líneas pegadas
-      </button>
-      <div style="margin-top:10px; font-size:12px; opacity:.85;">
-        Tip: el padrón masivo crea bases automáticas. Los Excel de líneas cargan sobre la base abierta.
+    <div class="buscador-wrap">
+      <h3 style="margin:0 0 8px;">🔎 Buscador rápido de Bases</h3>
+      <input id="buscar-rapido" placeholder="Escribí (ej: gal) y filtra al toque..." />
+      <div style="opacity:.9; font-size:13px; margin-top:6px;">Elegí en qué campos buscar:</div>
+      <div class="chips" id="filtros-wrap">
+        <label class="chip"><input type="checkbox" class="filtro-check" value="entidad" checked>Entidad</label>
+        <label class="chip"><input type="checkbox" class="filtro-check" value="sucursal" checked>Sucursal</label>
+        <label class="chip"><input type="checkbox" class="filtro-check" value="abonado" checked>Abonado</label>
+        <label class="chip"><input type="checkbox" class="filtro-check" value="central" checked>Central</label>
+        <label class="chip"><input type="checkbox" class="filtro-check" value="provincia" checked>Provincia</label>
+        <label class="chip"><input type="checkbox" class="filtro-check" value="nombre" checked>Nombre</label>
       </div>
-    </div>
-  </div>
-
-  <div class="section open" id="sec-acciones">
-    <div class="section-head" onclick="toggleSection('sec-acciones')">
-      <div class="section-title">⚙️ Acciones</div>
-      <div style="opacity:.9;">⬆️</div>
-    </div>
-
-    <div class="section-body">
-      <div class="btn-grid">
-        <button class="bigbtn" id="btn-limpiar-base">🧹 Limpiar</button>
-        <button class="bigbtn" id="btn-guardar-rapido">💾 Guardar en Bases + Backup JSON</button>
-        <button class="bigbtn" id="btn-previsualizar">👁️ Previsualizar</button>
-        <button class="bigbtn" id="btn-generar-pdf-base">📄 Exportar PDF</button>
-        <button class="bigbtn" id="btn-excel-base">📊 Exportar Excel</button>
-        <button class="bigbtn" id="btn-editar-zonas123">🔓 Editar Zonas 1-3</button>
-        <button class="bigbtn" id="btn-bloquear-zonas123" style="display:none;">🔒 Bloquear Zonas 1-3</button>
-        <button class="bigbtn" onclick="cerrarSesion()">🔒 Cerrar sesión</button>
-
-      </div>
-    </div>
-  </div>
-
-  <div class="pt-wrap">
-    <h3 style="margin:0 0 8px;">🔌 PT4000 / RS485</h3>
-
-    <div class="btn-grid">
-      <button class="bigbtn" id="btn-toggle-pt">Activar / Desactivar PT4000</button>
-      <button class="bigbtn" id="btn-agregar-pt">➕ Agregar PT4000</button>
-    </div>
-
-    <div style="margin-top:10px; font-size:13px; opacity:.9;">
-      Si la sucursal no tiene 485, dejalo apagado. Si tiene, queda integrado dentro del mismo JSON.
-    </div>
-
-    <div id="estado-pt" style="margin-top:10px; font-weight:bold;">PT4000 desactivado</div>
-
-    <div id="pt-contenedor" style="margin-top:12px;"></div>
-  </div>
-
-  <div class="buscador-wrap">
-    <h3 style="margin:0 0 8px;">🔎 Buscador rápido de Bases</h3>
-
-    <input id="buscar-rapido" placeholder="Escribí (ej: gal) y filtra al toque..." />
-
-    <div style="opacity:.9; font-size:13px; margin-top:6px;">
-      Elegí en qué campos buscar:
-    </div>
-
-    <div class="chips" id="filtros-wrap">
-      <label class="chip"><input type="checkbox" class="filtro-check" value="entidad" checked>Entidad</label>
-      <label class="chip"><input type="checkbox" class="filtro-check" value="sucursal" checked>Sucursal</label>
-      <label class="chip"><input type="checkbox" class="filtro-check" value="abonado" checked>Abonado</label>
-      <label class="chip"><input type="checkbox" class="filtro-check" value="central" checked>Central</label>
-      <label class="chip"><input type="checkbox" class="filtro-check" value="provincia" checked>Provincia</label>
-      <label class="chip"><input type="checkbox" class="filtro-check" value="nombre" checked>Nombre</label>
-    </div>
-
-    <div id="buscador-resultados" style="margin-top:12px;"></div>
-
-    <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
-      <button class="mini-btn" id="btn-limpiar-buscador" style="background:#555;">Limpiar búsqueda</button>
-
-    </div>
-  </div>
-
-  <div class="bases-window open" id="bases-window">
-    <div class="bases-window-head" onclick="toggleBasesWindow()">
-      <div class="bases-window-title">📁 Bases guardadas (lista)</div>
-      <div id="bases-window-arrow" style="opacity:.9;">⬆️</div>
-      <div>
-        <button type="button" class="bigbtn" id="btn-reset-total" style="background:#b00020;">
-          🗑️ BORRAR TODAS LAS BASES
-        </button>
+      <div id="buscador-resultados" style="margin-top:12px;"></div>
+      <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
+        <button class="mini-btn" id="btn-limpiar-buscador" style="background:#555;">Limpiar búsqueda</button>
       </div>
     </div>
 
-    <div class="bases-window-body">
-      <div id="lista-bases-inline"></div>
+    <div class="bases-window open" id="bases-window">
+      <div class="bases-window-head" onclick="toggleBasesWindow()">
+        <div class="bases-window-title">📁 Bases guardadas (lista)</div>
+        <div id="bases-window-arrow" style="opacity:.9;">⬆️</div>
+        <div><button type="button" class="bigbtn" id="btn-reset-total" style="background:#b00020;">🗑️ BORRAR TODAS LAS BASES</button></div>
+      </div>
+      <div class="bases-window-body"><div id="lista-bases-inline"></div></div>
     </div>
   </div>
 
   <div id="modal-prev" class="modal">
     <div class="box">
-      <div class="row">
-        <h2 style="margin:0;">Previsualización de Base</h2>
-        <button class="mini-btn" id="btn-cerrar-prev">Cerrar ✖</button>
-      </div>
+      <div class="row"><h2 style="margin:0;">Previsualización de Base</h2><button class="mini-btn" id="btn-cerrar-prev">Cerrar ✖</button></div>
       <div id="prev-body" style="margin-top:12px;"></div>
-      <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
-        <button class="mini-btn" id="btn-descargar-pdf-prev">✅ Descargar PDF</button>
-      </div>
+      <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;"><button class="mini-btn" id="btn-descargar-pdf-prev">✅ Descargar PDF</button></div>
     </div>
   </div>
 
   <script>
-    function cerrarSesion() {
-      try {
-        if (typeof logout === "function") {
-          logout();
-          return;
-        }
-      } catch (e) { }
+    function cerrarSesion(){try{if(typeof logout==="function"){logout();return;}}catch(e){} localStorage.removeItem("logueado");localStorage.removeItem("perfil");localStorage.removeItem("usuario");localStorage.removeItem("rol");localStorage.removeItem("senalco_session_v2");window.location.href="index.html";}
+    function toggleSection(id){const el=document.getElementById(id);if(!el)return;el.classList.toggle("open");const arrow=el.querySelector(".section-head div:last-child");if(arrow)arrow.textContent=el.classList.contains("open")?"⬆️":"⬇️";}
+    function toggleBasesWindow(){const el=document.getElementById("bases-window");const arrow=document.getElementById("bases-window-arrow");if(!el)return;el.classList.toggle("open");if(arrow)arrow.textContent=el.classList.contains("open")?"⬆️":"⬇️";}
 
-      localStorage.removeItem("logueado");
-      localStorage.removeItem("perfil");
-      localStorage.removeItem("usuario");
-      localStorage.removeItem("rol");
-      localStorage.removeItem("senalco_session_v2");
-      window.location.href = "index.html";
+    let baseConsultaActual=null;
+    let nombreConsultaActual="";
+
+    function mostrarConsultaBase(){
+      const consulta=document.getElementById("vista-consulta-base");
+      const edicion=document.getElementById("vista-edicion-base");
+      if(consulta)consulta.style.display="block";
+      if(edicion)edicion.style.display="none";
+      setTimeout(()=>{if(typeof renderConsultaBases==="function")renderConsultaBases();},50);
     }
 
-    function toggleSection(id) {
-      const el = document.getElementById(id);
-      if (!el) return;
-      el.classList.toggle("open");
-      const arrow = el.querySelector(".section-head div:last-child");
-      if (arrow) arrow.textContent = el.classList.contains("open") ? "⬆️" : "⬇️";
+    function mostrarEdicionBase(){
+      const consulta=document.getElementById("vista-consulta-base");
+      const edicion=document.getElementById("vista-edicion-base");
+      if(consulta)consulta.style.display="none";
+      if(edicion)edicion.style.display="block";
     }
 
-    function toggleBasesWindow() {
-      const el = document.getElementById("bases-window");
-      const arrow = document.getElementById("bases-window-arrow");
-      if (!el) return;
-      el.classList.toggle("open");
-      if (arrow) arrow.textContent = el.classList.contains("open") ? "⬆️" : "⬇️";
+    function renderConsultaBases(){
+      const cont=document.getElementById("resultados-consulta-base");
+      if(!cont)return;
+      const q=(document.getElementById("buscar-consulta-base")?.value||"").toLowerCase().trim();
+      const idx=typeof getIndex==="function"?getIndex():[];
+      cont.innerHTML="";
+      if(!idx.length){cont.innerHTML=`<div class="base-consulta-card"><b>Sin bases cargadas</b><div style="font-size:13px; opacity:.8; margin-top:4px;">Tocá “Nueva base” o importá padrón desde edición.</div></div>`;return;}
+      let count=0;
+      idx.forEach(nombre=>{
+        const data=typeof leerBase==="function"?leerBase(nombre):null;
+        if(!data)return;
+        const texto=[nombre,data.entidad,data.sucursal,data.abonado,data.central,data.provincia].join(" ").toLowerCase();
+        if(q&&!texto.includes(q))return;
+        count++;
+        const card=document.createElement("div");
+        card.className="base-consulta-card";
+        card.innerHTML=`<b>${escapeHtml(nombre)}</b><div style="font-size:13px; opacity:.85; margin-top:4px;">${escapeHtml(data.entidad||"-")} • Suc: ${escapeHtml(data.sucursal||"-")} • Ab: ${escapeHtml(data.abonado||"-")} • Central: ${escapeHtml(data.central||"-")} • ${escapeHtml(data.provincia||"-")} • PT: ${data.pt4000?.habilitado?"Sí":"No"}</div>`;
+        card.onclick=()=>abrirBaseEnModoConsulta(nombre);
+        cont.appendChild(card);
+      });
+      if(!count)cont.innerHTML=`<div class="base-consulta-card"><b>Sin resultados</b><div style="font-size:13px; opacity:.8; margin-top:4px;">Probá con otra palabra.</div></div>`;
     }
+
+    function abrirBaseEnModoConsulta(nombre){
+      const data=leerBase(nombre);
+      if(!data)return alert("No se encontró la base.");
+      baseConsultaActual=data;
+      nombreConsultaActual=nombre;
+      if(typeof cargarDataEnPantalla==="function")cargarDataEnPantalla(data);
+      if(typeof setCurrentBaseName==="function")setCurrentBaseName(nombre);
+      renderVisorBasePDF(data,nombre);
+    }
+
+    function renderVisorBasePDF(data,nombre){
+      const visor=document.getElementById("visor-base-pdf");
+      if(!visor)return;
+      visor.style.display="block";
+      const zonas=Array.isArray(data.zonas)?data.zonas:[];
+      visor.innerHTML=`
+        <h2 style="margin-top:0; text-align:left;">Base de Datos - Señalco</h2>
+        <div class="visor-head">
+          <div><b>Entidad:</b> ${escapeHtml(data.entidad||"-")}</div>
+          <div><b>Sucursal:</b> ${escapeHtml(data.sucursal||"-")}</div>
+          <div><b>Abonado:</b> ${escapeHtml(data.abonado||"-")}</div>
+          <div><b>Central:</b> ${escapeHtml(data.central||"-")}</div>
+          <div><b>Provincia:</b> ${escapeHtml(data.provincia||"-")}</div>
+          <div><b>Archivo:</b> ${escapeHtml(nombre||"-")}</div>
+        </div>
+        <table class="visor-table">
+          <thead><tr><th>Zona</th><th>Evento</th><th>Área</th><th>Dispositivo</th><th>Descripción</th></tr></thead>
+          <tbody>${zonas.map(z=>`<tr><td>${escapeHtml(z.zona||"-")}</td><td>${escapeHtml(z.evento||"-")}</td><td>${escapeHtml(z.area||"-")}</td><td>${escapeHtml(z.dispositivo||"-")}</td><td>${escapeHtml(z.descripcion||"-")}</td></tr>`).join("")}</tbody>
+        </table>
+        ${data.pt4000?.habilitado?`<div style="margin-top:12px;"><b>PT4000 / RS485:</b> Sí</div>`:`<div style="margin-top:12px;"><b>PT4000 / RS485:</b> No</div>`}
+        <div class="visor-actions">
+          <button class="mini-btn" onclick="modificarBaseDesdeConsulta()">✏️ Modificar base</button>
+          <button class="mini-btn" onclick="generarPDF()">📄 Exportar PDF</button>
+          <button class="mini-btn" onclick="ocultarVisorConsulta()" style="background:#555;">⬅️ Cerrar vista</button>
+        </div>`;
+    }
+
+    function ocultarVisorConsulta(){const visor=document.getElementById("visor-base-pdf");if(visor)visor.style.display="none";}
+
+    function modificarBaseDesdeConsulta(){
+      if(!baseConsultaActual)return alert("Primero abrí una base.");
+      if(typeof cargarDataEnPantalla==="function")cargarDataEnPantalla(baseConsultaActual);
+      if(typeof setCurrentBaseName==="function")setCurrentBaseName(nombreConsultaActual);
+      mostrarEdicionBase();
+    }
+
+    function nuevaBaseDesdeConsulta(){
+      if(typeof limpiarBase==="function")limpiarBase();
+      baseConsultaActual=null;
+      nombreConsultaActual="";
+      mostrarEdicionBase();
+    }
+
+    document.addEventListener("DOMContentLoaded",()=>{
+      setTimeout(()=>{
+        mostrarConsultaBase();
+        renderConsultaBases();
+        document.getElementById("buscar-consulta-base")?.addEventListener("input",renderConsultaBases);
+        document.getElementById("btn-nueva-base-consulta")?.addEventListener("click",nuevaBaseDesdeConsulta);
+      },500);
+    });
   </script>
 
   <script src="idb-base.js"></script>
   <script src="java-base.js"></script>
-
 </body>
-
-
 </html>
