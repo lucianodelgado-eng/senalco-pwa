@@ -73,7 +73,7 @@ const SESSION_BASE_KEY = "senalco_session_v2";
 
 // Pegá acá la URL /exec del Apps Script cuando lo publiques.
 // Si queda vacío, la app sigue funcionando con las bases locales/importadas.
-const ONLINE_BASES_API_URL = "https://script.google.com/macros/s/AKfycbwJY-_qXceCJHfDUdt9YIjXC9nIYVl3Oy4OUYmXIoaG4edqRpIL1GdCmnJPNlnhdpfKoQ/exec";
+const ONLINE_BASES_API_URL = "https://script.google.com/macros/s/AKfycbxDVQEe1qcYcvDiBTHJclD2OOfNPtdmZGhmau4rWxLmhRthbd3bpXKTo5XzSSVoSOvrvA/execv";
 const ONLINE_BASES_API_KEY = "senalco-solo-lectura-2026";
 // Apps Script a veces funciona en navegador directo, pero falla desde GitHub por CORS.
 // JSONP evita ese bloqueo y permite leer Drive desde la PWA.
