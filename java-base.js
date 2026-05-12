@@ -116,7 +116,7 @@ function mostrarCargandoBase(titulo = "Cargando base...", subtitulo = "Esperá u
   document.body.appendChild(overlay);
 
   loadingBaseTimer = setInterval(() => {
-    loadingBaseCount++;
+    loadingBaseCount = Math.min(loadingBaseCount + 1, 3);
     const el = $("loading-base-count");
     if (el) el.textContent = String(loadingBaseCount);
   }, 1000);
@@ -212,6 +212,16 @@ function buildOnlineUrl(action, params = {}) {
   return url.toString();
 }
 
+async function fetchConTimeout(url, options = {}, timeoutMs = 8000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function cargarBasesOnline(silencioso = false) {
   if (!ONLINE_BASES_API_URL) {
     if (!silencioso) {
@@ -221,11 +231,11 @@ async function cargarBasesOnline(silencioso = false) {
   }
 
   const inicio = Date.now();
-  if (!silencioso) mostrarCargandoBase("Actualizando bases online...", "Consultando la carpeta oficial de Drive.");
+  if (!silencioso) mostrarCargandoBase("Leyendo Drive...", "Consultando la carpeta oficial.");
 
   try {
     setDriveStatus("Consultando bases oficiales en Drive...");
-    const res = await fetch(buildOnlineUrl("listar"), { cache: "no-store" });
+    const res = await fetchConTimeout(buildOnlineUrl("listar"), { cache: "no-store" }, 8000);
     actualizarCargandoBase("Leyendo respuesta...", "Preparando listado de bases.");
 
     const data = await res.json();
@@ -268,7 +278,7 @@ async function abrirBaseOnline(fileId, nombre) {
 
   try {
     setDriveStatus("Abriendo base oficial desde Drive...");
-    const res = await fetch(buildOnlineUrl("abrir", { fileId }), { cache: "no-store" });
+    const res = await fetchConTimeout(buildOnlineUrl("abrir", { fileId }), { cache: "no-store" }, 8000);
     actualizarCargandoBase("Descargando datos...", "Cargando zonas y datos de la sucursal.");
 
     const data = await res.json();
@@ -876,7 +886,6 @@ async function borrarTodoBases() {
  *  ========================================== */
 function asignarEventosBase() {
   aplicarModoUsuarioBase();
-  $("btn-cargar-bases-online")?.addEventListener("click", () => cargarBasesOnline(false));
   $("btn-forzar-actualizacion")?.addEventListener("click", forzarActualizacionApp);
   $("btn-limpiar-base")?.addEventListener("click", limpiarBase);
   $("btn-generar-pdf-base")?.addEventListener("click", generarPDF);
