@@ -65,6 +65,283 @@ function setCurrentBaseName(name) {
 
 const PT_KEY = "senalco_pt_state_v1";
 
+
+/** ==========================================
+ *  Modo usuario / Drive oficial solo lectura
+ *  ========================================== */
+const SESSION_BASE_KEY = "senalco_session_v2";
+
+// Pegá acá la URL /exec del Apps Script cuando lo publiques.
+// Si queda vacío, la app sigue funcionando con las bases locales/importadas.
+const ONLINE_BASES_API_URL = "https://script.google.com/macros/s/AKfycbwJY-_qXceCJHfDUdt9YIjXC9nIYVl3Oy4OUYmXIoaG4edqRpIL1GdCmnJPNlnhdpfKoQ/exec";
+const ONLINE_BASES_API_KEY = "senalco-solo-lectura-2026";
+const ONLINE_BASES_CACHE_KEY = "senalco_online_bases_cache_v1";
+
+let basesOnlineCache = [];
+let baseConsultaOrigen = "local";
+let baseConsultaFileId = "";
+
+function getSesionBase() {
+  try { return JSON.parse(localStorage.getItem(SESSION_BASE_KEY) || "null"); }
+  catch { return null; }
+}
+
+function isAdminBase() {
+  const s = getSesionBase();
+  return !!(s && s.role === "admin");
+}
+
+function setDriveStatus(msg) {
+  const el = $("drive-status");
+  if (el) el.textContent = msg || "";
+}
+
+function aplicarModoUsuarioBase() {
+  const admin = isAdminBase();
+  document.body.classList.toggle("modo-usuario-base", !admin);
+  document.body.classList.toggle("modo-admin-base", admin);
+
+  const msg = admin
+    ? "Modo admin: podés importar, crear, guardar backups y preparar bases oficiales."
+    : "Modo técnico: base oficial en lectura. Podés editar en pantalla solo para generar PDF; no se modifica Drive.";
+  setDriveStatus(msg);
+}
+
+function getOnlineCache() {
+  if (basesOnlineCache.length) return basesOnlineCache;
+  try {
+    const raw = localStorage.getItem(ONLINE_BASES_CACHE_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    basesOnlineCache = Array.isArray(arr) ? arr : [];
+  } catch { basesOnlineCache = []; }
+  return basesOnlineCache;
+}
+
+function setOnlineCache(arr) {
+  basesOnlineCache = Array.isArray(arr) ? arr : [];
+  try { localStorage.setItem(ONLINE_BASES_CACHE_KEY, JSON.stringify(basesOnlineCache)); } catch {}
+}
+
+function buildOnlineUrl(action, params = {}) {
+  const url = new URL(ONLINE_BASES_API_URL);
+  url.searchParams.set("action", action);
+  if (ONLINE_BASES_API_KEY) url.searchParams.set("key", ONLINE_BASES_API_KEY);
+  Object.entries(params).forEach(([k, v]) => {
+    if (v !== undefined && v !== null && String(v) !== "") url.searchParams.set(k, v);
+  });
+  return url.toString();
+}
+
+async function cargarBasesOnline(silencioso = false) {
+  if (!ONLINE_BASES_API_URL) {
+    if (!silencioso) {
+      alert("Falta configurar ONLINE_BASES_API_URL en java-base.js con la URL /exec del Apps Script.");
+    }
+    return false;
+  }
+
+  try {
+    setDriveStatus("Consultando bases oficiales en Drive...");
+    const res = await fetch(buildOnlineUrl("listar"), { cache: "no-store" });
+    const data = await res.json();
+    if (!data || data.ok === false) throw new Error(data?.error || "Respuesta inválida");
+
+    const bases = Array.isArray(data.bases) ? data.bases : [];
+    setOnlineCache(bases);
+    renderConsultaBases();
+    setDriveStatus(`Bases oficiales online cargadas: ${bases.length}. Los cambios del técnico son temporales.`);
+    if (!silencioso) alert(`✅ Bases online actualizadas\nCantidad: ${bases.length}`);
+    return true;
+  } catch (e) {
+    console.error(e);
+    setDriveStatus("No se pudieron leer las bases online. Se mantiene la lista local/caché si existe.");
+    if (!silencioso) alert("❌ No pude leer las bases online. Revisá Apps Script, permisos o URL.");
+    return false;
+  }
+}
+
+async function abrirBaseOnline(fileId, nombre) {
+  if (!ONLINE_BASES_API_URL) return alert("Falta configurar ONLINE_BASES_API_URL.");
+  if (!fileId) return alert("La base online no tiene fileId.");
+
+  try {
+    setDriveStatus("Abriendo base oficial desde Drive...");
+    const res = await fetch(buildOnlineUrl("abrir", { fileId }), { cache: "no-store" });
+    const data = await res.json();
+    if (!data || data.ok === false) throw new Error(data?.error || "Respuesta inválida");
+
+    const base = data.base || data.data;
+    if (!base) throw new Error("No vino la base en la respuesta");
+
+    baseConsultaActual = base;
+    nombreConsultaActual = nombre || data.nombre || "Base online";
+    baseConsultaOrigen = "online";
+    baseConsultaFileId = fileId;
+
+    // Cargamos también en el formulario oculto para que Exportar PDF funcione directo desde la vista de consulta.
+    if (typeof cargarDataEnPantalla === "function") cargarDataEnPantalla(JSON.parse(JSON.stringify(base)));
+    if (typeof setCurrentBaseName === "function") setCurrentBaseName("");
+
+    renderVisorBasePDF(base, nombreConsultaActual);
+    setDriveStatus("Base oficial abierta. Podés editarla en pantalla para generar PDF; no se guarda en Drive.");
+  } catch (e) {
+    console.error(e);
+    alert("❌ No pude abrir la base online.");
+    setDriveStatus("Error abriendo base online.");
+  }
+}
+
+function normalizarEventoExcel(v) {
+  const raw = String(v || "").trim();
+  const k = normKey(raw);
+  const mapa = {
+    "av. de linea": "Avería de linea",
+    "averia de linea": "Avería de linea",
+    "averia de línea": "Avería de linea",
+    "ap. de equipo": "Apertura de Equipo",
+    "apertura equipo": "Apertura de Equipo",
+    "falta 220v": "Falta de 220V",
+    "falta 220 v": "Falta de 220V",
+    "falta de 220 v": "Falta de 220V"
+  };
+  return mapa[k] || raw;
+}
+
+function textoBusquedaBase(nombre, data) {
+  return [nombre, data?.entidad, data?.sucursal, data?.abonado, data?.central, data?.provincia, data?.localidad]
+    .join(" ")
+    .toLowerCase();
+}
+
+function renderConsultaBases() {
+  const cont = $("resultados-consulta-base");
+  if (!cont) return;
+
+  aplicarModoUsuarioBase();
+
+  const q = ($("buscar-consulta-base")?.value || "").toLowerCase().trim();
+  cont.innerHTML = "";
+
+  const online = getOnlineCache();
+  let count = 0;
+
+  online.forEach(item => {
+    const nombre = item.nombre || item.name || "Base online";
+    const texto = [nombre, item.entidad, item.sucursal, item.abonado, item.central, item.provincia, item.localidad].join(" ").toLowerCase();
+    if (q && !texto.includes(q)) return;
+
+    count++;
+    const card = document.createElement("div");
+    card.className = "base-consulta-card";
+    card.innerHTML = `
+      <b>${escapeHtml(nombre)}</b>
+      <div style="font-size:13px; opacity:.85; margin-top:4px;">
+        ${escapeHtml(item.entidad || "-")} • Suc: ${escapeHtml(item.sucursal || "-")} • Ab: ${escapeHtml(item.abonado || "-")} • Central: ${escapeHtml(item.central || "-")} • ${escapeHtml(item.provincia || "-")}
+      </div>
+      <div style="font-size:12px; opacity:.7; margin-top:4px;">Origen: Drive oficial</div>
+    `;
+    card.onclick = () => abrirBaseOnline(item.id || item.fileId, nombre);
+    cont.appendChild(card);
+  });
+
+  // Si no hay online configurado/cargado, el admin puede seguir usando las bases locales.
+  // También sirve como respaldo si venías importando ZIP en local.
+  const mostrarLocales = isAdminBase() || !online.length;
+  if (mostrarLocales) {
+    const idx = typeof getIndex === "function" ? getIndex() : [];
+    idx.forEach(nombre => {
+      const data = typeof leerBase === "function" ? leerBase(nombre) : null;
+      if (!data) return;
+      if (q && !textoBusquedaBase(nombre, data).includes(q)) return;
+
+      count++;
+      const card = document.createElement("div");
+      card.className = "base-consulta-card";
+      card.innerHTML = `
+        <b>${escapeHtml(nombre)}</b>
+        <div style="font-size:13px; opacity:.85; margin-top:4px;">
+          ${escapeHtml(data.entidad || "-")} • Suc: ${escapeHtml(data.sucursal || "-")} • Ab: ${escapeHtml(data.abonado || "-")} • Central: ${escapeHtml(data.central || "-")} • ${escapeHtml(data.provincia || "-")} • PT: ${data.pt4000?.habilitado ? "Sí" : "No"}
+        </div>
+        <div style="font-size:12px; opacity:.7; margin-top:4px;">Origen: local</div>
+      `;
+      card.onclick = () => abrirBaseEnModoConsulta(nombre);
+      cont.appendChild(card);
+    });
+  }
+
+  if (!count) {
+    cont.innerHTML = `<div class="base-consulta-card"><b>Sin bases cargadas</b><div style="font-size:13px; opacity:.8; margin-top:4px;">Admin: importá ZIP/JSON o configurá Apps Script para Drive.</div></div>`;
+  }
+}
+
+function abrirBaseEnModoConsulta(nombre) {
+  const data = leerBase(nombre);
+  if (!data) return alert("No se encontró la base.");
+  baseConsultaActual = data;
+  nombreConsultaActual = nombre;
+  baseConsultaOrigen = "local";
+  baseConsultaFileId = "";
+  if (typeof cargarDataEnPantalla === "function") cargarDataEnPantalla(data);
+  if (typeof setCurrentBaseName === "function") setCurrentBaseName(isAdminBase() ? nombre : "");
+  renderVisorBasePDF(data, nombre);
+}
+
+function renderVisorBasePDF(data, nombre) {
+  const visor = $("visor-base-pdf");
+  if (!visor) return;
+  visor.style.display = "block";
+  const zonas = Array.isArray(data.zonas) ? data.zonas : [];
+  const origenTxt = baseConsultaOrigen === "online" ? "Drive oficial / solo lectura" : "Base local";
+  visor.innerHTML = `
+    <h2 style="margin-top:0; text-align:left;">Base de Datos - Señalco</h2>
+    <div class="visor-head">
+      <div><b>Entidad:</b> ${escapeHtml(data.entidad || "-")}</div>
+      <div><b>Sucursal:</b> ${escapeHtml(data.sucursal || "-")}</div>
+      <div><b>Abonado:</b> ${escapeHtml(data.abonado || "-")}</div>
+      <div><b>Central:</b> ${escapeHtml(data.central || "-")}</div>
+      <div><b>Provincia:</b> ${escapeHtml(data.provincia || "-")}</div>
+      <div><b>Archivo:</b> ${escapeHtml(nombre || "-")}</div>
+      <div><b>Origen:</b> ${escapeHtml(origenTxt)}</div>
+    </div>
+    <div class="solo-pdf-aviso">Los cambios que hagas son temporales y se usan solo para generar el PDF. Para corregir la base oficial, avisar al administrador.</div>
+    <table class="visor-table">
+      <thead><tr><th>Zona</th><th>Evento</th><th>Área</th><th>Dispositivo</th><th>Descripción</th></tr></thead>
+      <tbody>${zonas.map(z => `<tr><td>${escapeHtml(z.zona || "-")}</td><td>${escapeHtml(z.evento || "-")}</td><td>${escapeHtml(z.area || "-")}</td><td>${escapeHtml(z.dispositivo || "-")}</td><td>${escapeHtml(z.descripcion || "-")}</td></tr>`).join("")}</tbody>
+    </table>
+    ${data.pt4000?.habilitado ? `<div style="margin-top:12px;"><b>PT4000 / RS485:</b> Sí</div>` : `<div style="margin-top:12px;"><b>PT4000 / RS485:</b> No</div>`}
+    <div class="visor-actions">
+      <button class="mini-btn" onclick="modificarBaseDesdeConsulta()">✏️ Editar para PDF</button>
+      <button class="mini-btn" onclick="generarPDF()">📄 Exportar PDF</button>
+      <button class="mini-btn" onclick="ocultarVisorConsulta()" style="background:#555;">⬅️ Cerrar vista</button>
+    </div>`;
+}
+
+function modificarBaseDesdeConsulta() {
+  if (!baseConsultaActual) return alert("Primero abrí una base.");
+  const copia = JSON.parse(JSON.stringify(baseConsultaActual));
+  if (typeof cargarDataEnPantalla === "function") cargarDataEnPantalla(copia);
+
+  // El usuario común jamás queda editando la base oficial. Solo trabaja temporal para PDF.
+  if (typeof setCurrentBaseName === "function") setCurrentBaseName(isAdminBase() && baseConsultaOrigen === "local" ? nombreConsultaActual : "");
+
+  mostrarEdicionBase();
+  aplicarModoUsuarioBase();
+
+  if (!isAdminBase()) {
+    alert("Base abierta en modo temporal. Podés completar/modificar para generar el PDF, pero no se guarda en Drive ni en la base oficial.");
+  }
+}
+
+function nuevaBaseDesdeConsulta() {
+  if (!isAdminBase()) return alert("Solo el admin puede crear bases oficiales.");
+  if (typeof limpiarBase === "function") limpiarBase();
+  baseConsultaActual = null;
+  nombreConsultaActual = "";
+  baseConsultaOrigen = "local";
+  baseConsultaFileId = "";
+  mostrarEdicionBase();
+}
+
 /** ==========================================
  *  Utilidades
  *  ========================================== */
@@ -472,6 +749,8 @@ async function borrarTodoBases() {
  *  DOM Bindings
  *  ========================================== */
 function asignarEventosBase() {
+  aplicarModoUsuarioBase();
+  $("btn-cargar-bases-online")?.addEventListener("click", () => cargarBasesOnline(false));
   $("btn-limpiar-base")?.addEventListener("click", limpiarBase);
   $("btn-generar-pdf-base")?.addEventListener("click", generarPDF);
   $("btn-excel-base")?.addEventListener("click", generarExcel);
@@ -813,6 +1092,10 @@ function addToIndex(nombre) {
  *  Guardado
  *  ========================================== */
 function guardarRapidoConBackup() {
+  if (!isAdminBase()) {
+    alert("Modo técnico: los cambios son temporales y solo sirven para generar PDF. Para modificar la base oficial, avisá al administrador.");
+    return;
+  }
   const data = construirJSONBase();
   const current = getCurrentBaseName();
   let nombre = "";
@@ -892,6 +1175,7 @@ function descargarRawComoJSON(nombre, rawJsonString) {
  *  Importar JSON
  *  ========================================== */
 function descargarBases() {
+  if (!isAdminBase()) return alert("Solo el admin puede descargar/importar paquetes de bases.");
   const url = "https://drive.google.com/drive/folders/1gNeZpPdGxUyFcdPj72Dgn3aSFGtfaPJE?usp=sharing";
 
   window.open(url, "_blank");
@@ -955,6 +1239,7 @@ $("input-zip-bases")?.addEventListener("change", async (e) => {
 });
 
 async function importarZipBases(file) {
+  if (!isAdminBase()) return alert("Solo el admin puede importar ZIP de bases.");
   try {
     const zip = await JSZip.loadAsync(file);
     let ok = 0;
@@ -1134,7 +1419,7 @@ async function importarExcelBase(file) {
     for (let r = start; r <= ws.rowCount; r++) {
       const row = ws.getRow(r);
       const A = String(row.getCell(1).value ?? "").trim();
-      const B = String(row.getCell(2).value ?? "").trim();
+      const B = normalizarEventoExcel(String(row.getCell(2).value ?? "").trim());
       const C = String(row.getCell(3).value ?? "").trim();
       const D = String(row.getCell(4).value ?? "").trim();
       const E = String(row.getCell(5).value ?? "").trim();
@@ -1232,6 +1517,7 @@ function boolFromCell(v) {
 }
 
 async function importarPadronMasivoExcel(file) {
+  if (!isAdminBase()) return alert("Solo el admin puede importar el padrón masivo.");
   try {
     const buf = await file.arrayBuffer();
     const wb = new ExcelJS.Workbook();
@@ -1363,7 +1649,7 @@ async function importarLineasExcelBasico(file) {
     for (let r = headerRowNum + 1; r <= ws.rowCount; r++) {
       const row = ws.getRow(r);
       const zonaTxt = firstDefined(row.getCell(map.zona).value);
-      const eventoTxt = firstDefined(row.getCell(map.evento).value);
+      const eventoTxt = normalizarEventoExcel(firstDefined(row.getCell(map.evento).value));
       const descTxt = firstDefined(row.getCell(map.desc).value);
 
       const n = getZonaNumberFromText(zonaTxt);
@@ -1426,7 +1712,7 @@ async function importarLineasExcelCompleto(file) {
         if (["tipo ev", "tipo evento", "evento"].includes(v)) candidate.evento = i;
         if (["area", "área"].includes(v)) candidate.area = i;
         if (["dispositivo"].includes(v)) candidate.dispositivo = i;
-        if (["descripcion", "descripción", "area / desc", "area/desc"].includes(v)) candidate.descripcion = i;
+        if (["descripcion", "descripción", "desc", "area / desc", "area/desc"].includes(v)) candidate.descripcion = i;
       });
       if (candidate.zona && candidate.evento) {
         headerRowNum = r;
@@ -1442,7 +1728,7 @@ async function importarLineasExcelCompleto(file) {
       const row = ws.getRow(r);
 
       const zonaTxt = firstDefined(row.getCell(map.zona).value);
-      const eventoTxt = map.evento ? firstDefined(row.getCell(map.evento).value) : "";
+      const eventoTxt = map.evento ? normalizarEventoExcel(firstDefined(row.getCell(map.evento).value)) : "";
       const areaTxt = map.area ? firstDefined(row.getCell(map.area).value) : "";
       const dispTxt = map.dispositivo ? firstDefined(row.getCell(map.dispositivo).value) : "";
       const descTxt = map.descripcion ? firstDefined(row.getCell(map.descripcion).value) : "";
@@ -1839,6 +2125,7 @@ function abrirBaseGuardada(nombre) {
 }
 
 function borrarBaseGuardada(nombre) {
+  if (!isAdminBase()) return alert("Solo el admin puede borrar bases.");
   if (!confirm(`🗑️ ¿Borrar esta base?\n\n${nombre}`)) return;
 
   localStorage.removeItem(baseKey(nombre));
@@ -1851,6 +2138,7 @@ function borrarBaseGuardada(nombre) {
 }
 
 function descargarBaseComoJSON(nombre) {
+  if (!isAdminBase()) return alert("Solo el admin puede exportar JSON de bases.");
   const data = leerBase(nombre);
   if (!data) return alert("❌ No se encontró la base");
   descargarRawComoJSON(nombre, JSON.stringify(data, null, 2));
@@ -2062,6 +2350,10 @@ window.addEventListener("DOMContentLoaded", () => {
   asignarEventosBase();
   renderBuscadorRapido();
   renderBasesMini();
+  aplicarModoUsuarioBase();
+  getOnlineCache();
+  if (ONLINE_BASES_API_URL) cargarBasesOnline(true);
+  else if (typeof renderConsultaBases === "function") renderConsultaBases();
 });
 
 
@@ -2080,7 +2372,7 @@ function pegarDesdeExcel(texto) {
     // Columna 2 = Tipo Ev
     // Columna 3 = Area/Desc -> va a DESCRIPCIÓN
     const zonaTxt = cols[0] || "";
-    const eventoTxt = cols[1] || "";
+    const eventoTxt = normalizarEventoExcel(cols[1] || "");
     const descTxt = cols[2] || "";
 
     const n = getZonaNumberFromText(zonaTxt);
