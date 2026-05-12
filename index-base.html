@@ -70,6 +70,14 @@
     .visor-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;}
     .visor-actions .mini-btn{background:#1976d2;}
     @media(max-width:600px){.visor-head{grid-template-columns:1fr;}.visor-table{font-size:12px;}.consulta-top .bigbtn{width:100%;}}
+    body.modo-usuario-base .admin-only{display:none!important;}
+    .drive-status{margin-top:8px;font-size:13px;opacity:.9;padding:8px 10px;border-radius:10px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);}
+    .solo-pdf-aviso{margin-top:10px;font-size:13px;padding:10px;border-radius:12px;background:rgba(25,118,210,.16);border:1px solid rgba(25,118,210,.35);}
+    .loading-base-overlay{position:fixed;inset:0;background:rgba(0,0,0,.62);display:flex;align-items:center;justify-content:center;z-index:99999;padding:18px;}
+    .loading-base-box{width:min(360px,92vw);background:#10102b;color:#fff;border:1px solid rgba(255,255,255,.15);border-radius:18px;padding:18px;text-align:center;box-shadow:0 14px 40px rgba(0,0,0,.45);}
+    .loading-base-title{font-size:20px;font-weight:bold;margin-bottom:8px;}
+    .loading-base-count{font-size:42px;font-weight:bold;margin:12px 0;color:#90caf9;}
+    .loading-base-sub{font-size:13px;opacity:.86;line-height:1.35;}
   </style>
 </head>
 
@@ -83,16 +91,19 @@
   <div id="vista-consulta-base" class="consulta-wrap">
     <div class="consulta-top">
       <h2 style="margin:0;">🔎 Consultar Base</h2>
-      <button class="bigbtn" id="btn-nueva-base-consulta" style="max-width:220px;">➕ Nueva base</button>
+      <button class="bigbtn" id="btn-cargar-bases-online" style="max-width:260px;background:#00897b;">🌐 Actualizar bases online</button>
+      <button class="bigbtn" id="btn-forzar-actualizacion" style="max-width:240px;background:#6a1b9a;">🔄 Forzar actualización</button>
+      <button class="bigbtn admin-only" id="btn-nueva-base-consulta" style="max-width:220px;">➕ Nueva base</button>
     </div>
 
     <input id="buscar-consulta-base" placeholder="Buscar por entidad, sucursal, abonado, central o provincia..." />
+    <div id="drive-status" class="drive-status">Base oficial: lectura. Los cambios del técnico son temporales y sirven para generar PDF.</div>
     <div id="resultados-consulta-base" class="ventana-bases"></div>
     <div id="visor-base-pdf" class="visor-base-pdf" style="display:none;"></div>
-      <button class="bigbtn" onclick="descargarBases()">
+      <button class="bigbtn admin-only" onclick="descargarBases()">
   📦 Descargar bases
 </button>
-  <button class="bigbtn" id="btn-importar-zip">📦 Importar ZIP de bases</button>
+  <button class="bigbtn admin-only" id="btn-importar-zip">📦 Importar ZIP de bases</button>
 
 <input id="input-zip-bases" type="file" accept=".zip,application/zip" hidden>
   </div>
@@ -124,7 +135,7 @@
       <tbody></tbody>
     </table>
 
-    <div class="section" id="sec-importar">
+    <div class="section admin-only" id="sec-importar">
       <div class="section-head" onclick="toggleSection('sec-importar')">
         <div class="section-title">📥 Importar</div><div style="opacity:.9;">⬇️</div>
       </div>
@@ -161,19 +172,19 @@
       <div class="section-body">
         <div class="btn-grid">
           <button class="bigbtn" id="btn-limpiar-base">🧹 Limpiar</button>
-          <button class="bigbtn" id="btn-guardar-rapido">💾 Guardar en Bases + Backup JSON</button>
+          <button class="bigbtn admin-only" id="btn-guardar-rapido">💾 Guardar en Bases + Backup JSON</button>
           <button class="bigbtn" id="btn-previsualizar">👁️ Previsualizar</button>
           <button class="bigbtn" id="btn-generar-pdf-base">📄 Exportar PDF</button>
-          <button class="bigbtn" id="btn-excel-base">📊 Exportar Excel</button>
-          <button class="bigbtn" id="btn-editar-zonas123">🔓 Editar Zonas 1-3</button>
-          <button class="bigbtn" id="btn-bloquear-zonas123" style="display:none;">🔒 Bloquear Zonas 1-3</button>
+          <button class="bigbtn admin-only" id="btn-excel-base">📊 Exportar Excel</button>
+          <button class="bigbtn admin-only" id="btn-editar-zonas123">🔓 Editar Zonas 1-3</button>
+          <button class="bigbtn admin-only" id="btn-bloquear-zonas123" style="display:none;">🔒 Bloquear Zonas 1-3</button>
           <button class="bigbtn" onclick="cerrarSesion()">🔒 Cerrar sesión</button>
           <button class="bigbtn" type="button" onclick="mostrarConsultaBase()" style="background:#555;">⬅️ Volver a consulta</button>
         </div>
       </div>
     </div>
 
-    <div class="pt-wrap">
+    <div class="pt-wrap admin-only">
       <h3 style="margin:0 0 8px;">🔌 PT4000 / RS485</h3>
       <div class="btn-grid">
         <button class="bigbtn" id="btn-toggle-pt">Activar / Desactivar PT4000</button>
@@ -184,7 +195,7 @@
       <div id="pt-contenedor" style="margin-top:12px;"></div>
     </div>
 
-    <div class="buscador-wrap">
+    <div class="buscador-wrap admin-only">
       <h3 style="margin:0 0 8px;">🔎 Buscador rápido de Bases</h3>
       <input id="buscar-rapido" placeholder="Escribí (ej: gal) y filtra al toque..." />
       <div style="opacity:.9; font-size:13px; margin-top:6px;">Elegí en qué campos buscar:</div>
@@ -202,11 +213,11 @@
       </div>
     </div>
 
-    <div class="bases-window open" id="bases-window">
+    <div class="bases-window open admin-only" id="bases-window">
       <div class="bases-window-head" onclick="toggleBasesWindow()">
         <div class="bases-window-title">📁 Bases guardadas (lista)</div>
         <div id="bases-window-arrow" style="opacity:.9;">⬆️</div>
-        <div><button type="button" class="bigbtn" id="btn-reset-total" style="background:#b00020;">🗑️ BORRAR TODAS LAS BASES</button></div>
+        <div><button type="button" class="bigbtn admin-only" id="btn-reset-total" style="background:#b00020;">🗑️ BORRAR TODAS LAS BASES</button></div>
       </div>
       <div class="bases-window-body"><div id="lista-bases-inline"></div></div>
     </div>
@@ -297,7 +308,7 @@
         </table>
         ${data.pt4000?.habilitado?`<div style="margin-top:12px;"><b>PT4000 / RS485:</b> Sí</div>`:`<div style="margin-top:12px;"><b>PT4000 / RS485:</b> No</div>`}
         <div class="visor-actions">
-          <button class="mini-btn" onclick="modificarBaseDesdeConsulta()">✏️ Modificar base</button>
+          <button class="mini-btn" onclick="modificarBaseDesdeConsulta()">✏️ Editar para PDF</button>
           <button class="mini-btn" onclick="generarPDF()">📄 Exportar PDF</button>
           <button class="mini-btn" onclick="ocultarVisorConsulta()" style="background:#555;">⬅️ Cerrar vista</button>
         </div>`;

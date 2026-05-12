@@ -96,6 +96,85 @@ function setDriveStatus(msg) {
   if (el) el.textContent = msg || "";
 }
 
+let loadingBaseTimer = null;
+let loadingBaseCount = 0;
+
+function mostrarCargandoBase(titulo = "Cargando base...", subtitulo = "Esperá un momento.") {
+  ocultarCargandoBase();
+  loadingBaseCount = 1;
+
+  let overlay = document.createElement("div");
+  overlay.id = "loading-base-overlay";
+  overlay.className = "loading-base-overlay";
+  overlay.innerHTML = `
+    <div class="loading-base-box">
+      <div class="loading-base-title" id="loading-base-title">${escapeHtml(titulo)}</div>
+      <div class="loading-base-count" id="loading-base-count">1</div>
+      <div class="loading-base-sub" id="loading-base-sub">${escapeHtml(subtitulo)}</div>
+    </div>`;
+
+  document.body.appendChild(overlay);
+
+  loadingBaseTimer = setInterval(() => {
+    loadingBaseCount++;
+    const el = $("loading-base-count");
+    if (el) el.textContent = String(loadingBaseCount);
+  }, 1000);
+}
+
+function actualizarCargandoBase(titulo, subtitulo) {
+  const t = $("loading-base-title");
+  const s = $("loading-base-sub");
+  if (t && titulo) t.textContent = titulo;
+  if (s && subtitulo) s.textContent = subtitulo;
+}
+
+function ocultarCargandoBase() {
+  if (loadingBaseTimer) {
+    clearInterval(loadingBaseTimer);
+    loadingBaseTimer = null;
+  }
+  const overlay = $("loading-base-overlay");
+  if (overlay) overlay.remove();
+}
+
+function esperar(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function esperarMinimoCarga(inicio, minimo = 700) {
+  const falta = minimo - (Date.now() - inicio);
+  if (falta > 0) await esperar(falta);
+}
+
+async function forzarActualizacionApp() {
+  const ok = confirm("Esto fuerza la carga de la versión nueva de la app. No borra las bases guardadas ni tus datos. ¿Continuar?");
+  if (!ok) return;
+
+  mostrarCargandoBase("Actualizando app...", "Limpiando caché y recargando archivos nuevos.");
+
+  try {
+    if ("caches" in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map(k => caches.delete(k)));
+    }
+
+    if (navigator.serviceWorker) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map(r => r.unregister()));
+    }
+
+    await esperar(600);
+    const url = new URL(window.location.href);
+    url.searchParams.set("v", Date.now().toString());
+    window.location.replace(url.toString());
+  } catch (e) {
+    console.error(e);
+    ocultarCargandoBase();
+    alert("No pude limpiar todo el caché. Probá abrir la app agregando ?v=2 al final del link.");
+  }
+}
+
 function aplicarModoUsuarioBase() {
   const admin = isAdminBase();
   document.body.classList.toggle("modo-usuario-base", !admin);
@@ -125,6 +204,7 @@ function setOnlineCache(arr) {
 function buildOnlineUrl(action, params = {}) {
   const url = new URL(ONLINE_BASES_API_URL);
   url.searchParams.set("action", action);
+  url.searchParams.set("_t", Date.now().toString());
   if (ONLINE_BASES_API_KEY) url.searchParams.set("key", ONLINE_BASES_API_KEY);
   Object.entries(params).forEach(([k, v]) => {
     if (v !== undefined && v !== null && String(v) !== "") url.searchParams.set(k, v);
@@ -140,23 +220,42 @@ async function cargarBasesOnline(silencioso = false) {
     return false;
   }
 
+  const inicio = Date.now();
+  if (!silencioso) mostrarCargandoBase("Actualizando bases online...", "Consultando la carpeta oficial de Drive.");
+
   try {
     setDriveStatus("Consultando bases oficiales en Drive...");
     const res = await fetch(buildOnlineUrl("listar"), { cache: "no-store" });
+    actualizarCargandoBase("Leyendo respuesta...", "Preparando listado de bases.");
+
     const data = await res.json();
     if (!data || data.ok === false) throw new Error(data?.error || "Respuesta inválida");
 
     const bases = Array.isArray(data.bases) ? data.bases : [];
     setOnlineCache(bases);
+
+    actualizarCargandoBase("Armando listado...", `Bases encontradas: ${bases.length}`);
     renderConsultaBases();
+
     setDriveStatus(`Bases oficiales online cargadas: ${bases.length}. Los cambios del técnico son temporales.`);
-    if (!silencioso) alert(`✅ Bases online actualizadas\nCantidad: ${bases.length}`);
+    if (!silencioso) {
+      await esperarMinimoCarga(inicio, 900);
+      ocultarCargandoBase();
+      alert(`✅ Bases online actualizadas
+Cantidad: ${bases.length}`);
+    }
     return true;
   } catch (e) {
     console.error(e);
     setDriveStatus("No se pudieron leer las bases online. Se mantiene la lista local/caché si existe.");
-    if (!silencioso) alert("❌ No pude leer las bases online. Revisá Apps Script, permisos o URL.");
+    if (!silencioso) {
+      await esperarMinimoCarga(inicio, 700);
+      ocultarCargandoBase();
+      alert("❌ No pude leer las bases online. Revisá Apps Script, permisos o URL.");
+    }
     return false;
+  } finally {
+    if (silencioso) ocultarCargandoBase();
   }
 }
 
@@ -164,14 +263,21 @@ async function abrirBaseOnline(fileId, nombre) {
   if (!ONLINE_BASES_API_URL) return alert("Falta configurar ONLINE_BASES_API_URL.");
   if (!fileId) return alert("La base online no tiene fileId.");
 
+  const inicio = Date.now();
+  mostrarCargandoBase("Abriendo base...", "Buscando archivo oficial en Drive.");
+
   try {
     setDriveStatus("Abriendo base oficial desde Drive...");
     const res = await fetch(buildOnlineUrl("abrir", { fileId }), { cache: "no-store" });
+    actualizarCargandoBase("Descargando datos...", "Cargando zonas y datos de la sucursal.");
+
     const data = await res.json();
     if (!data || data.ok === false) throw new Error(data?.error || "Respuesta inválida");
 
     const base = data.base || data.data;
     if (!base) throw new Error("No vino la base en la respuesta");
+
+    actualizarCargandoBase("Preparando vista...", "Armando la tabla para consulta y PDF.");
 
     baseConsultaActual = base;
     nombreConsultaActual = nombre || data.nombre || "Base online";
@@ -184,8 +290,12 @@ async function abrirBaseOnline(fileId, nombre) {
 
     renderVisorBasePDF(base, nombreConsultaActual);
     setDriveStatus("Base oficial abierta. Podés editarla en pantalla para generar PDF; no se guarda en Drive.");
+    await esperarMinimoCarga(inicio, 900);
+    ocultarCargandoBase();
   } catch (e) {
     console.error(e);
+    await esperarMinimoCarga(inicio, 700);
+    ocultarCargandoBase();
     alert("❌ No pude abrir la base online.");
     setDriveStatus("Error abriendo base online.");
   }
@@ -274,16 +384,32 @@ function renderConsultaBases() {
   }
 }
 
-function abrirBaseEnModoConsulta(nombre) {
-  const data = leerBase(nombre);
-  if (!data) return alert("No se encontró la base.");
-  baseConsultaActual = data;
-  nombreConsultaActual = nombre;
-  baseConsultaOrigen = "local";
-  baseConsultaFileId = "";
-  if (typeof cargarDataEnPantalla === "function") cargarDataEnPantalla(data);
-  if (typeof setCurrentBaseName === "function") setCurrentBaseName(isAdminBase() ? nombre : "");
-  renderVisorBasePDF(data, nombre);
+async function abrirBaseEnModoConsulta(nombre) {
+  const inicio = Date.now();
+  mostrarCargandoBase("Abriendo base local...", "Preparando datos para consulta y PDF.");
+
+  try {
+    const data = leerBase(nombre);
+    if (!data) {
+      ocultarCargandoBase();
+      return alert("No se encontró la base.");
+    }
+
+    await esperar(80);
+    baseConsultaActual = data;
+    nombreConsultaActual = nombre;
+    baseConsultaOrigen = "local";
+    baseConsultaFileId = "";
+    if (typeof cargarDataEnPantalla === "function") cargarDataEnPantalla(data);
+    if (typeof setCurrentBaseName === "function") setCurrentBaseName(isAdminBase() ? nombre : "");
+    renderVisorBasePDF(data, nombre);
+    await esperarMinimoCarga(inicio, 700);
+    ocultarCargandoBase();
+  } catch (e) {
+    console.error(e);
+    ocultarCargandoBase();
+    alert("No pude abrir la base.");
+  }
 }
 
 function renderVisorBasePDF(data, nombre) {
@@ -751,6 +877,7 @@ async function borrarTodoBases() {
 function asignarEventosBase() {
   aplicarModoUsuarioBase();
   $("btn-cargar-bases-online")?.addEventListener("click", () => cargarBasesOnline(false));
+  $("btn-forzar-actualizacion")?.addEventListener("click", forzarActualizacionApp);
   $("btn-limpiar-base")?.addEventListener("click", limpiarBase);
   $("btn-generar-pdf-base")?.addEventListener("click", generarPDF);
   $("btn-excel-base")?.addEventListener("click", generarExcel);
