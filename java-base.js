@@ -69,11 +69,12 @@ const PT_KEY = "senalco_pt_state_v1";
 /** ==========================================
  *  Modo usuario / Drive oficial solo lectura
  *  ========================================== */
+
 const SESSION_BASE_KEY = "senalco_session_v2";
 
 // Pegá acá la URL /exec del Apps Script cuando lo publiques.
 // Si queda vacío, la app sigue funcionando con las bases locales/importadas.
-const ONLINE_BASES_API_URL = "https://script.google.com/macros/s/AKfycbxDVQEe1qcYcvDiBTHJclD2OOfNPtdmZGhmau4rWxLmhRthbd3bpXKTo5XzSSVoSOvrvA/exec";
+const ONLINE_BASES_API_URL = "https://script.google.com/macros/s/AKfycbxOAMoeScBcWiy7uZUdT9LIjsVPof_fNj7bIGAbNVv1w2ysWBIgv2ZAta5jE9hWxDnZyA/exec";
 const ONLINE_BASES_API_KEY = "senalco-solo-lectura-2026";
 // Apps Script puede abrir perfecto en el navegador y aun así fallar desde GitHub por CORS/MIME.
 // Esta versión usa JSONP directo para evitar CORS y bloqueos de iframe en PWA/celular.
