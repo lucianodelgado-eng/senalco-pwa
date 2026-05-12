@@ -73,11 +73,10 @@ const SESSION_BASE_KEY = "senalco_session_v2";
 
 // Pegá acá la URL /exec del Apps Script cuando lo publiques.
 // Si queda vacío, la app sigue funcionando con las bases locales/importadas.
-const ONLINE_BASES_API_URL = "https://script.google.com/macros/s/AKfycbxOAMoeScBcWiy7uZUdT9LIjsVPof_fNj7bIGAbNVv1w2ysWBIgv2ZAta5jE9hWxDnZyA/exec";
+const ONLINE_BASES_API_URL = "https://script.google.com/macros/s/AKfycbxOAMoeScBcWiy7uZUdT9LIjsVPof_fNj7bIGAbNVv1w2ysWBIgv2ZAta5jE9hWxDnZyA/exec"; // PEGAR ACÁ TU URL /exec
 const ONLINE_BASES_API_KEY = "senalco-solo-lectura-2026";
 // Apps Script puede abrir perfecto en el navegador y aun así fallar desde GitHub por CORS/MIME.
 // Esta versión usa JSONP directo para evitar CORS y bloqueos de iframe en PWA/celular.
-const ONLINE_BASES_USE_IFRAME_BRIDGE = false;
 const ONLINE_BASES_USE_JSONP = true;
 const ONLINE_BASES_CACHE_KEY = "senalco_online_bases_cache_v1";
 
@@ -200,7 +199,7 @@ async function forzarActualizacionApp() {
     console.error(e);
     await esperarMinimoCarga(inicio, 700);
     ocultarCargandoBase();
-    alert("❌ No pude actualizar desde Drive. Revisá que java-base.js tenga la URL /exec correcta y que el Apps Script sea el último con soporte JSONP.");
+    alert("❌ No pude actualizar desde Drive. Revisá que java-base.js tenga la URL /exec correcta, key cargada y Apps Script publicado como Cualquier persona.");
     setDriveStatus("No se pudo actualizar Drive.");
   }
 }
@@ -254,70 +253,30 @@ async function fetchConTimeout(url, options = {}, timeoutMs = 12000) {
 }
 
 
-function pedirOnlineIframe(action, params = {}, timeoutMs = 15000) {
-  return new Promise((resolve, reject) => {
-    if (!ONLINE_BASES_API_URL) return reject(new Error("ONLINE_BASES_API_URL vacío"));
-
-    const callbackId = "senalcoFrame_" + Date.now() + "_" + Math.floor(Math.random() * 100000);
-    const url = buildOnlineUrl(action, { ...params, bridge: "1", callbackId });
-    const iframe = document.createElement("iframe");
-    let terminado = false;
-
-    iframe.style.position = "fixed";
-    iframe.style.left = "-9999px";
-    iframe.style.top = "-9999px";
-    iframe.style.width = "1px";
-    iframe.style.height = "1px";
-    iframe.style.opacity = "0";
-    iframe.setAttribute("aria-hidden", "true");
-
-    const limpiar = () => {
-      window.removeEventListener("message", onMessage);
-      try { iframe.remove(); } catch {}
-    };
-
-    const timer = setTimeout(() => {
-      if (terminado) return;
-      terminado = true;
-      limpiar();
-      reject(new Error("Timeout consultando Apps Script por iframe"));
-    }, timeoutMs);
-
-    function onMessage(event) {
-      const msg = event && event.data ? event.data : null;
-      if (!msg || msg.source !== "senalco-drive-bridge") return;
-      if (msg.callbackId !== callbackId) return;
-
-      if (terminado) return;
-      terminado = true;
-      clearTimeout(timer);
-      limpiar();
-
-      if (msg.error) reject(new Error(msg.error));
-      else resolve(msg.data);
-    }
-
-    iframe.onerror = () => {
-      if (terminado) return;
-      terminado = true;
-      clearTimeout(timer);
-      limpiar();
-      reject(new Error("No se pudo cargar el puente iframe de Apps Script"));
-    };
-
-    window.addEventListener("message", onMessage);
-    iframe.src = url;
-    document.body.appendChild(iframe);
-  });
-}
+// Modo Drive: solo JSONP. No usamos iframe/bridge para evitar respuestas HTML dentro de <script>.
 
 function pedirOnlineJSONP(action, params = {}, timeoutMs = 12000) {
   return new Promise((resolve, reject) => {
     if (!ONLINE_BASES_API_URL) return reject(new Error("ONLINE_BASES_API_URL vacío"));
 
-    const callbackName = "senalcoDriveCb_" + Date.now() + "_" + Math.floor(Math.random() * 100000);
-    const url = buildOnlineUrl(action, { ...params, callback: callbackName, jsonp: "1" });
+    const callbackName = "senalcoDriveCb_" + Date.now() + "_" + Math.floor(Math.random() * 1000000);
+    const scriptId = "drive_jsonp_script_actual";
+
+    // Limpio cualquier intento anterior para evitar que quede un <script> viejo colgado.
+    const oldScript = document.getElementById(scriptId);
+    if (oldScript) oldScript.remove();
+
+    const url = buildOnlineUrl(action, {
+      ...params,
+      callback: callbackName,
+      jsonp: "1"
+    });
+
     const script = document.createElement("script");
+    script.id = scriptId;
+    script.async = true;
+    script.src = url;
+
     let terminado = false;
 
     const limpiar = () => {
@@ -329,15 +288,15 @@ function pedirOnlineJSONP(action, params = {}, timeoutMs = 12000) {
       if (terminado) return;
       terminado = true;
       limpiar();
-      reject(new Error("Timeout consultando Apps Script"));
+      reject(new Error("Timeout JSONP. Apps Script no respondió con callback. Revisar /exec, key y permisos."));
     }, timeoutMs);
 
-    window[callbackName] = (data) => {
+    window[callbackName] = function(response) {
       if (terminado) return;
       terminado = true;
       clearTimeout(timer);
       limpiar();
-      resolve(data);
+      resolve(response);
     };
 
     script.onerror = () => {
@@ -345,27 +304,17 @@ function pedirOnlineJSONP(action, params = {}, timeoutMs = 12000) {
       terminado = true;
       clearTimeout(timer);
       limpiar();
-      reject(new Error("No se pudo cargar JSONP desde Apps Script"));
+      reject(new Error("Error cargando JSONP. Revisar que Apps Script devuelva JavaScript y no HTML."));
     };
 
-    script.src = url;
-    script.async = true;
     document.head.appendChild(script);
   });
 }
 
 async function pedirOnline(action, params = {}, timeoutMs = 15000) {
-  if (ONLINE_BASES_USE_IFRAME_BRIDGE) {
-    return await pedirOnlineIframe(action, params, timeoutMs);
-  }
-
-  if (ONLINE_BASES_USE_JSONP) {
-    return await pedirOnlineJSONP(action, params, timeoutMs);
-  }
-
-  const res = await fetchConTimeout(buildOnlineUrl(action, params), { cache: "no-store" }, timeoutMs);
-  if (!res.ok) throw new Error("HTTP " + res.status);
-  return await res.json();
+  // Único modo habilitado: JSONP.
+  // No se envía bridge=1 ni transport=iframe, para que Apps Script devuelva JS puro.
+  return await pedirOnlineJSONP(action, params, timeoutMs);
 }
 
 async function cargarBasesOnline(silencioso = false, forzar = false) {
