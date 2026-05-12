@@ -73,7 +73,7 @@ const SESSION_BASE_KEY = "senalco_session_v2";
 
 // Pegá acá la URL /exec del Apps Script cuando lo publiques.
 // Si queda vacío, la app sigue funcionando con las bases locales/importadas.
-const ONLINE_BASES_API_URL = "https://script.google.com/macros/s/AKfycbxDVQEe1qcYcvDiBTHJclD2OOfNPtdmZGhmau4rWxLmhRthbd3bpXKTo5XzSSVoSOvrvA/execv";
+const ONLINE_BASES_API_URL = "https://script.google.com/macros/s/AKfycbxDVQEe1qcYcvDiBTHJclD2OOfNPtdmZGhmau4rWxLmhRthbd3bpXKTo5XzSSVoSOvrvA/exec";
 const ONLINE_BASES_API_KEY = "senalco-solo-lectura-2026";
 // Apps Script a veces funciona en navegador directo, pero falla desde GitHub por CORS.
 // JSONP evita ese bloqueo y permite leer Drive desde la PWA.
@@ -167,44 +167,40 @@ async function limpiarCacheArchivosApp() {
 }
 
 async function forzarActualizacionApp() {
-  const ok = confirm("Esto vuelve a leer Drive ahora mismo y actualiza el listado de bases oficiales. No borra tus bases locales ni tus datos. ¿Continuar?");
-  if (!ok) return;
-
   if (!ONLINE_BASES_API_URL) {
     alert("Falta configurar ONLINE_BASES_API_URL en java-base.js con la URL /exec del Apps Script.");
     return;
   }
 
   const inicio = Date.now();
-  mostrarCargandoBase("Forzando actualización...", "Borrando listado viejo y consultando Drive oficial.");
+  mostrarCargandoBase("Forzando actualización...", "Leyendo Drive oficial en vivo.");
 
   try {
-    // Limpiamos solamente el listado online viejo. No tocamos bases locales ni autosave.
+    // No tocamos IDB ni bases locales. Solo renovamos la lista oficial online.
     try { localStorage.removeItem(ONLINE_BASES_CACHE_KEY); } catch {}
     basesOnlineCache = [];
     renderConsultaBases();
 
-    // Limpiamos caché de archivos en segundo plano, pero NO dependemos de recargar.
-    limpiarCacheArchivosApp();
+    actualizarCargandoBase("Consultando Drive...", "Traemos el listado nuevo de JSON oficiales.");
+    const data = await pedirOnline("listar", { force: "1" }, 12000);
 
-    actualizarCargandoBase("Consultando Drive...", "Leyendo JSON oficiales desde Apps Script.");
-    const okSync = await cargarBasesOnline(true, true);
+    if (!data || data.ok === false) throw new Error(data?.error || "Respuesta inválida");
+
+    const bases = Array.isArray(data.bases) ? data.bases : [];
+    setOnlineCache(bases);
+
+    actualizarCargandoBase("Actualizando pantalla...", `Bases visibles: ${bases.length}`);
+    renderConsultaBases();
+    setDriveStatus(`Drive actualizado: ${bases.length} bases oficiales. ${new Date().toLocaleTimeString()}`);
 
     await esperarMinimoCarga(inicio, 900);
     ocultarCargandoBase();
-
-    if (okSync) {
-      const total = getOnlineCache().length;
-      setDriveStatus(`Actualización forzada OK. Bases oficiales visibles: ${total}.`);
-      renderConsultaBases();
-    } else {
-      alert("❌ No pude actualizar desde Drive. Si el link /exec abre bien, actualizá también el Apps Script con la versión JSONP.");
-    }
   } catch (e) {
     console.error(e);
     await esperarMinimoCarga(inicio, 700);
     ocultarCargandoBase();
-    alert("❌ Falló la actualización forzada. Revisá conexión, URL /exec o permisos de Apps Script.");
+    alert("❌ No pude actualizar desde Drive. Revisá que el Apps Script nuevo tenga JSONP y que java-base.js tenga la URL /exec correcta.");
+    setDriveStatus("No se pudo actualizar Drive.");
   }
 }
 
@@ -427,12 +423,49 @@ function renderConsultaBases() {
 
   aplicarModoUsuarioBase();
 
+  const admin = isAdminBase();
   const q = ($("buscar-consulta-base")?.value || "").toLowerCase().trim();
   cont.innerHTML = "";
 
   const online = getOnlineCache();
   let count = 0;
 
+  // ===== MODO TÉCNICO: SOLO DRIVE OFICIAL =====
+  // No mezcla IDB, localStorage, ZIP ni bases importadas.
+  // Así evitamos que una lista local vieja tape las bases nuevas de Drive.
+  if (!admin) {
+    if (!ONLINE_BASES_API_URL) {
+      cont.innerHTML = `<div class="base-consulta-card"><b>Drive no configurado</b><div style="font-size:13px; opacity:.8; margin-top:4px;">Falta pegar la URL /exec de Apps Script en java-base.js.</div></div>`;
+      setDriveStatus("Modo técnico: Drive no configurado.");
+      return;
+    }
+
+    online.forEach(item => {
+      const nombre = item.nombre || item.name || "Base online";
+      const texto = [nombre, item.entidad, item.sucursal, item.abonado, item.central, item.provincia, item.localidad].join(" ").toLowerCase();
+      if (q && !texto.includes(q)) return;
+
+      count++;
+      const card = document.createElement("div");
+      card.className = "base-consulta-card";
+      card.innerHTML = `
+        <b>${escapeHtml(nombre)}</b>
+        <div style="font-size:13px; opacity:.85; margin-top:4px;">
+          ${escapeHtml(item.entidad || "-")} • Suc: ${escapeHtml(item.sucursal || "-")} • Ab: ${escapeHtml(item.abonado || "-")} • Central: ${escapeHtml(item.central || "-")} • ${escapeHtml(item.provincia || "-")}
+        </div>
+        <div style="font-size:12px; opacity:.7; margin-top:4px;">Origen: Drive oficial</div>
+      `;
+      card.onclick = () => abrirBaseOnline(item.id || item.fileId, nombre);
+      cont.appendChild(card);
+    });
+
+    if (!count) {
+      cont.innerHTML = `<div class="base-consulta-card"><b>Sin bases oficiales visibles</b><div style="font-size:13px; opacity:.8; margin-top:4px;">Tocá “Forzar actualización” para leer Drive en vivo.</div></div>`;
+    }
+    return;
+  }
+
+  // ===== MODO ADMIN: DRIVE + RESPALDO LOCAL =====
   online.forEach(item => {
     const nombre = item.nombre || item.name || "Base online";
     const texto = [nombre, item.entidad, item.sucursal, item.abonado, item.central, item.provincia, item.localidad].join(" ").toLowerCase();
@@ -452,34 +485,29 @@ function renderConsultaBases() {
     cont.appendChild(card);
   });
 
-  // Si no hay online configurado/cargado, el admin puede seguir usando las bases locales.
-  // También sirve como respaldo si venías importando ZIP en local.
-  const mostrarLocales = isAdminBase() || !online.length;
-  if (mostrarLocales) {
-    const idx = typeof getIndex === "function" ? getIndex() : [];
-    idx.forEach(nombre => {
-      const data = typeof leerBase === "function" ? leerBase(nombre) : null;
-      if (!data) return;
-      if (q && !textoBusquedaBase(nombre, data).includes(q)) return;
+  const idx = typeof getIndex === "function" ? getIndex() : [];
+  idx.forEach(nombre => {
+    const data = typeof leerBase === "function" ? leerBase(nombre) : null;
+    if (!data) return;
+    if (q && !textoBusquedaBase(nombre, data).includes(q)) return;
 
-      count++;
-      const card = document.createElement("div");
-      card.className = "base-consulta-card";
-      card.innerHTML = `
-        <b>${escapeHtml(nombre)}</b>
-        <div style="font-size:13px; opacity:.85; margin-top:4px;">
-          ${escapeHtml(data.entidad || "-")} • Suc: ${escapeHtml(data.sucursal || "-")} • Ab: ${escapeHtml(data.abonado || "-")} • Central: ${escapeHtml(data.central || "-")} • ${escapeHtml(data.provincia || "-")} • PT: ${data.pt4000?.habilitado ? "Sí" : "No"}
-        </div>
-        <div style="font-size:12px; opacity:.7; margin-top:4px;">Origen: local</div>
-      `;
-      card.onclick = () => abrirBaseEnModoConsulta(nombre);
-      cont.appendChild(card);
-    });
-  }
+    count++;
+    const card = document.createElement("div");
+    card.className = "base-consulta-card";
+    card.innerHTML = `
+      <b>${escapeHtml(nombre)}</b>
+      <div style="font-size:13px; opacity:.85; margin-top:4px;">
+        ${escapeHtml(data.entidad || "-")} • Suc: ${escapeHtml(data.sucursal || "-")} • Ab: ${escapeHtml(data.abonado || "-")} • Central: ${escapeHtml(data.central || "-")} • ${escapeHtml(data.provincia || "-")} • PT: ${data.pt4000?.habilitado ? "Sí" : "No"}
+      </div>
+      <div style="font-size:12px; opacity:.7; margin-top:4px;">Origen: local/admin</div>
+    `;
+    card.onclick = () => abrirBaseEnModoConsulta(nombre);
+    cont.appendChild(card);
+  });
 
   if (!count) {
     const texto = ONLINE_BASES_API_URL
-      ? "No hay bases visibles todavía. Tocá Forzar actualización para sincronizar Drive, o revisá permisos de Apps Script."
+      ? "Tocá Forzar actualización para leer Drive, o importá ZIP/JSON si estás preparando bases locales."
       : "Admin: importá ZIP/JSON o configurá Apps Script para Drive.";
     cont.innerHTML = `<div class="base-consulta-card"><b>Sin bases cargadas</b><div style="font-size:13px; opacity:.8; margin-top:4px;">${escapeHtml(texto)}</div></div>`;
   }
@@ -2582,42 +2610,36 @@ window.addEventListener("DOMContentLoaded", () => {
 });
 
 async function iniciarCargaBasesOficiales() {
-  const cache = getOnlineCache();
   if (typeof renderConsultaBases === "function") renderConsultaBases();
-
-  const params = new URLSearchParams(window.location.search);
-  let forzada = params.get("sync") === "1";
-  try {
-    if (sessionStorage.getItem("senalco_force_online_after_reload") === "1") {
-      forzada = true;
-      sessionStorage.removeItem("senalco_force_online_after_reload");
-    }
-  } catch {}
 
   if (!ONLINE_BASES_API_URL) {
     setDriveStatus("Drive no configurado: falta pegar la URL /exec en java-base.js.");
     return;
   }
 
-  if (forzada) {
+  const admin = isAdminBase();
+  const params = new URLSearchParams(window.location.search);
+  const forzada = params.get("sync") === "1";
+
+  // Técnico: siempre lee Drive en vivo al entrar.
+  // No se apoya en IDB/localStorage para listar bases.
+  if (!admin) {
+    setDriveStatus("Sincronizando bases oficiales desde Drive...");
     await cargarBasesOnline(false, true);
-    try {
-      params.delete("sync");
-      const clean = window.location.pathname + (params.toString() ? "?" + params.toString() : "") + window.location.hash;
-      history.replaceState(null, "", clean);
-    } catch {}
+    if (forzada) {
+      try {
+        params.delete("sync");
+        const clean = window.location.pathname + (params.toString() ? "?" + params.toString() : "") + window.location.hash;
+        history.replaceState(null, "", clean);
+      } catch {}
+    }
     return;
   }
 
-  // Siempre consulta Drive al entrar. Si falla, deja visible la última lista guardada.
-  if (!cache.length && !isAdminBase()) {
-    setDriveStatus("Sincronizando bases oficiales automáticamente...");
-    await cargarBasesOnline(false, true);
-    return;
-  }
-
-  setDriveStatus(cache.length ? `Mostrando ${cache.length} bases guardadas. Sincronizando Drive...` : "Sincronizando Drive...");
-  cargarBasesOnline(true, true);
+  // Admin: muestra lo que haya y sincroniza en segundo plano para no trabar la pantalla.
+  setDriveStatus("Modo admin: mostrando Drive + respaldo local. Sincronizando Drive...");
+  if (forzada) await cargarBasesOnline(false, true);
+  else cargarBasesOnline(true, true);
 }
 
 
@@ -2677,3 +2699,4 @@ function pegarDesdeExcel(texto) {
   autosaveBase();
   alert(`✅ Pegado rápido OK\nZonas cargadas: ${cargadas}`);
 }
+window.forzarActualizacionApp = forzarActualizacionApp;
