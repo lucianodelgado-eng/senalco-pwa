@@ -69,7 +69,6 @@ const PT_KEY = "senalco_pt_state_v1";
 /** ==========================================
  *  Modo usuario / Drive oficial solo lectura
  *  ========================================== */
-
 const SESSION_BASE_KEY = "senalco_session_v2";
 
 // Pegá acá la URL /exec del Apps Script cuando lo publiques.
@@ -236,7 +235,8 @@ function buildOnlineUrl(action, params = {}) {
   const url = new URL(ONLINE_BASES_API_URL);
   url.searchParams.set("action", action);
   url.searchParams.set("_t", Date.now().toString());
-  if (ONLINE_BASES_API_KEY) url.searchParams.set("key", ONLINE_BASES_API_KEY);
+  const keyFinal = ONLINE_BASES_API_KEY || "senalco-solo-lectura-2026";
+  if (keyFinal) url.searchParams.set("key", keyFinal);
   Object.entries(params).forEach(([k, v]) => {
     if (v !== undefined && v !== null && String(v) !== "") url.searchParams.set(k, v);
   });
