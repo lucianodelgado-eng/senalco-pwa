@@ -75,9 +75,10 @@ const SESSION_BASE_KEY = "senalco_session_v2";
 // Si queda vacío, la app sigue funcionando con las bases locales/importadas.
 const ONLINE_BASES_API_URL = "https://script.google.com/macros/s/AKfycbxDVQEe1qcYcvDiBTHJclD2OOfNPtdmZGhmau4rWxLmhRthbd3bpXKTo5XzSSVoSOvrvA/exec";
 const ONLINE_BASES_API_KEY = "senalco-solo-lectura-2026";
-// Apps Script a veces funciona en navegador directo, pero falla desde GitHub por CORS.
-// JSONP evita ese bloqueo y permite leer Drive desde la PWA.
-const ONLINE_BASES_USE_JSONP = true;
+// Apps Script puede abrir perfecto en el navegador y aun así fallar desde GitHub por CORS/MIME.
+// Esta versión usa un puente por iframe + postMessage, más estable en celulares/PWA.
+const ONLINE_BASES_USE_IFRAME_BRIDGE = true;
+const ONLINE_BASES_USE_JSONP = false;
 const ONLINE_BASES_CACHE_KEY = "senalco_online_bases_cache_v1";
 
 let basesOnlineCache = [];
@@ -199,7 +200,7 @@ async function forzarActualizacionApp() {
     console.error(e);
     await esperarMinimoCarga(inicio, 700);
     ocultarCargandoBase();
-    alert("❌ No pude actualizar desde Drive. Revisá que el Apps Script nuevo tenga JSONP y que java-base.js tenga la URL /exec correcta.");
+    alert("❌ No pude actualizar desde Drive. Subí el Apps Script puente iframe y revisá que java-base.js tenga la URL /exec correcta.");
     setDriveStatus("No se pudo actualizar Drive.");
   }
 }
@@ -251,6 +252,64 @@ async function fetchConTimeout(url, options = {}, timeoutMs = 12000) {
   }
 }
 
+
+function pedirOnlineIframe(action, params = {}, timeoutMs = 15000) {
+  return new Promise((resolve, reject) => {
+    if (!ONLINE_BASES_API_URL) return reject(new Error("ONLINE_BASES_API_URL vacío"));
+
+    const callbackId = "senalcoFrame_" + Date.now() + "_" + Math.floor(Math.random() * 100000);
+    const url = buildOnlineUrl(action, { ...params, bridge: "1", callbackId });
+    const iframe = document.createElement("iframe");
+    let terminado = false;
+
+    iframe.style.position = "fixed";
+    iframe.style.left = "-9999px";
+    iframe.style.top = "-9999px";
+    iframe.style.width = "1px";
+    iframe.style.height = "1px";
+    iframe.style.opacity = "0";
+    iframe.setAttribute("aria-hidden", "true");
+
+    const limpiar = () => {
+      window.removeEventListener("message", onMessage);
+      try { iframe.remove(); } catch {}
+    };
+
+    const timer = setTimeout(() => {
+      if (terminado) return;
+      terminado = true;
+      limpiar();
+      reject(new Error("Timeout consultando Apps Script por iframe"));
+    }, timeoutMs);
+
+    function onMessage(event) {
+      const msg = event && event.data ? event.data : null;
+      if (!msg || msg.source !== "senalco-drive-bridge") return;
+      if (msg.callbackId !== callbackId) return;
+
+      if (terminado) return;
+      terminado = true;
+      clearTimeout(timer);
+      limpiar();
+
+      if (msg.error) reject(new Error(msg.error));
+      else resolve(msg.data);
+    }
+
+    iframe.onerror = () => {
+      if (terminado) return;
+      terminado = true;
+      clearTimeout(timer);
+      limpiar();
+      reject(new Error("No se pudo cargar el puente iframe de Apps Script"));
+    };
+
+    window.addEventListener("message", onMessage);
+    iframe.src = url;
+    document.body.appendChild(iframe);
+  });
+}
+
 function pedirOnlineJSONP(action, params = {}, timeoutMs = 12000) {
   return new Promise((resolve, reject) => {
     if (!ONLINE_BASES_API_URL) return reject(new Error("ONLINE_BASES_API_URL vacío"));
@@ -294,7 +353,11 @@ function pedirOnlineJSONP(action, params = {}, timeoutMs = 12000) {
   });
 }
 
-async function pedirOnline(action, params = {}, timeoutMs = 12000) {
+async function pedirOnline(action, params = {}, timeoutMs = 15000) {
+  if (ONLINE_BASES_USE_IFRAME_BRIDGE) {
+    return await pedirOnlineIframe(action, params, timeoutMs);
+  }
+
   if (ONLINE_BASES_USE_JSONP) {
     return await pedirOnlineJSONP(action, params, timeoutMs);
   }
@@ -346,7 +409,7 @@ async function cargarBasesOnline(silencioso = false, forzar = false) {
     if (!silencioso) {
       await esperarMinimoCarga(inicio, 700);
       ocultarCargandoBase();
-      alert("❌ No pude sincronizar las bases oficiales. Si el link /exec abre bien, falta actualizar Apps Script con soporte JSONP o pegar bien la URL /exec.");
+      alert("❌ No pude sincronizar las bases oficiales. Si el link /exec abre bien, falta subir el Apps Script puente iframe o pegar bien la URL /exec.");
     }
     return false;
   } finally {
