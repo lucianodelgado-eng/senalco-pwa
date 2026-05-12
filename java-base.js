@@ -75,6 +75,9 @@ const SESSION_BASE_KEY = "senalco_session_v2";
 // Si queda vacío, la app sigue funcionando con las bases locales/importadas.
 const ONLINE_BASES_API_URL = "https://script.google.com/macros/s/AKfycbwJY-_qXceCJHfDUdt9YIjXC9nIYVl3Oy4OUYmXIoaG4edqRpIL1GdCmnJPNlnhdpfKoQ/exec";
 const ONLINE_BASES_API_KEY = "senalco-solo-lectura-2026";
+// Apps Script a veces funciona en navegador directo, pero falla desde GitHub por CORS.
+// JSONP evita ese bloqueo y permite leer Drive desde la PWA.
+const ONLINE_BASES_USE_JSONP = true;
 const ONLINE_BASES_CACHE_KEY = "senalco_online_bases_cache_v1";
 
 let basesOnlineCache = [];
@@ -195,7 +198,7 @@ async function forzarActualizacionApp() {
       setDriveStatus(`Actualización forzada OK. Bases oficiales visibles: ${total}.`);
       renderConsultaBases();
     } else {
-      alert("❌ No pude actualizar desde Drive. Probá el link /exec desde este celular para confirmar permisos.");
+      alert("❌ No pude actualizar desde Drive. Si el link /exec abre bien, actualizá también el Apps Script con la versión JSONP.");
     }
   } catch (e) {
     console.error(e);
@@ -252,6 +255,59 @@ async function fetchConTimeout(url, options = {}, timeoutMs = 12000) {
   }
 }
 
+function pedirOnlineJSONP(action, params = {}, timeoutMs = 12000) {
+  return new Promise((resolve, reject) => {
+    if (!ONLINE_BASES_API_URL) return reject(new Error("ONLINE_BASES_API_URL vacío"));
+
+    const callbackName = "senalcoDriveCb_" + Date.now() + "_" + Math.floor(Math.random() * 100000);
+    const url = buildOnlineUrl(action, { ...params, callback: callbackName, jsonp: "1" });
+    const script = document.createElement("script");
+    let terminado = false;
+
+    const limpiar = () => {
+      try { delete window[callbackName]; } catch { window[callbackName] = undefined; }
+      try { script.remove(); } catch {}
+    };
+
+    const timer = setTimeout(() => {
+      if (terminado) return;
+      terminado = true;
+      limpiar();
+      reject(new Error("Timeout consultando Apps Script"));
+    }, timeoutMs);
+
+    window[callbackName] = (data) => {
+      if (terminado) return;
+      terminado = true;
+      clearTimeout(timer);
+      limpiar();
+      resolve(data);
+    };
+
+    script.onerror = () => {
+      if (terminado) return;
+      terminado = true;
+      clearTimeout(timer);
+      limpiar();
+      reject(new Error("No se pudo cargar JSONP desde Apps Script"));
+    };
+
+    script.src = url;
+    script.async = true;
+    document.head.appendChild(script);
+  });
+}
+
+async function pedirOnline(action, params = {}, timeoutMs = 12000) {
+  if (ONLINE_BASES_USE_JSONP) {
+    return await pedirOnlineJSONP(action, params, timeoutMs);
+  }
+
+  const res = await fetchConTimeout(buildOnlineUrl(action, params), { cache: "no-store" }, timeoutMs);
+  if (!res.ok) throw new Error("HTTP " + res.status);
+  return await res.json();
+}
+
 async function cargarBasesOnline(silencioso = false, forzar = false) {
   if (!ONLINE_BASES_API_URL) {
     renderConsultaBases();
@@ -266,11 +322,9 @@ async function cargarBasesOnline(silencioso = false, forzar = false) {
 
   try {
     setDriveStatus("Sincronizando bases oficiales desde Drive...");
-    const res = await fetchConTimeout(buildOnlineUrl("listar", forzar ? { force: "1" } : {}), { cache: "no-store" }, 12000);
-    if (!res.ok) throw new Error("HTTP " + res.status);
+    const data = await pedirOnline("listar", forzar ? { force: "1" } : {}, 12000);
     if (!silencioso) actualizarCargandoBase("Leyendo respuesta...", "Preparando listado de bases.");
 
-    const data = await res.json();
     if (!data || data.ok === false) throw new Error(data?.error || "Respuesta inválida");
 
     const bases = Array.isArray(data.bases) ? data.bases : [];
@@ -296,7 +350,7 @@ async function cargarBasesOnline(silencioso = false, forzar = false) {
     if (!silencioso) {
       await esperarMinimoCarga(inicio, 700);
       ocultarCargandoBase();
-      alert("❌ No pude sincronizar las bases oficiales. Probá el link /exec desde este celular o revisá permisos de Apps Script.");
+      alert("❌ No pude sincronizar las bases oficiales. Si el link /exec abre bien, falta actualizar Apps Script con soporte JSONP o pegar bien la URL /exec.");
     }
     return false;
   } finally {
@@ -313,10 +367,9 @@ async function abrirBaseOnline(fileId, nombre) {
 
   try {
     setDriveStatus("Abriendo base oficial desde Drive...");
-    const res = await fetchConTimeout(buildOnlineUrl("abrir", { fileId, force: "1" }), { cache: "no-store" }, 12000);
+    const data = await pedirOnline("abrir", { fileId, force: "1" }, 12000);
     actualizarCargandoBase("Descargando datos...", "Cargando zonas y datos de la sucursal.");
 
-    const data = await res.json();
     if (!data || data.ok === false) throw new Error(data?.error || "Respuesta inválida");
 
     const base = data.base || data.data;
