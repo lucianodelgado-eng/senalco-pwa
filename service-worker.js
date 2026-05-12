@@ -1,20 +1,29 @@
-/* sw.js */
-self.addEventListener("install", () => self.skipWaiting());
+/* service-worker.js - modo sin caché para pruebas Drive */
 
-self.addEventListener("activate", (event) => {
-  event.waitUntil(self.clients.claim());
+const CACHE_VERSION = "drive-no-cache-20260512-02";
+
+self.addEventListener("install", (event) => {
+  self.skipWaiting();
 });
 
-// ✅ Permite activar la nueva versión cuando el usuario toca "Actualizar"
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    caches.keys()
+      .then((keys) => Promise.all(keys.map((key) => caches.delete(key))))
+      .then(() => self.clients.claim())
+  );
+});
+
 self.addEventListener("message", (event) => {
   if (event.data && event.data.type === "SKIP_WAITING") {
     self.skipWaiting();
   }
 });
 
-// Cache “light” (no toca localStorage)
-self.addEventListener("fetch", (e) => {
-  e.respondWith(
-    fetch(e.request).catch(() => caches.match(e.request))
+// Mientras probamos Drive, no usar caché.
+// Todo se pide directo a internet/GitHub.
+self.addEventListener("fetch", (event) => {
+  event.respondWith(
+    fetch(event.request, { cache: "no-store" })
   );
 });
