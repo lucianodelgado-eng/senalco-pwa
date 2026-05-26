@@ -73,7 +73,7 @@ const SESSION_BASE_KEY = "senalco_session_v2";
 
 // Pegá acá la URL /exec del Apps Script cuando lo publiques.
 // Si queda vacío, la app sigue funcionando con las bases locales/importadas.
-const ONLINE_BASES_API_URL = "https://script.google.com/macros/s/AKfycbxYUswce3FuNO90LOO9WU7oG1zov4cy7kFutsXb6lRB00hVPIPaAwiXV52mTubf6ZrW3w/exec"; // URL /exec Apps Script
+const ONLINE_BASES_API_URL = "https://script.google.com/macros/s/AKfycbyw0uwO-x1vku8fbyuRwy4DDrewxsu4vDgXKaFXTF7Q2PkORty4B1W0YhAacKAD_-hkTw/exec"; // URL /exec Apps Script
 const ONLINE_BASES_API_KEY = "senalco-solo-lectura-2026";
 // Esta versión usa fetch estándar con CORS y redirect follow.
 // No usa JSONP, iframe ni bridge.
