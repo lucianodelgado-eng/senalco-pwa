@@ -1,6 +1,5 @@
-/* service-worker.js - modo sin caché para pruebas Drive */
-
-const CACHE_VERSION = "drive-no-cache-20260512-02";
+/* service-worker.js - sin caché para pruebas Drive */
+const CACHE_VERSION = "drive-fetch-no-cache-20260526";
 
 self.addEventListener("install", (event) => {
   self.skipWaiting();
@@ -20,10 +19,6 @@ self.addEventListener("message", (event) => {
   }
 });
 
-// Mientras probamos Drive, no usar caché.
-// Todo se pide directo a internet/GitHub.
 self.addEventListener("fetch", (event) => {
-  event.respondWith(
-    fetch(event.request, { cache: "no-store" })
-  );
+  event.respondWith(fetch(event.request, { cache: "no-store" }));
 });
