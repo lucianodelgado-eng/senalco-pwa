@@ -199,8 +199,12 @@ async function forzarActualizacionApp() {
     console.error(e);
     await esperarMinimoCarga(inicio, 700);
     ocultarCargandoBase();
-    alert("❌ No pude actualizar desde Drive. Revisá que java-base.js tenga la URL /exec correcta, key cargada y Apps Script publicado como Cualquier persona.");
-    setDriveStatus("No se pudo actualizar Drive.");
+alert(
+  "❌ ERROR REAL DRIVE:\n\n" +
+  (e && e.message ? e.message : String(e)) +
+  "\n\nURL configurada:\n" +
+  ONLINE_BASES_API_URL
+);    setDriveStatus("No se pudo actualizar Drive.");
   }
 }
 
@@ -341,8 +345,13 @@ async function cargarBasesOnline(silencioso = false, forzar = false) {
     if (!silencioso) {
       await esperarMinimoCarga(inicio, 700);
       ocultarCargandoBase();
-      alert("❌ No pude sincronizar las bases oficiales. Si el link /exec abre bien, revisá que java-base.js tenga la URL /exec correcta y Apps Script esté publicado como Cualquier persona.");
-    }
+alert(
+  "❌ ERROR REAL SINCRONIZACIÓN:\n\n" +
+  (e && e.message ? e.message : String(e)) +
+  "\n\nURL configurada:\n" +
+  ONLINE_BASES_API_URL
+);    
+}
     return false;
   } finally {
     if (silencioso) ocultarCargandoBase();
