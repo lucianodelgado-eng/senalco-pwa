@@ -89,7 +89,6 @@ function getSesionBase() {
   catch { return null; }
 }
 
-
 function isAdminBase() {
   const s = getSesionBase();
   return !!(s && s.role === "admin");
