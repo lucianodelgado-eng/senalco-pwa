@@ -73,11 +73,11 @@ const SESSION_BASE_KEY = "senalco_session_v2";
 
 // Pegá acá la URL /exec del Apps Script cuando lo publiques.
 // Si queda vacío, la app sigue funcionando con las bases locales/importadas.
-const ONLINE_BASES_API_URL = "https://script.google.com/macros/s/AKfycbwu1pUzvio_abgS8Uqogc0XYrilcQr6VDnIkTQMP9fb3B6HZbTEzVKk_1SIuyz2XqMKzw/exec"; // PEGAR ACÁ TU URL /exec
+const ONLINE_BASES_API_URL = "https://script.google.com/macros/s/AKfycbynAFlQA7AUDNt-U41FRyB9dbXH2MPTZixbv7SwdL3HiWmcK-V9q07udJE9XUFS_mmzvA/exec"; // URL /exec Apps Script
 const ONLINE_BASES_API_KEY = "senalco-solo-lectura-2026";
-// Apps Script puede abrir perfecto en el navegador y aun así fallar desde GitHub por CORS/MIME.
-// Esta versión usa JSONP directo para evitar CORS y bloqueos de iframe en PWA/celular.
-const ONLINE_BASES_USE_JSONP = true;
+// Esta versión usa fetch estándar con CORS y redirect follow.
+// No usa JSONP, iframe ni bridge.
+const ONLINE_BASES_USE_JSONP = false;
 const ONLINE_BASES_CACHE_KEY = "senalco_online_bases_cache_v1";
 
 let basesOnlineCache = [];
@@ -253,68 +253,50 @@ async function fetchConTimeout(url, options = {}, timeoutMs = 12000) {
 }
 
 
-// Modo Drive: solo JSONP. No usamos iframe/bridge para evitar respuestas HTML dentro de <script>.
-
-function pedirOnlineJSONP(action, params = {}, timeoutMs = 12000) {
-  return new Promise((resolve, reject) => {
-    if (!ONLINE_BASES_API_URL) return reject(new Error("ONLINE_BASES_API_URL vacío"));
-
-    const callbackName = "senalcoDriveCb_" + Date.now() + "_" + Math.floor(Math.random() * 1000000);
-    const scriptId = "drive_jsonp_script_actual";
-
-    // Limpio cualquier intento anterior para evitar que quede un <script> viejo colgado.
-    const oldScript = document.getElementById(scriptId);
-    if (oldScript) oldScript.remove();
-
-    const url = buildOnlineUrl(action, {
-      ...params,
-      callback: callbackName,
-      jsonp: "1"
-    });
-
-    const script = document.createElement("script");
-    script.id = scriptId;
-    script.async = true;
-    script.src = url;
-
-    let terminado = false;
-
-    const limpiar = () => {
-      try { delete window[callbackName]; } catch { window[callbackName] = undefined; }
-      try { script.remove(); } catch {}
-    };
-
-    const timer = setTimeout(() => {
-      if (terminado) return;
-      terminado = true;
-      limpiar();
-      reject(new Error("Timeout JSONP. Apps Script no respondió con callback. Revisar /exec, key y permisos."));
-    }, timeoutMs);
-
-    window[callbackName] = function(response) {
-      if (terminado) return;
-      terminado = true;
-      clearTimeout(timer);
-      limpiar();
-      resolve(response);
-    };
-
-    script.onerror = () => {
-      if (terminado) return;
-      terminado = true;
-      clearTimeout(timer);
-      limpiar();
-      reject(new Error("Error cargando JSONP. Revisar que Apps Script devuelva JavaScript y no HTML."));
-    };
-
-    document.head.appendChild(script);
-  });
-}
+// Modo Drive: fetch estándar. No usamos JSONP, iframe ni bridge.
 
 async function pedirOnline(action, params = {}, timeoutMs = 15000) {
-  // Único modo habilitado: JSONP.
-  // No se envía bridge=1 ni transport=iframe, para que Apps Script devuelva JS puro.
-  return await pedirOnlineJSONP(action, params, timeoutMs);
+  if (!ONLINE_BASES_API_URL) throw new Error("ONLINE_BASES_API_URL vacío");
+
+  const urlConParams = new URL(ONLINE_BASES_API_URL);
+  urlConParams.searchParams.set("action", action);
+  urlConParams.searchParams.set("_t", Date.now().toString());
+
+  const keyFinal = ONLINE_BASES_API_KEY || "senalco-solo-lectura-2026";
+  if (keyFinal) urlConParams.searchParams.set("key", keyFinal);
+
+  Object.entries(params).forEach(([k, v]) => {
+    if (v !== undefined && v !== null && String(v) !== "") {
+      urlConParams.searchParams.set(k, v);
+    }
+  });
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(urlConParams.toString(), {
+      method: "GET",
+      mode: "cors",
+      redirect: "follow",
+      cache: "no-store",
+      signal: controller.signal
+    });
+
+    if (!response.ok) {
+      throw new Error(`Error en servidor: ${response.status}`);
+    }
+
+    const json = await response.json();
+    return json;
+  } catch (err) {
+    if (err.name === "AbortError") {
+      throw new Error("Timeout: El Apps Script de Google no respondió a tiempo.");
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 async function cargarBasesOnline(silencioso = false, forzar = false) {
@@ -359,7 +341,7 @@ async function cargarBasesOnline(silencioso = false, forzar = false) {
     if (!silencioso) {
       await esperarMinimoCarga(inicio, 700);
       ocultarCargandoBase();
-      alert("❌ No pude sincronizar las bases oficiales. Si el link /exec abre bien, revisá que java-base.js tenga la URL /exec correcta y JSONP activo.");
+      alert("❌ No pude sincronizar las bases oficiales. Si el link /exec abre bien, revisá que java-base.js tenga la URL /exec correcta y Apps Script esté publicado como Cualquier persona.");
     }
     return false;
   } finally {
