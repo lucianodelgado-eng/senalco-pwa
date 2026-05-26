@@ -80,6 +80,7 @@ const ONLINE_BASES_API_KEY = "senalco-solo-lectura-2026";
 const ONLINE_BASES_USE_JSONP = false;
 const ONLINE_BASES_CACHE_KEY = "senalco_online_bases_cache_v1";
 
+
 let basesOnlineCache = [];
 let baseConsultaOrigen = "local";
 let baseConsultaFileId = "";
