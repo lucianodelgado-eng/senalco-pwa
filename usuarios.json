@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": 1781029089899,
+  "updatedAt": 1781110702167,
   "users": [
     {
       "user": "luciod",
@@ -205,6 +205,18 @@
         "monitoreo": true
       },
       "updatedAt": 1781029084396
+    },
+    {
+      "user": "juaniz",
+      "passHash": "52b5ea716e0b5c19d44008cf9e580cb57522c274ea8685556dbb0b10d149fe77",
+      "role": "user",
+      "perms": {
+        "relev": true,
+        "base": false,
+        "cctv": false,
+        "monitoreo": true
+      },
+      "updatedAt": 1781110698225
     }
   ]
 }
