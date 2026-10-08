@@ -346,7 +346,7 @@ function guardarEstadoLocal() {
 }
 
 function borrarFormulario() {
-  if (!confirm("¿Limpiar el formulario para empezar otro? Los JSON guardados se conservan.")) return;
+  if (!confirm("¿Limpiar el formulario para empezar otro? Los relevamientos guardados se conservan.")) return;
   ArchivosJSON.reset();
   localStorage.removeItem(KEY_AUTO);
 
@@ -531,7 +531,7 @@ function refrescarListaRelevamientos() {
 
     const li = document.createElement("li");
     li.style.cursor = "pointer";
-    li.textContent = `🧾 JSON: ${data.entidad || ""} - ${data.sucursal || ""} (${(data.fecha || "").slice(0,10)})`;
+    li.textContent = `🧾 Relevamiento: ${data.entidad || ""} - ${data.sucursal || ""} (${(data.fecha || "").slice(0,10)})`;
 
     const del = document.createElement("button");
     del.type = "button";

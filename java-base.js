@@ -182,7 +182,7 @@ async function forzarActualizacionApp() {
     basesOnlineCache = [];
     renderConsultaBases();
 
-    actualizarCargandoBase("Consultando Drive...", "Traemos el listado nuevo de JSON oficiales.");
+    actualizarCargandoBase("Consultando Drive...", "Traemos el listado actualizado de bases oficiales.");
     const data = await pedirOnline("listar", { force: "1" }, 12000);
 
     if (!data || data.ok === false) throw new Error(data?.error || "Respuesta inválida");
@@ -512,8 +512,8 @@ function renderConsultaBases() {
 
   if (!count) {
     const texto = ONLINE_BASES_API_URL
-      ? "Tocá Forzar actualización para leer Drive, o importá ZIP/JSON si estás preparando bases locales."
-      : "Admin: importá ZIP/JSON o configurá Apps Script para Drive.";
+      ? "Tocá Forzar actualización para leer Drive, o importá tus archivos de bases si estás preparando bases locales."
+      : "Admin: importá tus archivos de bases o configurá Apps Script para Drive.";
     cont.innerHTML = `<div class="base-consulta-card"><b>Sin bases cargadas</b><div style="font-size:13px; opacity:.8; margin-top:4px;">${escapeHtml(texto)}</div></div>`;
   }
 }
@@ -571,7 +571,7 @@ function renderVisorBasePDF(data, nombre) {
     ${data.pt4000?.habilitado ? `<div style="margin-top:12px;"><b>PT4000 / RS485:</b> Sí</div>` : `<div style="margin-top:12px;"><b>PT4000 / RS485:</b> No</div>`}
     <div class="visor-actions">
       <button class="mini-btn" onclick="modificarBaseDesdeConsulta()">✏️ Editar para PDF</button>
-      <button class="mini-btn" onclick="generarPDF()">📄 Exportar PDF</button>
+      <button class="mini-btn" onclick="generarPDF()">📄 Descargar PDF y guardar en el equipo</button>
       <button class="mini-btn" onclick="ocultarVisorConsulta()" style="background:#555;">⬅️ Cerrar vista</button>
     </div>`;
 }
@@ -1046,7 +1046,7 @@ $("btn-cargar-pegado-manual")?.addEventListener("click", () => {
   $("input-json-muchos")?.addEventListener("change", async (e) => {
     const files = Array.from(e.target.files || []).filter(f => (f.name || "").toLowerCase().endsWith(".json"));
     if (!files.length) {
-      alert("No se seleccionaron JSON.");
+      alert("No se seleccionaron archivos de bases.");
       e.target.value = "";
       return;
     }
@@ -2324,7 +2324,7 @@ function borrarBaseGuardada(nombre) {
 }
 
 function descargarBaseComoJSON(nombre) {
-  if (!isAdminBase()) return alert("Solo el admin puede exportar JSON de bases.");
+  if (!isAdminBase()) return alert("Solo el admin puede guardar archivos de bases en el equipo.");
   const data = leerBase(nombre);
   if (!data) return alert("❌ No se encontró la base");
   descargarRawComoJSON(nombre, JSON.stringify(data, null, 2));
@@ -2422,7 +2422,7 @@ function renderBuscadorRapido() {
         </div>
         <div style="display:flex; gap:8px; flex-wrap:wrap;">
           <button class="mini-btn" data-act="abrir">Abrir</button>
-          <button class="mini-btn" data-act="json">JSON</button>
+          <button class="mini-btn" data-act="json">Guardar en el equipo</button>
           <button class="mini-btn" data-act="borrar" style="background:#b00020;">Borrar</button>
         </div>
       </div>
@@ -2486,7 +2486,7 @@ function renderBasesMini() {
         </div>
         <div style="display:flex; gap:8px; flex-wrap:wrap;">
           <button class="mini-btn" data-act="abrir">Abrir</button>
-          <button class="mini-btn" data-act="json">JSON</button>
+          <button class="mini-btn" data-act="json">Guardar en el equipo</button>
           <button class="mini-btn" data-act="borrar" style="background:#b00020;">Borrar</button>
         </div>
       </div>

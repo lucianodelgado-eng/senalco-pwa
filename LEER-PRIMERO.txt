@@ -5,8 +5,10 @@ Este ZIP contiene la aplicación completa, revisada sobre el repositorio luciano
 1. Descomprimí este ZIP una sola vez.
 2. Reemplazá los archivos del proyecto por los de este paquete, respetando exactamente sus nombres. index.html debe quedar en la raíz del repositorio, junto a relevamiento1.html, login.js, javas.js y archivos-json.js. Conservá la carpeta images en esa misma raíz.
 3. Guardá los cambios en GitHub y, cuando termine la publicación, recargá la app.
-4. Iniciá sesión y elegí Relevamiento Alarmas para abrir el formulario de relevamiento con la ventana de JSON. Relevamiento CCTV abre index2.html.
+4. Iniciá sesión y elegí Relevamiento Alarmas para abrir el formulario de relevamiento con la ventana de relevamientos. Relevamiento CCTV abre index2.html.
 
-Se conserva la estructura, los recursos, los usuarios y la versión completa de Base del repositorio. Incluye la ventana de relevamientos, PDF + JSON, limpiar formulario, vista móvil y cierre de sesión tras 10 minutos sin actividad con recuperación del borrador en el mismo navegador.
+Se conserva la estructura, los recursos, los usuarios y la versión completa de Base del repositorio. Incluye la ventana de relevamientos, descarga del PDF y guardado del relevamiento editable en el equipo, limpiar formulario, vista móvil y cierre de sesión tras 10 minutos sin actividad con recuperación del borrador en el mismo navegador.
 
-No borres los datos del navegador: allí se conservan los borradores y los JSON locales.
+No borres los datos del navegador: allí se conservan los borradores y los relevamientos locales.
+
+Textos simplificados: Buscar relevamiento, Abrir relevamiento y Descargar PDF y guardar en el equipo. La app reconoce el formato de los archivos automáticamente.

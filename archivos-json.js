@@ -6,6 +6,7 @@ window.ArchivosJSON = (() => {
   const $ = id => document.getElementById(id);
   const normal = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   const seguro = s => String(s || '').trim().replace(/[^\w\-()]/g, '_').slice(0, 150) || 'relevamiento';
+  const nombreVisible = name => String(name || '').replace(/\.json$/i, '');
   const sello = () => new Date().toISOString().replace(/[:.]/g, '-') + '-' + (++secuencia);
   const texto = v => typeof v === 'string' || typeof v === 'number';
   function valido(d) {
@@ -69,7 +70,7 @@ window.ArchivosJSON = (() => {
   }
   function cerrarBuscador() { const el = $('json-buscador'); if (el instanceof HTMLDialogElement && el.open) el.close(); }
   function avisar(t) { const el = $('json-estado'); if (el) el.textContent = t; }
-  function recordar(origen) { actual = origen; marcarSinCambios(); avisar('Archivo abierto: ' + origen.name); }
+  function recordar(origen) { actual = origen; marcarSinCambios(); avisar('Relevamiento abierto: ' + nombreVisible(origen.name)); }
   function reset() { actual = null; avisar('Nuevo relevamiento.'); }
   function descargar(d, name) {
     const url = URL.createObjectURL(new Blob([JSON.stringify(d, null, 2)], {type:'application/json'}));
@@ -78,8 +79,8 @@ window.ArchivosJSON = (() => {
   }
   function eleccion() {
     const modal = $('json-decision');
-    $('json-decision-nombre').textContent = actual.name;
-    $('json-decision-nota').textContent = actual.handle ? 'Modificar reemplaza el JSON seleccionado. Crear nuevo conserva el original.' : 'Modificar actualiza la copia de la app y descarga una versión actualizada. El original de Descargas se conserva si el navegador no permite reemplazarlo.';
+    $('json-decision-nombre').textContent = nombreVisible(actual.name);
+    $('json-decision-nota').textContent = actual.handle ? 'Modificar reemplaza el relevamiento seleccionado. Crear nuevo conserva el original.' : 'Modificar actualiza la copia de la app y descarga una versión actualizada. El original de Descargas se conserva si el navegador no permite reemplazarlo.';
     modal.returnValue = "cancelar";
     modal.showModal();
     return new Promise(resolve => modal.addEventListener('close', () => resolve(modal.returnValue), {once:true}));
@@ -113,14 +114,14 @@ window.ArchivosJSON = (() => {
         localStorage.setItem(key, JSON.stringify(d));
         if (tipo === 'base') { addToIndex(key.slice(BASE_PREFIX.length)); setCurrentBaseName(key.slice(BASE_PREFIX.length)); if (typeof idbPutBase === 'function') idbPutBase(key,d).catch(console.warn); renderBuscadorRapido(); renderBasesMini(); }
         else if (tipo === 'alarmas') refrescarListaRelevamientos();
-      } catch { alert('El JSON se exportó, pero no hay espacio para guardar otra copia dentro de la app.'); }
+      } catch { alert('El relevamiento se guardó en el equipo, pero no hay espacio para guardar otra copia dentro de la app.'); }
       recordar(origen);
       if (origen.handle) { const encontrado = entradas.find(i => i.handle === origen.handle); if (encontrado) encontrado.data = d; }
       render();
-      avisar((origen.handle ? 'JSON actualizado: ' : 'JSON descargado: ') + name);
+      avisar((origen.handle ? 'Relevamiento actualizado: ' : 'Relevamiento guardado en el equipo: ') + nombreVisible(name));
       return {base:name.replace(/\.json$/i,''),data:d};
     } catch (e) {
-      if (e.name !== 'AbortError') alert('No se pudo guardar el JSON. Tus datos siguen en el formulario. ' + e.message);
+      if (e.name !== 'AbortError') alert('No se pudo guardar el relevamiento. Tus datos siguen en el formulario. ' + e.message);
       return null;
     } finally { ocupado = false; }
   }
@@ -138,7 +139,7 @@ window.ArchivosJSON = (() => {
       } catch { avisar('Archivo cargado. No se pudo guardar una copia en la app.'); }
       recordar({name:file.name,handle,raw,key});
       render(); cerrarBuscador();
-    } catch (e) { alert('No se pudo cargar el JSON: ' + e.message); }
+    } catch (e) { alert('No se pudo cargar el relevamiento: ' + e.message); }
   }
   function locales() {
     return Object.keys(localStorage).filter(k => tipo === 'base' ? k.startsWith(BASE_PREFIX) && ![AUTOSAVE_KEY,FILTER_PREF_KEY].includes(k) : k.startsWith('relevamiento_json_') || (tipo === 'alarmas' && ['relevamientoBorrador1','relevamientoBorrador2'].includes(k))).flatMap(key => {
@@ -155,14 +156,14 @@ window.ArchivosJSON = (() => {
     }
     const items=Array.from(unicos.values()).filter(i => normal([i.name,i.ubicacion,i.data.entidad,i.data.sucursal,i.data.abonado,i.data.fecha,i.data.direccion,i.data.remito,i.data.relevado].join(' ')).includes(q));
     $('json-conteo').textContent=items.length+' relevamiento(s) compatible(s)';
-    if (!items.length) { const p=document.createElement('p');p.textContent='No hay coincidencias. Elegí Descargas o agregá archivos JSON.';lista.append(p); }
+    if (!items.length) { const p=document.createElement('p');p.textContent='No hay coincidencias. Buscá un relevamiento en Descargas o en otra carpeta de tu equipo.';lista.append(p); }
     for (const i of items) {
       const b=document.createElement('button');b.type='button';b.className='json-archivo';
-      const titulo=document.createElement('strong');titulo.textContent=i.name;
+      const titulo=document.createElement('strong');titulo.textContent=nombreVisible(i.name);
       const desc=document.createElement('span');desc.textContent=[i.data.entidad,i.data.sucursal,i.data.abonado,i.data.fecha,i.ubicacion].filter(Boolean).join(' · ');
       b.append(titulo,desc);b.onclick=async()=> {
         if (i.key && !i.file) { if (!confirmarCarga()) return; aplicar(i.data);recordar({key:i.key,name:i.name});if(tipo==='base')setCurrentBaseName(i.key.slice(BASE_PREFIX.length));cerrarBuscador(); }
-        else { try { const f=i.handle?await i.handle.getFile():i.file;await importar(f,i.handle,i.key); } catch { alert('No se pudo releer el archivo. Volvé a seleccionar la carpeta o el JSON.'); } }
+        else { try { const f=i.handle?await i.handle.getFile():i.file;await importar(f,i.handle,i.key); } catch { alert('No se pudo releer el archivo. Volvé a seleccionar la carpeta o el relevamiento.'); } }
       };lista.append(b);
     }
   }
@@ -172,7 +173,7 @@ window.ArchivosJSON = (() => {
       if (!/\.json$/i.test(i.file.name)) continue;
       try { const d=JSON.parse(await i.file.text());if (!valido(d)) {ignorados++;continue;}nuevos.push({...i,name:i.file.name,data:d}); } catch {ignorados++;}
     }
-    entradas=nuevos;render();$('json-conteo').textContent += ignorados?' · '+ignorados+' JSON incompatible(s) o inválido(s) omitidos':'';
+    entradas=nuevos;render();$('json-conteo').textContent += ignorados?' · '+ignorados+' archivo(s) incompatible(s) o inválido(s) omitidos':'';
   }
   async function recorrer(dir, path=dir.name+'/') {
     const files=[];
@@ -185,11 +186,11 @@ window.ArchivosJSON = (() => {
   async function elegirCarpeta() {
     if (!window.showDirectoryPicker || !window.isSecureContext) { $('json-input-carpeta').click();return; }
     try { carpeta=await window.showDirectoryPicker({id:'relevamientos',startIn:'downloads',mode:'readwrite'});await indexar(await recorrer(carpeta)); }
-    catch(e) { if(e.name!=='AbortError') { alert('No se pudo abrir la carpeta. Podés elegir los archivos JSON.'); } }
+    catch(e) { if(e.name!=='AbortError') { alert('No se pudo abrir la carpeta. Podés elegir los relevamientos de a uno.'); } }
   }
   async function elegirArchivos() {
     if (!window.showOpenFilePicker || !window.isSecureContext) { $('json-input-archivos').click();return; }
-    try { const hs=await window.showOpenFilePicker({multiple:true,startIn:'downloads',types:[{description:'Relevamientos JSON',accept:{'application/json':['.json']}}]});await indexar(await Promise.all(hs.map(async handle=>({handle,file:await handle.getFile(),ubicacion:'Archivo seleccionado'})))); }
+    try { const hs=await window.showOpenFilePicker({multiple:true,startIn:'downloads',types:[{description:'Relevamientos guardados',accept:{'application/json':['.json']}}]});await indexar(await Promise.all(hs.map(async handle=>({handle,file:await handle.getFile(),ubicacion:'Archivo seleccionado'})))); }
     catch(e) { if(e.name!=='AbortError') alert('No se pudieron leer los archivos.'); }
   }
   function abrir() { render(); const el=$('json-buscador'); if (el instanceof HTMLDialogElement) el.showModal(); else el.scrollIntoView({behavior:'smooth',block:'nearest'}); }
@@ -243,9 +244,9 @@ window.ArchivosJSON = (() => {
     `;document.head.append(css);
     const html=document.createElement('div');html.innerHTML=`
       <dialog id="json-buscador" class="json-modal" aria-labelledby="json-titulo">
-        <h2 id="json-titulo">Buscar relevamientos JSON</h2>
-        <p>Elegí Descargas u otra carpeta para buscar sus JSON. También podés seleccionar archivos. Se muestran los compatibles con este formulario.</p>
-        <div class="json-acciones"><button type="button" id="json-carpeta">Elegir carpeta / Descargas</button><button type="button" id="json-archivos">Elegir archivos JSON</button><button type="button" id="json-refrescar">Actualizar lista</button></div>
+        <h2 id="json-titulo">Buscar relevamiento</h2>
+        <p>Elegí Descargas u otra carpeta para buscar los relevamientos que guardaste. También podés seleccionar un archivo.</p>
+        <div class="json-acciones"><button type="button" id="json-carpeta">Elegir carpeta / Descargas</button><button type="button" id="json-archivos">Abrir relevamiento</button><button type="button" id="json-refrescar">Actualizar lista</button></div>
         <label for="json-buscar">Buscador</label><input type="text" id="json-buscar" placeholder="Nombre, entidad, sucursal, abonado, fecha…">
         <p id="json-conteo" role="status"></p><div id="json-lista"></div>
         <button type="button" id="json-cerrar">Cerrar</button>
@@ -263,14 +264,14 @@ window.ArchivosJSON = (() => {
       panel.setAttribute('aria-labelledby','json-titulo'); panel.innerHTML = original.innerHTML; original.replaceWith(panel);
       panel.querySelector('h2').textContent = 'Relevamientos guardados';
       panel.querySelector('p').textContent = 'Elegí un nombre para cargarlo. Los archivos se muestran dentro de esta ventana.';
-      panel.querySelector('#json-carpeta').textContent = 'Buscar en el equipo';
-      panel.querySelector('#json-archivos').textContent = 'Importar JSON';
+      panel.querySelector('#json-carpeta').textContent = 'Buscar relevamiento';
+      panel.querySelector('#json-archivos').textContent = 'Abrir relevamiento';
       panel.querySelector('#json-refrescar').hidden = true;
       panel.querySelector('#json-cerrar').hidden = true;
       dock.append(panel);
     }
     document.body.append(html);
-    const b=document.createElement('button');b.type='button';b.textContent='🔎 Buscar JSON en el equipo';b.id='btn-buscar-json';b.onclick=abrir;
+    const b=document.createElement('button');b.type='button';b.textContent='Buscar relevamiento';b.id='btn-buscar-json';b.onclick=abrir;
     const ancla=$('btn-importar-json')||$('btn-importar-json-top')||$('siguiente-cctv');
     if (!dock && ancla) ancla.parentNode.append(b);
     const estado=document.createElement('p');estado.id='json-estado';estado.setAttribute('role','status');
