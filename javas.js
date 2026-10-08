@@ -3,16 +3,51 @@
  *************************/
 let paso = 0;
 let secciones, btnAtras, btnSig;
+let siguienteAreaId = 0;
+if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+
+function irAlInicio() {
+  window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0, behavior: 'instant' }));
+}
+window.addEventListener('pageshow', irAlInicio);
 
 function mostrarPaso(i) {
   secciones.forEach((sec, idx) => sec.style.display = (idx === i) ? "block" : "none");
   btnAtras.style.display = (i === 0) ? "none" : "inline-block";
   btnSig.style.display = (i === secciones.length - 1) ? "none" : "inline-block";
+  cerrarVistaPrevia();
+  irAlInicio();
 }
 
 /*************************
  *  Helpers UI / Sector  *
  *************************/
+function actualizarContadorArea(sector) {
+  const total = Array.from(sector.querySelectorAll('.lista-dispositivos tbody tr'))
+    .reduce((sum, fila) => {
+      const cantidad = Number(fila.querySelectorAll('input')[1]?.value || 0);
+      return sum + (Number.isFinite(cantidad) && cantidad > 0 ? cantidad : 0);
+    }, 0);
+  sector.querySelector('.conteo').textContent = String(total);
+  sector.querySelector('.area-toggle').setAttribute('aria-label',
+    `${sector.querySelector('h3').textContent.trim() || 'Área'}: ${total} dispositivos. ${sector.querySelector('.area-contenido').hidden ? 'Abrir' : 'Cerrar'} área`);
+}
+
+function cambiarEstadoArea(sector, abierto) {
+  sector.querySelector('.area-contenido').hidden = !abierto;
+  sector.querySelector('.area-toggle').setAttribute('aria-expanded', String(abierto));
+  actualizarContadorArea(sector);
+}
+
+function alternarArea(btn) {
+  const sector = btn.closest('.sector');
+  const abierto = sector.querySelector('.area-contenido').hidden;
+  cambiarEstadoArea(sector, abierto);
+  guardarEstadoLocal();
+  sector.querySelector('.area-cabecera').scrollIntoView({ block: 'start', behavior: 'instant' });
+}
+
 function mostrarOtro(select) {
   const inputOtro = select.parentElement.querySelector(".otro-dispositivo");
   if (!inputOtro) return;
@@ -60,8 +95,7 @@ function guardarFilaEditable(btn) {
 
   sector.querySelector("details tbody").appendChild(filaNueva);
 
-  const contador = sector.querySelector(".conteo");
-  if (contador) contador.textContent = +contador.textContent + 1;
+  actualizarContadorArea(sector);
 
   // Reset
   if (sel) sel.value = "";
@@ -78,7 +112,7 @@ function guardarFilaEditable(btn) {
 function limpiarSector(btn) {
   const sector = btn.closest(".sector");
   sector.querySelector("details tbody").innerHTML = "";
-  sector.querySelector(".conteo").textContent = "0";
+  actualizarContadorArea(sector);
   guardarEstadoLocal();
   refrescarListaRelevamientos();
 }
@@ -86,10 +120,18 @@ function limpiarSector(btn) {
 function agregarSectorPorNombre(nombre) {
   const contenedor = document.getElementById("contenedor-sectores");
   const div = document.createElement("div");
-  div.className = "sector";
+  div.className = "sector area-plegable";
+  const areaId = `area-contenido-${++siguienteAreaId}`;
 
   div.innerHTML = `
-    <h3 contenteditable>${escapeHtml(nombre)}</h3>
+    <div class="area-cabecera">
+      <h3 contenteditable="true" role="textbox" aria-label="Nombre del área" aria-multiline="false">${escapeHtml(nombre)}</h3>
+      <button type="button" class="area-toggle" aria-expanded="false" aria-controls="${areaId}" onclick="alternarArea(this)">
+        <span class="conteo" title="Cantidad de dispositivos cargados">0</span>
+        <span class="area-flecha" aria-hidden="true">⌄</span>
+      </button>
+    </div>
+    <div class="area-contenido" id="${areaId}" hidden>
     <table class="tabla-editable">
       <thead>
         <tr>
@@ -144,8 +186,6 @@ function agregarSectorPorNombre(nombre) {
       <button type="button" onclick="precargarDispositivos(this, 'bunker')">Dispositivos Bunker</button>
     </div>
 
-    <div class="contador">Dispositivos cargados: <span class="conteo">0</span></div>
-
     <details class="lista-dispositivos">
       <summary>Dispositivos completados</summary>
       <table>
@@ -157,13 +197,23 @@ function agregarSectorPorNombre(nombre) {
         <tbody></tbody>
       </table>
     </details>
+    </div>
   `;
 
   contenedor.appendChild(div);
+  div.querySelector('h3').addEventListener('keydown', event => {
+    if (event.key === 'Enter') { event.preventDefault(); event.currentTarget.blur(); }
+  });
+  div.querySelector('.lista-dispositivos').addEventListener('toggle', guardarEstadoLocal);
+  actualizarContadorArea(div);
 }
 
 function agregarSector() {
   agregarSectorPorNombre("Nuevo sector");
+  const nuevo = document.getElementById('contenedor-sectores').lastElementChild;
+  cambiarEstadoArea(nuevo, true);
+  guardarEstadoLocal();
+  nuevo.querySelector('.area-cabecera').scrollIntoView({ block: 'start', behavior: 'instant' });
 }
 
 /*******************************
@@ -204,8 +254,6 @@ function precargarDispositivos(btn, tipo) {
   if (!lista) return;
 
   const tbody = sector.querySelector("details tbody");
-  const contador = sector.querySelector(".conteo");
-
   let cantidadGlobal = "1";
   if (["atm", "tesoro", "CDS"].includes(tipo)) {
     const cant = prompt(`¿Cantidad para cada dispositivo ${tipo.toUpperCase()}?`);
@@ -234,8 +282,8 @@ function precargarDispositivos(btn, tipo) {
     });
 
     tbody.appendChild(tr);
-    if (contador) contador.textContent = +contador.textContent + 1;
   });
+  actualizarContadorArea(sector);
 
   guardarEstadoLocal();
   refrescarListaRelevamientos();
@@ -284,9 +332,7 @@ function applyRelevamientoData(data) {
     agregarSectorPorNombre(sec.nombre || "Sector");
     const last = contenedor.lastElementChild;
     const tbody = last.querySelector("details tbody");
-    const contador = last.querySelector(".conteo");
 
-    let count = 0;
     (sec.filas || []).forEach(fila => {
       const tr = document.createElement("tr");
       (fila || []).slice(0, 5).forEach(val => {
@@ -299,10 +345,10 @@ function applyRelevamientoData(data) {
         tr.appendChild(td);
       });
       tbody.appendChild(tr);
-      count++;
+
     });
 
-    if (contador) contador.textContent = String(count);
+    actualizarContadorArea(last);
   });
 
   if (data._borrador) {
@@ -313,8 +359,9 @@ function applyRelevamientoData(data) {
       });
       const select = sector.querySelector('.tabla-editable select');
       if (select) mostrarOtro(select);
-      const detalle = sector.querySelector('details');
+      const detalle = sector.querySelector('.lista-dispositivos');
       if (detalle) detalle.open = !!data._borrador.abiertos?.[n];
+      cambiarEstadoArea(sector, !!data._borrador.areasAbiertas?.[n]);
     });
     if (secciones?.length) {
       paso = Math.max(0, Math.min(secciones.length - 1, Number(data._borrador.paso) || 0));
@@ -323,6 +370,8 @@ function applyRelevamientoData(data) {
   }
   guardarEstadoLocal();
   refrescarListaRelevamientos();
+  cerrarVistaPrevia();
+  irAlInicio();
 }
 
 /*******************************
@@ -334,13 +383,15 @@ const BORRADOR_1 = "relevamientoBorrador1";
 const BORRADOR_2 = "relevamientoBorrador2";
 
 function guardarEstadoLocal() {
+  document.querySelectorAll('.sector').forEach(actualizarContadorArea);
   const data = buildRelevamientoData();
   // El borrador incluye lo que todavía no se agregó a la tabla ni al PDF.
   data._borrador = {
     paso,
     pendientes: Array.from(document.querySelectorAll('.sector'), sector =>
       Array.from(sector.querySelectorAll('.tabla-editable tbody input, .tabla-editable tbody select'), i => i.value)),
-    abiertos: Array.from(document.querySelectorAll('.sector details'), d => d.open)
+    abiertos: Array.from(document.querySelectorAll('.sector .lista-dispositivos'), d => d.open),
+    areasAbiertas: Array.from(document.querySelectorAll('.sector .area-contenido'), area => !area.hidden)
   };
   localStorage.setItem(KEY_AUTO, JSON.stringify(data));
 }
@@ -429,22 +480,25 @@ function abrirVistaPrevia() {
 
   const totalSectores = (data.sectores || []).length;
   let totalItems = 0;
+  let totalDispositivos = 0;
 
   // KPIs por sector
   kpis.innerHTML = "";
   (data.sectores || []).forEach(sec => {
     const cant = (sec.filas || []).length;
     totalItems += cant;
+    const dispositivos = (sec.filas || []).reduce((total, fila) => total + Math.max(0, Number(fila[1]) || 0), 0);
+    totalDispositivos += dispositivos;
     const div = document.createElement("div");
     div.className = "preview-kpi";
-    div.innerHTML = `<b>${escapeHtml(sec.nombre)}</b><br>Ítems: ${cant}`;
+    div.innerHTML = `<b>${escapeHtml(sec.nombre)}</b><br>Dispositivos: ${dispositivos} • Renglones: ${cant}`;
     kpis.appendChild(div);
   });
 
   // KPIs generales arriba
   const divGen1 = document.createElement("div");
   divGen1.className = "preview-kpi";
-  divGen1.innerHTML = `<b>Totales</b><br>Sectores: ${totalSectores} • Ítems: ${totalItems}`;
+  divGen1.innerHTML = `<b>Totales</b><br>Sectores: ${totalSectores} • Dispositivos: ${totalDispositivos} • Renglones: ${totalItems}`;
   kpis.prepend(divGen1);
 
   // Tabla detalle
@@ -688,4 +742,5 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Lista
   refrescarListaRelevamientos();
+  irAlInicio();
 });

@@ -12,3 +12,12 @@ Se conserva la estructura, los recursos, los usuarios y la versión completa de 
 No borres los datos del navegador: allí se conservan los borradores y los relevamientos locales.
 
 Textos simplificados: Buscar relevamiento, Abrir relevamiento y Descargar PDF y guardar en el equipo. La app reconoce el formato de los archivos automáticamente.
+
+ACTUALIZACIÓN: ÁREAS PLEGABLES
+En Relevamiento de Alarmas cada área aparece cerrada, con nombre editable y flecha.
+El número junto a la flecha suma las cantidades de dispositivos guardados en el área.
+Al cerrar un área no se borra lo cargado ni lo pendiente.
+La vista previa incluye todas las áreas y los dispositivos guardados.
+Al entrar, recargar o cambiar de paso, la vista arranca arriba.
+Esta actualización modifica relevamiento1.html y javas.js respecto al ZIP Textos-Claros.
+El ZIP incluye el proyecto completo para reemplazar todos los archivos como siempre.
