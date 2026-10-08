@@ -22,6 +22,7 @@ const eventos = [
   "Puerta Abierta", "Sirena Disparada"
 ];
 
+
 const areas = [
   "-", "Acceso Exterior", "Archivo", "ATM", "AutoConsulta", "Baños", "Bunker",
   "Caja de Seguridad", "Cajas de Pago", "Castillete", "Central Incendio", "Cocina",
