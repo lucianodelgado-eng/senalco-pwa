@@ -89,7 +89,7 @@ function agregarSectorPorNombre(nombre) {
   div.className = "sector";
 
   div.innerHTML = `
-    <h3 contenteditable>${nombre}</h3>
+    <h3 contenteditable>${escapeHtml(nombre)}</h3>
     <table class="tabla-editable">
       <thead>
         <tr>
@@ -316,9 +316,6 @@ const KEY_AUTO = "formularioRelevamiento";
 const KEY_PREFIX = "relevamiento_json_";
 const BORRADOR_1 = "relevamientoBorrador1";
 const BORRADOR_2 = "relevamientoBorrador2";
-let jsonPendiente = null;
-let nombreJsonActual = "";
-let crearDesdeAnterior = false;
 
 function guardarEstadoLocal() {
   const data = buildRelevamientoData();
@@ -326,9 +323,8 @@ function guardarEstadoLocal() {
 }
 
 function borrarFormulario() {
+  ArchivosJSON.reset();
   localStorage.removeItem(KEY_AUTO);
-  nombreJsonActual = "";
-  crearDesdeAnterior = false;
 
   ["entidad","sucursal","direccion","fecha","remito","relevado"].forEach(id => {
     const campo = document.getElementById(id);
@@ -344,9 +340,6 @@ function borrarFormulario() {
 
   refrescarListaRelevamientos();
   cerrarVistaPrevia();
-
-  const estado = document.getElementById("archivo-json-estado");
-  if (estado) estado.textContent = "Buscá un JSON guardado en esta PC o celular para volver a cargarlo.";
 }
 
 function guardarRelevamientoLocal(clave) {
@@ -366,11 +359,12 @@ function cargarRelevamientoLocal(clave) {
   if (!raw) return;
   const data = JSON.parse(raw);
   applyRelevamientoData(data);
+  ArchivosJSON.recordar({ key: clave, name: clave.replace(KEY_PREFIX, "") + ".json" });
   cerrarVistaPrevia();
 }
 
 /*******************************
- * JSON: respaldo y búsqueda en el dispositivo
+ *   JSON: Guardar / Descargar / Importar
  *******************************/
 function generarNombreBase() {
   const e = (document.getElementById("entidad")?.value || "entidad").trim();
@@ -380,88 +374,10 @@ function generarNombreBase() {
   return `relev_${safe(e)}_${safe(s)}_${safe(f || "sin_fecha")}`.replace(/_+/g, "_");
 }
 
-function guardarJSONNuevo() {
-  const data = buildRelevamientoData();
-  const nombre = generarNombreBase();
-  const key = KEY_PREFIX + nombre + "_" + Date.now();
-  localStorage.setItem(key, JSON.stringify(data));
-  alert("✅ JSON guardado en el teléfono");
-  refrescarListaRelevamientos();
-}
+async function guardarJSONNuevo() { return ArchivosJSON.exportar(); }
 
-function descargarJSONActual() {
-  const data = buildRelevamientoData();
-  const nombre = nombreJsonActual || `${generarNombreBase()}${crearDesdeAnterior ? "_nuevo" : ""}.json`;
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = nombre;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-}
-
-function esRelevamientoValido(data) {
-  if (!data || typeof data !== "object" || Array.isArray(data)) return false;
-  if (data.sectores !== undefined && !Array.isArray(data.sectores)) return false;
-  return ["entidad", "sucursal", "direccion", "fecha", "sectores"]
-    .some(campo => Object.prototype.hasOwnProperty.call(data, campo));
-}
-
-function cargarJsonPendiente(modo) {
-  if (!jsonPendiente) return;
-
-  const { data, nombre } = jsonPendiente;
-  nombreJsonActual = modo === "modificar" ? nombre : "";
-  crearDesdeAnterior = modo === "nuevo";
-
-  applyRelevamientoData(data);
-  cerrarVistaPrevia();
-
-  const estado = document.getElementById("archivo-json-estado");
-  if (estado) {
-    estado.textContent = modo === "modificar"
-      ? `Cargado para modificar: ${nombre}`
-      : `Cargado como base de un relevamiento nuevo: ${nombre}`;
-  }
-
-  document.getElementById("modal-modo-json")?.close();
-  jsonPendiente = null;
-}
-
-function mostrarOpcionesJson(data, file) {
-  jsonPendiente = { data, nombre: file.name };
-
-  const nombreEncontrado = document.getElementById("nombre-json-encontrado");
-  if (nombreEncontrado) nombreEncontrado.textContent = file.name;
-
-  const modal = document.getElementById("modal-modo-json");
-  if (modal?.showModal) {
-    modal.showModal();
-    return;
-  }
-
-  const modificar = confirm(
-    `Relevamiento encontrado: ${file.name}\n\nAceptar: modificar actual.\nCancelar: crear uno nuevo.`
-  );
-  cargarJsonPendiente(modificar ? "modificar" : "nuevo");
-}
-
-function buscarRelevamientoDesdeArchivo(file) {
-  const reader = new FileReader();
-  reader.onload = () => {
-    try {
-      const data = JSON.parse(reader.result);
-      if (!esRelevamientoValido(data)) throw new Error("Formato de relevamiento inválido");
-      mostrarOpcionesJson(data, file);
-    } catch (e) {
-      alert("❌ Ese archivo no es un relevamiento JSON válido");
-    }
-  };
-  reader.readAsText(file);
-}
+async function descargarJSONActual() { return ArchivosJSON.exportar(); }
+function importarJSONDesdeArchivo(file) { return ArchivosJSON.importar(file); }
 
 /*******************************
  * ✅ VISTA PREVIA
@@ -607,7 +523,10 @@ function refrescarListaRelevamientos() {
 /*******************************
  *        PDF (opcional)       *
  *******************************/
-function generarPDF() {
+async function generarPDF() {
+  if (!window.jspdf?.jsPDF) { alert("No se cargó la biblioteca PDF. Conectate a Internet y recargá la app."); return; }
+  const respaldo = await ArchivosJSON.exportar();
+  if (!respaldo) return;
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: "landscape" });
 
@@ -656,14 +575,14 @@ function generarPDF() {
 
     const encabezado = ["Dispositivo", "Cantidad", "Modelo", "Zona(instantanea/24hs)", "Observación de ubicacion"];
 
-    doc.autoTable({ startY: y, head: [[nombre]], theme: "plain", styles: { fontSize: 11 }, margin: { left: 10, right: 10 } });
+    doc.autoTable({ startY: y, head: [[nombre]], theme: "plain", styles: { fontSize: 11, textColor: [35, 35, 35] }, margin: { left: 10, right: 10 } });
 
     doc.autoTable({
       startY: doc.lastAutoTable.finalY + 2,
       head: [encabezado],
       body: filas,
       theme: "grid",
-      styles: { fontSize: 8 },
+      styles: { fontSize: 8, textColor: [35, 35, 35] },
       headStyles: { fillColor: [197, 0, 0], textColor: 255 },
       margin: { left: 10, right: 10 }
     });
@@ -671,8 +590,7 @@ function generarPDF() {
     y = doc.lastAutoTable.finalY + 14;
   });
 
-  doc.save("relevamiento.pdf");
-  descargarJSONActual();
+  doc.save(respaldo.base + ".pdf");
 }
 
 /*******************************
@@ -719,25 +637,26 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("btn-generar-pdf")?.addEventListener("click", generarPDF);
   document.getElementById("btn-borrar-form")?.addEventListener("click", borrarFormulario);
 
-  // Buscar un relevamiento JSON en la PC o el celular
+  // Borradores
+  document.getElementById("btn-borrador-1")?.addEventListener("click", () => guardarRelevamientoLocal(BORRADOR_1));
+  document.getElementById("btn-borrador-2")?.addEventListener("click", () => guardarRelevamientoLocal(BORRADOR_2));
+
+  // JSON
+  document.getElementById("btn-guardar-json")?.addEventListener("click", guardarJSONNuevo);
+  document.getElementById("btn-descargar-json")?.addEventListener("click", descargarJSONActual);
+
   const fileInput = document.getElementById("file-json");
-  document.getElementById("btn-buscar-json")?.addEventListener("click", () => fileInput?.click());
+  document.getElementById("btn-importar-json")?.addEventListener("click", () => fileInput.click());
   fileInput?.addEventListener("change", (e) => {
     const file = e.target.files?.[0];
-    if (file) buscarRelevamientoDesdeArchivo(file);
+    if (file) importarJSONDesdeArchivo(file);
     fileInput.value = "";
-  });
-
-  document.getElementById("btn-modificar-actual")?.addEventListener("click", () => cargarJsonPendiente("modificar"));
-  document.getElementById("btn-crear-nuevo")?.addEventListener("click", () => cargarJsonPendiente("nuevo"));
-  document.getElementById("btn-cancelar-json")?.addEventListener("click", () => {
-    jsonPendiente = null;
-    document.getElementById("modal-modo-json")?.close();
   });
 
   // ✅ Vista previa
   document.getElementById("btn-vista-previa")?.addEventListener("click", abrirVistaPrevia);
   document.getElementById("btn-preview-cerrar")?.addEventListener("click", cerrarVistaPrevia);
+  document.getElementById("btn-preview-descargar")?.addEventListener("click", descargarJSONActual);
 
   // Auto-guardar
   document.addEventListener("input", guardarEstadoLocal);

@@ -1,0 +1,140 @@
+/* Solo pantalla chica: se carga con media="screen and (max-width: 759px)".
+   No modifica datos, acciones, PDF, JSON ni estilos de escritorio. */
+@media screen and (max-width: 759px) {
+  body { margin: 0 auto; padding: 12px; font-size: 16px; line-height: 1.45; }
+  body h1 { font-size: 23px; line-height: 1.25; margin: 18px 0; overflow-wrap: anywhere; }
+  body h2 { font-size: 21px; line-height: 1.3; }
+  body h3 { font-size: 18px; line-height: 1.35; }
+  form { padding: 16px; border-radius: 16px; min-width: 0; }
+  form h1 { color: #202532; text-shadow: none; }
+  body label { font-size: 16px; line-height: 1.4; margin-top: 14px; }
+  body input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+  body select, body textarea {
+    font-size: 16px; min-height: 46px; padding: 11px 12px;
+    border-radius: 9px; max-width: 100%; min-width: 0; box-sizing: border-box;
+  }
+  body textarea { min-height: 90px; }
+  body input::placeholder, body textarea::placeholder { opacity: 1; color: #758097; }
+  body button, body .bigbtn, body .mini-btn {
+    font-size: 16px; min-height: 48px; padding: 12px 14px;
+    width: 100%; max-width: 100%; white-space: normal; line-height: 1.35;
+    overflow-wrap: anywhere; margin-top: 10px; touch-action: manipulation;
+  }
+  body button:hover { transform: none; }
+  body input:focus-visible, body select:focus-visible, body textarea:focus-visible,
+  body button:focus-visible { outline: 3px solid #5da8ec; outline-offset: 2px; }
+  body .logo-entrada { width: auto; height: 66px; max-width: 70%; object-fit: contain; margin: 10px auto 18px; }
+  .navegacion, .preview-actions, .visor-actions, .json-modal .json-acciones {
+    flex-direction: column; gap: 8px;
+  }
+  .navegacion button, .preview-actions button, .visor-actions button,
+  .json-modal .json-acciones button { margin-top: 0; }
+  .navegacion { margin-top: 16px; }
+  .btn-grid, .pt-top-grid, .pt-main-grid, .preview-grid, .visor-head {
+    grid-template-columns: minmax(0, 1fr); gap: 10px;
+  }
+  .section, .buscador-wrap, .bases-window, .pt-wrap, .consulta-wrap {
+    padding: 12px; min-width: 0; overflow-wrap: anywhere;
+  }
+  .consulta-top { align-items: stretch; gap: 8px; }
+  .consulta-top button { max-width: 100% !important; }
+  .section-head, .bases-window-head { min-height: 48px; }
+  .bases-window-head > div:last-child { width: 100%; }
+  .pt-subbox, .pt-card, .base-consulta-card { min-width: 0; overflow-wrap: anywhere; }
+  #vista-edicion-base > label, .chips label { color: #edf2f8; }
+  .chips { gap: 8px; }
+  body .chip { font-size: 15px; min-height: 44px; margin-top: 0; }
+  body .chip input { min-height: auto; padding: 0; }
+
+  /* Edición: cada fila conserva sus celdas y pasa a una ficha vertical. */
+  body #tabla-base, body .tabla-editable, body .tabla-cctv,
+  body .lista-dispositivos table { display: block; width: 100%; border: 0; background: transparent; }
+  body #tabla-base thead, body .tabla-editable thead,
+  body .tabla-cctv thead, body .lista-dispositivos thead { display: none; }
+  body #tabla-base tbody, body .tabla-editable tbody,
+  body .tabla-cctv tbody, body .lista-dispositivos tbody { display: block; width: 100%; }
+  body #tabla-base tbody tr, body .tabla-editable tbody tr,
+  body .tabla-cctv tbody tr, body .lista-dispositivos tbody tr {
+    display: block; width: 100%; margin: 0 0 14px; padding: 12px;
+    background: #fff; color: #202532; border: 1px solid #d8dfea;
+    border-radius: 12px; box-shadow: 0 3px 10px rgba(0,0,0,.1); box-sizing: border-box;
+  }
+  body #tabla-base tbody td, body .tabla-editable tbody td,
+  body .tabla-cctv tbody td, body .lista-dispositivos tbody td {
+    display: block; width: 100%; padding: 7px 0; border: 0;
+    color: #202532; text-align: left; box-sizing: border-box; overflow-wrap: anywhere;
+  }
+  body #tabla-base tbody td::before, body .tabla-editable tbody td::before,
+  body .tabla-cctv tbody td::before, body .lista-dispositivos tbody td::before {
+    display: block; font-size: 14px; line-height: 1.35; font-weight: 700;
+    color: #374359; margin-bottom: 6px;
+  }
+  body #tabla-base tbody td:first-child {
+    padding: 0 0 10px; margin-bottom: 6px; border-bottom: 1px solid #d8dfea;
+    font-size: 18px; font-weight: 700; color: #155a98;
+  }
+  body #tabla-base tbody td:nth-child(2)::before { content: "Evento"; }
+  body #tabla-base tbody td:nth-child(3)::before { content: "Área"; }
+  body #tabla-base tbody td:nth-child(4)::before { content: "Dispositivo"; }
+  body #tabla-base tbody td:nth-child(5)::before { content: "Descripción"; }
+  body .tabla-editable tbody td:nth-child(1)::before,
+  body .lista-dispositivos tbody td:nth-child(1)::before,
+  body .tabla-cctv tbody td:nth-child(1)::before { content: "Dispositivo"; }
+  body .tabla-editable tbody td:nth-child(2)::before,
+  body .lista-dispositivos tbody td:nth-child(2)::before { content: "Cantidad"; }
+  body .tabla-editable tbody td:nth-child(3)::before,
+  body .lista-dispositivos tbody td:nth-child(3)::before,
+  body .tabla-cctv tbody td:nth-child(3)::before { content: "Modelo"; }
+  body .tabla-editable tbody td:nth-child(4)::before,
+  body .lista-dispositivos tbody td:nth-child(4)::before { content: "Zona (instantánea / 24 hs)"; }
+  body .tabla-editable tbody td:nth-child(5)::before,
+  body .lista-dispositivos tbody td:nth-child(5)::before { content: "Observación / Ubicación"; }
+  body .tabla-cctv tbody td:nth-child(2)::before { content: "Tipo"; }
+  body .tabla-cctv tbody td:nth-child(4)::before { content: "Canal (NVR)"; }
+  body .tabla-cctv tbody td:nth-child(5)::before { content: "Observación / Ubicación"; }
+  body .tabla-cctv tbody td:nth-child(6)::before { content: "Imagen"; }
+  body #tabla-base tbody input, body #tabla-base tbody select,
+  body .tabla-editable tbody input, body .tabla-editable tbody select,
+  body .lista-dispositivos tbody input, body .tabla-cctv tbody input {
+    width: 100%; margin: 0; background: #f8fafc; color: #172334;
+    border: 1px solid #aebaca;
+  }
+  body #tabla-base tbody input:disabled, body #tabla-base tbody select:disabled {
+    color: #425067; -webkit-text-fill-color: #425067; opacity: 1; background: #edf1f6;
+  }
+  body .sector { padding: 12px; border-radius: 12px; }
+  body .sector h3 { margin: -12px -12px 12px; padding: 12px; overflow-wrap: anywhere; }
+  .sector-cctv { margin-top: 18px; min-width: 0; }
+  .sector-cctv .titulo-sector-cctv { font-weight: 700; }
+  .sector-cctv td img { max-width: 100%; object-fit: contain; }
+  .lista-dispositivos summary { padding: 12px 0; min-height: 44px; line-height: 1.4; }
+
+  /* Las vistas de consulta se deslizan dentro del panel, sin ensanchar la página. */
+  body .preview-box, body .visor-base-pdf { padding: 12px; max-width: 100%; min-width: 0; }
+  body .preview-table, body .visor-table, body #prev-body table { min-width: 620px; font-size: 14px; }
+  body .visor-base-pdf { overflow-x: auto; }
+  body .visor-actions button, body .visor-actions .mini-btn { color: #fff !important; }
+  body #prev-body th { color: #fff !important; }
+  body .modal { padding: 10px; }
+  body .modal .box { padding: 14px; max-height: 88vh; max-height: 88dvh; }
+  body .modal .row { align-items: stretch; }
+  body .json-modal { width: calc(100% - 20px); padding: 14px; max-height: 88vh; max-height: 88dvh; }
+  body .json-modal h2 { font-size: 21px; }
+  body #json-lista { max-height: 44vh; max-height: 44dvh; }
+  body .json-modal .json-archivo { margin-top: 8px; }
+  body .json-archivo span { font-size: 14px; line-height: 1.5; }
+  body #json-estado { font-size: 14px; }
+  body #lista-relevamientos { list-style: none; padding: 0; }
+  body #lista-relevamientos li {
+    padding: 12px; margin-top: 10px; border: 1px solid #d8dfea; border-radius: 10px;
+    background: #f8fafc; color: #202532; overflow-wrap: anywhere;
+  }
+  body #lista-relevamientos li button { width: 48px; margin: 6px 0 0 10px; padding: 10px; }
+  body form .drive-link {
+    display: block; padding: 12px; min-height: 48px; margin-top: 8px;
+    border-radius: 10px; background: #eef5fd; color: #155a98; font-weight: 700;
+    line-height: 1.5; overflow-wrap: anywhere;
+  }
+  body form .drive-note { color: #465368; font-size: 14px; }
+  body form p[style*="color:#fff"] { color: #465368 !important; opacity: 1 !important; }
+}

@@ -978,6 +978,7 @@ async function borrarTodoBases() {
     });
 
   const borradasIDB = await borrarIndexedDBSenalco();
+  ArchivosJSON.reset();
 
   setCurrentBaseName("");
 
@@ -1262,6 +1263,7 @@ function aplicarBloqueoZonas123() {
  *  Limpiar
  *  ========================================== */
 function limpiarBase() {
+  ArchivosJSON.reset();
   $("entidad").value = "";
   $("sucursal").value = "";
   $("abonado").value = "";
@@ -1350,75 +1352,7 @@ function addToIndex(nombre) {
 /** ==========================================
  *  Guardado
  *  ========================================== */
-function guardarRapidoConBackup() {
-  if (!isAdminBase()) {
-    alert("Modo técnico: los cambios son temporales y solo sirven para generar PDF. Para modificar la base oficial, avisá al administrador.");
-    return;
-  }
-  const data = construirJSONBase();
-  const current = getCurrentBaseName();
-  let nombre = "";
-
-  if (current && localStorage.getItem(baseKey(current))) {
-    const decision = prompt(
-      `Estás editando la base:\n\n${current}\n\nEscribí una opción:\n- ACTUAL para guardar sobre la actual\n- NUEVA para crear una nueva copia`,
-      "ACTUAL"
-    );
-
-    if (decision === null) return;
-
-    const modo = String(decision).trim().toUpperCase();
-
-    if (modo === "ACTUAL") {
-      nombre = current;
-    } else if (modo === "NUEVA") {
-      const sugerido = `${current} (mod ${fechaStamp()})`;
-      const nuevoNombre = prompt("Nombre de la nueva base:", sugerido);
-      if (nuevoNombre === null) return;
-
-      nombre = safeName(nuevoNombre.trim()) || sugerido;
-
-      if (localStorage.getItem(baseKey(nombre))) {
-        alert("⚠️ Ya existe una base con ese nombre.");
-        return;
-      }
-    } else {
-      alert("Operación cancelada. Escribí ACTUAL o NUEVA.");
-      return;
-    }
-  } else {
-    const sugerido = generarNombreAuto();
-    const decision = prompt(
-      "Base nueva.\n\nIngresá nombre para guardar.\nDejá vacío para usar automático:",
-      sugerido
-    );
-
-    if (decision === null) return;
-
-    nombre = safeName((decision || "").trim()) || sugerido;
-
-    if (localStorage.getItem(baseKey(nombre))) {
-      const sobrescribir = confirm(`Ya existe una base con ese nombre:\n\n${nombre}\n\n¿Querés reemplazarla?`);
-      if (!sobrescribir) return;
-    }
-  }
-
-  localStorage.setItem(baseKey(nombre), JSON.stringify(data));
-
-  if (typeof idbPutBase === "function") {
-    idbPutBase(baseKey(nombre), data).catch(console.warn);
-  }
-
-  addToIndex(nombre);
-  setCurrentBaseName(nombre);
-
-  descargarRawComoJSON(nombre, JSON.stringify(data, null, 2));
-
-  renderBuscadorRapido();
-  renderBasesMini();
-
-  alert("✅ Guardado + Backup\n" + nombre);
-}
+async function guardarRapidoConBackup() { return ArchivosJSON.exportar(); }
 
 function descargarRawComoJSON(nombre, rawJsonString) {
   const blob = new Blob([rawJsonString], { type: "application/json" });
@@ -1443,20 +1377,7 @@ function descargarBases() {
     alert("📦 Cuando termine la descarga:\n\n1. Volvé a la app\n2. Tocá 'Importar ZIP'");
   }, 1200);
 }
-function importarJSONBase(file) {
-  const reader = new FileReader();
-  reader.onload = () => {
-    try {
-      const data = JSON.parse(reader.result);
-      cargarDataEnPantalla(data);
-      setCurrentBaseName("");
-      alert("✅ JSON importado");
-    } catch {
-      alert("❌ JSON inválido");
-    }
-  };
-  reader.readAsText(file);
-}
+function importarJSONBase(file) { return ArchivosJSON.importar(file); }
 
 async function importarMuchosJSON(files) {
   let ok = 0, bad = 0;
@@ -2127,7 +2048,7 @@ function dibujarBaseEnPDF(doc, incluirPT = false) {
     ]);
   });
 
-  doc.autoTable({ head: [columnas], body: filas, startY: 60 });
+  doc.autoTable({ head: [columnas], body: filas, startY: 60, styles: { textColor: [35, 35, 35] }, headStyles: { textColor: 255 } });
 
   if (incluirPT) {
     const state = getPTState();
@@ -2165,7 +2086,8 @@ function dibujarBaseEnPDF(doc, incluirPT = false) {
           head: [["Campo", "Valor"]],
           body: ptRows,
           startY: y,
-          margin: { left: 14, right: 14 }
+          margin: { left: 14, right: 14 },
+          styles: { textColor: [35, 35, 35] }, headStyles: { textColor: 255 }
         });
 
         y = doc.lastAutoTable.finalY + 10;
@@ -2178,7 +2100,8 @@ function dibujarBaseEnPDF(doc, incluirPT = false) {
   }
 }
 
-function generarPDF() {
+async function generarPDF() {
+  if (!window.jspdf?.jsPDF) { alert("No se cargó la biblioteca PDF. Conectate a Internet y recargá la app."); return; }
   const ptState = getPTState();
   let incluirPT = false;
 
@@ -2192,10 +2115,12 @@ function generarPDF() {
     incluirPT = String(decision).trim().toUpperCase() === "PT";
   }
 
+  const respaldo = await ArchivosJSON.exportar();
+  if (!respaldo) return;
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
   dibujarBaseEnPDF(doc, incluirPT);
-  doc.save(`base_${safeName($("entidad").value || "base")}_${safeName($("sucursal").value || "")}_${safeName(fechaStamp())}.pdf`);
+  doc.save(respaldo.base + ".pdf");
 }
 
 /** ==========================================
@@ -2380,6 +2305,7 @@ function abrirBaseGuardada(nombre) {
 
   cargarDataEnPantalla(data);
   setCurrentBaseName(nombre);
+  ArchivosJSON.recordar({ key: baseKey(nombre), name: nombre + ".json" });
   alert("✅ Base abierta:\n" + nombre);
 }
 

@@ -140,6 +140,9 @@ function fileToBase64(file) {
 }
 
 document.getElementById('btn-generar-pdf-cctv').addEventListener('click', async () => {
+    if (!window.jspdf?.jsPDF) { alert('No se cargó la biblioteca PDF. Conectate a Internet y recargá la app.'); return; }
+    const respaldo = await ArchivosJSON.exportar();
+    if (!respaldo) return;
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation: "landscape" });
 
@@ -193,22 +196,23 @@ document.getElementById('btn-generar-pdf-cctv').addEventListener('click', async 
 
             const encabezado = Array.from(tabla.querySelectorAll("thead th"))
                 .slice(0, 5)
-                .map(th => th.innerText);
+                .map(th => th.textContent.trim());
 
             doc.autoTable({
                 head: [encabezado],
                 body: data,
                 startY: 30,
                 margin: { left: 14, right: 14 },
-                styles: { fontSize: 9 }
+                styles: { fontSize: 9, textColor: [35, 35, 35] },
+                headStyles: { textColor: 255 }
             });
 
             let imgY = doc.lastAutoTable.finalY + 5;
             for (let tr of filas) {
                 const fileInput = tr.querySelector("input[type='file']");
-                if (fileInput?.files?.[0]) {
+                if (fileInput?.files?.[0] || tr.querySelector('td img')?.src) {
                     try {
-                        const imgBase64 = await fileToBase64(fileInput.files[0]);
+                        const imgBase64 = fileInput?.files?.[0] ? await fileToBase64(fileInput.files[0]) : tr.querySelector('td img').src;
                         doc.setFontSize(10);
                         doc.text("Imagen:", 14, imgY);
                         doc.addImage(imgBase64, 'JPEG', 20, imgY + 2, 60, 40);
@@ -223,5 +227,5 @@ document.getElementById('btn-generar-pdf-cctv').addEventListener('click', async 
         }
     }
 
-    doc.save("Relevamiento_CCTV.pdf");
+    doc.save(respaldo.base + ".pdf");
 });

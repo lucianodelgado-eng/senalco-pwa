@@ -71,30 +71,8 @@
             flex-wrap: wrap;
             margin-top: 10px;
         }
-
-        .archivo-encontrado {
-            color: #fff;
-            opacity: .9;
-            margin: 10px 0 0;
-            overflow-wrap: anywhere;
-        }
-
-        .modal-json {
-            width: min(92vw, 430px);
-            border: 0;
-            border-radius: 14px;
-            padding: 20px;
-            box-shadow: 0 16px 45px rgba(0, 0, 0, .35);
-        }
-
-        .modal-json::backdrop {
-            background: rgba(0, 0, 0, .65);
-        }
-
-        .modal-json .preview-actions button {
-            flex: 1 1 150px;
-        }
     </style>
+    <link rel="stylesheet" href="movil.css" media="screen and (max-width: 759px)" />
 </head>
 
 <body>
@@ -139,23 +117,23 @@
             <button type="button" id="atras">Atrás</button>
             <button type="button" id="siguiente">Siguiente</button>
 
-            <button type="button" id="btn-generar-pdf">Descargar PDF</button>
+            <button type="button" id="btn-generar-pdf">Generar PDF</button>
             <button type="button" id="btn-borrar-form">Borrar formulario guardado</button>
         </div>
 
-        <!-- VISTA PREVIA Y BÚSQUEDA DE RELEVAMIENTOS -->
+        <!-- ✅ BLOQUE JSON + VISTA PREVIA -->
         <div style="margin-top:20px;">
-            <h3>📁 Relevamientos</h3>
+            <h3>📦 Gestión (JSON / Teléfono)</h3>
 
             <div class="navegacion">
                 <button type="button" id="btn-vista-previa">👁️ Vista previa</button>
-                <button type="button" id="btn-buscar-json">🔎 Buscar relevamiento</button>
-                <input type="file" id="file-json" accept=".json,application/json" style="display:none;" />
-            </div>
 
-            <p id="archivo-json-estado" class="archivo-encontrado">
-                Buscá un JSON guardado en esta PC o celular para volver a cargarlo.
-            </p>
+                <button type="button" id="btn-guardar-json">💾 Guardar JSON</button>
+                <button type="button" id="btn-descargar-json">⬇️ Descargar JSON</button>
+
+                <button type="button" id="btn-importar-json">📤 Importar JSON</button>
+                <input type="file" id="file-json" accept="application/json" style="display:none;" />
+            </div>
 
             <!-- ✅ Panel de Vista Previa -->
             <div id="preview-box" class="preview-box">
@@ -165,6 +143,7 @@
 
                 <div class="preview-actions">
                     <button type="button" id="btn-preview-cerrar">Cerrar vista</button>
+                    <button type="button" id="btn-preview-descargar">⬇️ Descargar JSON</button>
                 </div>
 
                 <div style="margin-top:10px;">
@@ -173,7 +152,6 @@
                         <table class="preview-table" id="preview-table">
                             <thead>
                                 <tr>
-                                    
                                     <th>Sector</th>
                                     <th>Dispositivo</th>
                                     <th>Cant.</th>
@@ -189,20 +167,17 @@
             </div>
 
             <p style="color:#fff; opacity:.85; margin-top:10px;">
-                Al descargar el PDF también se guarda automáticamente su respaldo JSON.
+                Tip: Descargás el JSON y lo compartís desde “Descargas” por WhatsApp/Mail.
             </p>
-        </div>
 
-        <dialog id="modal-modo-json" class="modal-json">
-            <h3 style="margin-top:0;">Relevamiento encontrado</h3>
-            <p id="nombre-json-encontrado"></p>
-            <p>¿Querés modificar este relevamiento o usarlo como base para crear uno nuevo?</p>
-            <div class="preview-actions">
-                <button type="button" id="btn-modificar-actual">Modificar actual</button>
-                <button type="button" id="btn-crear-nuevo">Crear nuevo</button>
-                <button type="button" id="btn-cancelar-json">Cancelar</button>
+            <h3 style="margin-top:18px;">📁 Relevamientos guardados</h3>
+            <ul id="lista-relevamientos"></ul>
+
+            <div class="navegacion">
+                <button type="button" id="btn-borrador-1">💾 Guardar como Borrador 1</button>
+                <button type="button" id="btn-borrador-2">💾 Guardar como Borrador 2</button>
             </div>
-        </dialog>
+        </div>
 
         <!-- DRIVE -->
         <div style="margin-top: 20px;">
@@ -225,6 +200,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.7.0/jspdf.plugin.autotable.min.js"></script>
 
     <script src="javas.js"></script>
+    <script src="archivos-json.js"></script>
 
     <div style="text-align:center; margin-top:30px;">
         <button type="button" onclick="cerrarSesion()" style="padding:10px 20px; font-size:16px;">
