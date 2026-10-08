@@ -305,6 +305,22 @@ function applyRelevamientoData(data) {
     if (contador) contador.textContent = String(count);
   });
 
+  if (data._borrador) {
+    contenedor.querySelectorAll('.sector').forEach((sector, n) => {
+      const pendiente = data._borrador.pendientes?.[n];
+      sector.querySelectorAll('.tabla-editable tbody input, .tabla-editable tbody select').forEach((campo, i) => {
+        if (pendiente?.[i] != null) campo.value = pendiente[i];
+      });
+      const select = sector.querySelector('.tabla-editable select');
+      if (select) mostrarOtro(select);
+      const detalle = sector.querySelector('details');
+      if (detalle) detalle.open = !!data._borrador.abiertos?.[n];
+    });
+    if (secciones?.length) {
+      paso = Math.max(0, Math.min(secciones.length - 1, Number(data._borrador.paso) || 0));
+      mostrarPaso(paso);
+    }
+  }
   guardarEstadoLocal();
   refrescarListaRelevamientos();
 }
@@ -319,10 +335,18 @@ const BORRADOR_2 = "relevamientoBorrador2";
 
 function guardarEstadoLocal() {
   const data = buildRelevamientoData();
+  // El borrador incluye lo que todavía no se agregó a la tabla ni al PDF.
+  data._borrador = {
+    paso,
+    pendientes: Array.from(document.querySelectorAll('.sector'), sector =>
+      Array.from(sector.querySelectorAll('.tabla-editable tbody input, .tabla-editable tbody select'), i => i.value)),
+    abiertos: Array.from(document.querySelectorAll('.sector details'), d => d.open)
+  };
   localStorage.setItem(KEY_AUTO, JSON.stringify(data));
 }
 
 function borrarFormulario() {
+  if (!confirm("¿Limpiar el formulario para empezar otro? Los JSON guardados se conservan.")) return;
   ArchivosJSON.reset();
   localStorage.removeItem(KEY_AUTO);
 
@@ -340,6 +364,7 @@ function borrarFormulario() {
 
   refrescarListaRelevamientos();
   cerrarVistaPrevia();
+  ArchivosJSON.marcarSinCambios();
 }
 
 function guardarRelevamientoLocal(clave) {
@@ -608,13 +633,14 @@ const sectoresPrecargados = [
 ];
 
 document.addEventListener("DOMContentLoaded", () => {
+  if (window.senalcoAuth?.allowed === false) return;
   // Paso / navegación
   secciones = document.querySelectorAll(".seccion");
   btnAtras = document.getElementById("atras");
   btnSig = document.getElementById("siguiente");
 
-  btnSig.onclick = () => { if (paso < secciones.length - 1) { paso++; mostrarPaso(paso); } };
-  btnAtras.onclick = () => { if (paso > 0) { paso--; mostrarPaso(paso); } };
+  btnSig.onclick = () => { if (paso < secciones.length - 1) { paso++; mostrarPaso(paso); guardarEstadoLocal(); } };
+  btnAtras.onclick = () => { if (paso > 0) { paso--; mostrarPaso(paso); guardarEstadoLocal(); } };
   mostrarPaso(paso);
 
   // Cargar auto guardado o precarga
@@ -622,9 +648,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (auto) {
     try {
       const data = JSON.parse(auto);
-      const tieneAlgo = (data.sectores || []).some(s => (s.filas || []).length > 0);
-      if (tieneAlgo) applyRelevamientoData(data);
-      else sectoresPrecargados.forEach(n => agregarSectorPorNombre(n));
+      applyRelevamientoData(data);
     } catch {
       sectoresPrecargados.forEach(n => agregarSectorPorNombre(n));
     }
@@ -660,6 +684,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Auto-guardar
   document.addEventListener("input", guardarEstadoLocal);
+  document.addEventListener("change", guardarEstadoLocal);
 
   // Lista
   refrescarListaRelevamientos();

@@ -58,8 +58,7 @@
     <script src="archivos-json.js"></script>
     <script>
         function cerrarSesion() {
-            localStorage.removeItem("logueado");
-            window.location.href = "login.html";
+            window.senalcoAuth.logout();
         }
     </script>
 

@@ -1,7 +1,7 @@
 /* Respaldo de relevamientos. Acceso exclusivamente a archivos elegidos por el técnico. */
 window.ArchivosJSON = (() => {
   'use strict';
-  let actual = null, carpeta = null, entradas = [], ocupado = false, secuencia = 0;
+  let actual = null, carpeta = null, entradas = [], ocupado = false, secuencia = 0, ultimoFormulario = "";
   const tipo = document.getElementById('tabla-base') ? 'base' : document.getElementById('form-relevamiento-cctv') ? 'cctv' : 'alarmas';
   const $ = id => document.getElementById(id);
   const normal = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
@@ -57,8 +57,19 @@ window.ArchivosJSON = (() => {
       }
     }
   }
-  function avisar(t) { $('json-estado').textContent = t; }
-  function recordar(origen) { actual = origen; avisar('Archivo abierto: ' + origen.name); }
+  function captura() {
+    if (tipo === 'alarmas') return JSON.stringify(buildRelevamientoData());
+    if (tipo === 'base') { const d = construirJSONBase(); delete d.meta; return JSON.stringify(d); }
+    return JSON.stringify({campos:['entidad','sucursal','direccion','fecha','remito'].map(k => $(k+'-cctv').value), sectores:Array.from(document.querySelectorAll('.sector-cctv'), sec => ({nombre:sec.querySelector('.titulo-sector-cctv').value, filas:Array.from(sec.querySelectorAll('tbody tr'), tr => ({valores:Array.from(tr.querySelectorAll('input[type=text]'), i => i.value),imagen:tr.querySelector('img')?.src || '',archivo:tr.querySelector('input[type=file]')?.files?.[0]?.name || ''}))}))});
+  }
+  function marcarSinCambios() { ultimoFormulario = captura(); }
+  function confirmarCarga() {
+    const tieneDatos = tipo === 'alarmas' ? ['entidad','sucursal','direccion','fecha','remito','relevado'].some(k => $(k).value.trim()) || Array.from(document.querySelectorAll('.sector details input')).some(i => i.value.trim()) : true;
+    return (actual ? captura() === ultimoFormulario : !tieneDatos) || confirm('Hay datos sin exportar en el formulario. ¿Reemplazarlos con el relevamiento seleccionado?');
+  }
+  function cerrarBuscador() { const el = $('json-buscador'); if (el instanceof HTMLDialogElement && el.open) el.close(); }
+  function avisar(t) { const el = $('json-estado'); if (el) el.textContent = t; }
+  function recordar(origen) { actual = origen; marcarSinCambios(); avisar('Archivo abierto: ' + origen.name); }
   function reset() { actual = null; avisar('Nuevo relevamiento.'); }
   function descargar(d, name) {
     const url = URL.createObjectURL(new Blob([JSON.stringify(d, null, 2)], {type:'application/json'}));
@@ -87,6 +98,7 @@ window.ArchivosJSON = (() => {
       }
       const d = await construir();
       const name = modo === 'modificar' ? (actual.handle ? actual.name : seguro(actual.name.replace(/\.json$/i,'').split('_actualizado_')[0])+'_actualizado_'+sello()+'.json') : seguro([tipo,d.entidad,d.sucursal,d.abonado || d.fecha].filter(Boolean).join('_'))+'_'+sello()+'.json';
+      d._archivoJSON.nombre = name;
       if (modo === 'modificar' && actual.handle) {
         const antes = await (await actual.handle.getFile()).text();
         if (actual.raw != null && antes !== actual.raw) { alert('El archivo cambió desde que lo abriste. Volvé a cargarlo antes de modificarlo.'); return null; }
@@ -103,6 +115,8 @@ window.ArchivosJSON = (() => {
         else if (tipo === 'alarmas') refrescarListaRelevamientos();
       } catch { alert('El JSON se exportó, pero no hay espacio para guardar otra copia dentro de la app.'); }
       recordar(origen);
+      if (origen.handle) { const encontrado = entradas.find(i => i.handle === origen.handle); if (encontrado) encontrado.data = d; }
+      render();
       avisar((origen.handle ? 'JSON actualizado: ' : 'JSON descargado: ') + name);
       return {base:name.replace(/\.json$/i,''),data:d};
     } catch (e) {
@@ -110,24 +124,36 @@ window.ArchivosJSON = (() => {
       return null;
     } finally { ocupado = false; }
   }
-  async function importar(file, handle = null) {
+  async function importar(file, handle = null, key = null) {
     try {
       const raw = await file.text(), d = JSON.parse(raw);
       if (!valido(d)) throw new Error('No corresponde a este formulario o tiene datos incompletos.');
-      if (!confirm('¿Cargar ' + file.name + '? Se reemplazan los datos visibles del formulario.')) return;
-      aplicar(d); recordar({name:file.name,handle,raw});
-      if (tipo === 'base') setCurrentBaseName('');
-      $('json-buscador').close();
+      if (!confirmarCarga()) return;
+      aplicar(d);
+      key ||= tipo === 'base' ? baseKey(seguro(file.name.replace(/\.json$/i,''))+'_'+sello()) : 'relevamiento_json_importado_' + sello();
+      try {
+        const copia = {...d, _archivoJSON:{...d._archivoJSON, tipo, version:1, nombre:file.name}};
+        localStorage.setItem(key, JSON.stringify(copia));
+        if (tipo === 'base') { addToIndex(key.slice(BASE_PREFIX.length)); setCurrentBaseName(key.slice(BASE_PREFIX.length));renderBuscadorRapido();renderBasesMini(); }
+      } catch { avisar('Archivo cargado. No se pudo guardar una copia en la app.'); }
+      recordar({name:file.name,handle,raw,key});
+      render(); cerrarBuscador();
     } catch (e) { alert('No se pudo cargar el JSON: ' + e.message); }
   }
   function locales() {
     return Object.keys(localStorage).filter(k => tipo === 'base' ? k.startsWith(BASE_PREFIX) && ![AUTOSAVE_KEY,FILTER_PREF_KEY].includes(k) : k.startsWith('relevamiento_json_') || (tipo === 'alarmas' && ['relevamientoBorrador1','relevamientoBorrador2'].includes(k))).flatMap(key => {
-      try { const d=JSON.parse(localStorage.getItem(key)); return valido(d) ? [{key,name:key.replace(tipo==='base'?BASE_PREFIX:'relevamiento_json_','').replace(/\.json$/i,'')+'.json',data:d,ubicacion:'Guardado en la app'}] : []; } catch { return []; }
+      try { const d=JSON.parse(localStorage.getItem(key)); return valido(d) ? [{key,name:d._archivoJSON?.nombre || key.replace(tipo==='base'?BASE_PREFIX:'relevamiento_json_','').replace(/\.json$/i,'')+'.json',data:d,ubicacion:'Guardado en la app'}] : []; } catch { return []; }
     });
   }
   function render() {
     const q=normal($('json-buscar').value), lista=$('json-lista'); lista.replaceChildren();
-    const items=[...entradas,...locales()].filter(i => normal([i.name,i.ubicacion,i.data.entidad,i.data.sucursal,i.data.abonado,i.data.fecha,i.data.direccion,i.data.remito,i.data.relevado].join(' ')).includes(q));
+    const unicos = new Map();
+    for (const item of [...entradas, ...locales()]) {
+      const contenido = {...item.data}; delete contenido._archivoJSON;
+      const sig = item.name + JSON.stringify(contenido), previo = unicos.get(sig);
+      if (previo) { if (!previo.key && item.key) previo.key = item.key; } else unicos.set(sig, item);
+    }
+    const items=Array.from(unicos.values()).filter(i => normal([i.name,i.ubicacion,i.data.entidad,i.data.sucursal,i.data.abonado,i.data.fecha,i.data.direccion,i.data.remito,i.data.relevado].join(' ')).includes(q));
     $('json-conteo').textContent=items.length+' relevamiento(s) compatible(s)';
     if (!items.length) { const p=document.createElement('p');p.textContent='No hay coincidencias. Elegí Descargas o agregá archivos JSON.';lista.append(p); }
     for (const i of items) {
@@ -135,8 +161,8 @@ window.ArchivosJSON = (() => {
       const titulo=document.createElement('strong');titulo.textContent=i.name;
       const desc=document.createElement('span');desc.textContent=[i.data.entidad,i.data.sucursal,i.data.abonado,i.data.fecha,i.ubicacion].filter(Boolean).join(' · ');
       b.append(titulo,desc);b.onclick=async()=> {
-        if (i.key) { if (!confirm('¿Cargar este relevamiento? Se reemplazan los datos visibles.')) return; aplicar(i.data);recordar({key:i.key,name:i.name});if(tipo==='base')setCurrentBaseName(i.key.slice(BASE_PREFIX.length));$('json-buscador').close(); }
-        else { try { const f=i.handle?await i.handle.getFile():i.file;await importar(f,i.handle); } catch { alert('No se pudo releer el archivo. Volvé a seleccionar la carpeta o el JSON.'); } }
+        if (i.key && !i.file) { if (!confirmarCarga()) return; aplicar(i.data);recordar({key:i.key,name:i.name});if(tipo==='base')setCurrentBaseName(i.key.slice(BASE_PREFIX.length));cerrarBuscador(); }
+        else { try { const f=i.handle?await i.handle.getFile():i.file;await importar(f,i.handle,i.key); } catch { alert('No se pudo releer el archivo. Volvé a seleccionar la carpeta o el JSON.'); } }
       };lista.append(b);
     }
   }
@@ -166,9 +192,47 @@ window.ArchivosJSON = (() => {
     try { const hs=await window.showOpenFilePicker({multiple:true,startIn:'downloads',types:[{description:'Relevamientos JSON',accept:{'application/json':['.json']}}]});await indexar(await Promise.all(hs.map(async handle=>({handle,file:await handle.getFile(),ubicacion:'Archivo seleccionado'})))); }
     catch(e) { if(e.name!=='AbortError') alert('No se pudieron leer los archivos.'); }
   }
-  function abrir() { render();$('json-buscador').showModal(); }
+  function abrir() { render(); const el=$('json-buscador'); if (el instanceof HTMLDialogElement) el.showModal(); else el.scrollIntoView({behavior:'smooth',block:'nearest'}); }
   document.addEventListener('DOMContentLoaded', () => {
+    if (window.senalcoAuth?.allowed === false) return;
+    const CCTV_DRAFT = 'senalco_cctv_autosave';
+    let versionBorrador = 0;
+    async function guardarBorradorCCTV() {
+      const version = ++versionBorrador;
+      const d = await construir();
+      d._borrador = {paso:pasoCCTV};
+      if (version === versionBorrador) localStorage.setItem(CCTV_DRAFT, JSON.stringify(d));
+    }
+    if (tipo === 'cctv') {
+      try {
+        const d = JSON.parse(localStorage.getItem(CCTV_DRAFT) || 'null');
+        if (valido(d)) {
+          aplicar(d);
+          pasoCCTV = Math.max(0, Math.min(seccionesCCTV.length - 1, Number(d._borrador?.paso) || 0));
+          seccionesCCTV.forEach((sec, n) => sec.style.display = n === pasoCCTV ? 'block' : 'none');
+          btnAtrasCCTV.style.display = pasoCCTV === 0 ? 'none' : 'inline-block';
+          btnSiguienteCCTV.style.display = pasoCCTV === seccionesCCTV.length - 1 ? 'none' : 'inline-block';
+        }
+      } catch (e) { console.warn('No se pudo recuperar el borrador CCTV', e); }
+      ['input','change','click'].forEach(evento => document.addEventListener(evento, () => {
+        guardarBorradorCCTV().catch(e => console.error('No se pudo guardar el borrador CCTV', e));
+      }));
+    }
+    window.senalcoAuth?.registerDraftSaver(() => {
+      if (tipo === 'alarmas') return guardarEstadoLocal();
+      if (tipo === 'base') return autosaveBase();
+      return guardarBorradorCCTV();
+    });
+    const dock = $('json-ventana');
     const css=document.createElement('style');css.textContent=`
+      .json-panel{margin-top:18px;padding:14px;background:#f8fafc;color:#202532;border:1px solid #d8dfea;border-radius:12px}
+      .json-panel h2{font-size:19px;margin:0;text-align:left}.json-panel p{font-size:14px;color:#465368;margin:8px 0}
+      .json-panel label{color:#374359}.json-panel .json-acciones{display:flex;gap:8px;flex-wrap:wrap}
+      .json-panel .json-acciones button{margin-top:8px;flex:1;min-height:44px}.json-panel #json-lista{height:230px;max-height:230px;overflow:auto;padding:4px}
+      .json-panel .json-archivo{display:block;width:100%;text-align:left;margin:6px 0;padding:10px;background:#fff;color:#202532;border:1px solid #d8dfea;box-shadow:none;overflow-wrap:anywhere;font-size:14px}
+      .json-panel .json-archivo strong{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+      .json-panel .json-archivo span{display:block;font-size:13px;font-weight:normal;margin-top:4px;color:#465368}
+      .json-panel #json-estado{font-size:13px;overflow-wrap:anywhere}
       .json-modal{width:min(720px,94vw);max-height:86vh;padding:20px;border:0;border-radius:16px;background:#fff;color:#222;box-sizing:border-box;overflow:auto}
       .json-modal::backdrop{background:rgba(0,0,0,.6)} .json-modal h2{margin:0 0 12px;color:#222;font-size:21px}
       .json-modal p{line-height:1.45;color:#444} .json-modal .json-acciones{display:flex;gap:10px;flex-wrap:wrap}
@@ -192,16 +256,32 @@ window.ArchivosJSON = (() => {
       </dialog>
       <input type="file" id="json-input-archivos" accept=".json,application/json" multiple hidden>
       <input type="file" id="json-input-carpeta" webkitdirectory multiple hidden>
-    `;document.body.append(html);
+    `;
+    if (dock) {
+      const original = html.querySelector('#json-buscador');
+      const panel = document.createElement('section'); panel.id = original.id; panel.className = 'json-panel';
+      panel.setAttribute('aria-labelledby','json-titulo'); panel.innerHTML = original.innerHTML; original.replaceWith(panel);
+      panel.querySelector('h2').textContent = 'Relevamientos guardados';
+      panel.querySelector('p').textContent = 'Elegí un nombre para cargarlo. Los archivos se muestran dentro de esta ventana.';
+      panel.querySelector('#json-carpeta').textContent = 'Buscar en el equipo';
+      panel.querySelector('#json-archivos').textContent = 'Importar JSON';
+      panel.querySelector('#json-refrescar').hidden = true;
+      panel.querySelector('#json-cerrar').hidden = true;
+      dock.append(panel);
+    }
+    document.body.append(html);
     const b=document.createElement('button');b.type='button';b.textContent='🔎 Buscar JSON en el equipo';b.id='btn-buscar-json';b.onclick=abrir;
-    const ancla=$('btn-importar-json')||$('btn-importar-json-top')||$('siguiente-cctv');ancla.parentNode.append(b);
-    const estado=document.createElement('p');estado.id='json-estado';estado.setAttribute('role','status');ancla.parentNode.after(estado);
-    $('json-carpeta').onclick=elegirCarpeta;$('json-archivos').onclick=elegirArchivos;$('json-cerrar').onclick=()=>$('json-buscador').close();$('json-buscar').oninput=render;
+    const ancla=$('btn-importar-json')||$('btn-importar-json-top')||$('siguiente-cctv');
+    if (!dock && ancla) ancla.parentNode.append(b);
+    const estado=document.createElement('p');estado.id='json-estado';estado.setAttribute('role','status');
+    if (dock) dock.querySelector('section').append(estado);else if(ancla)ancla.parentNode.after(estado);
+    $('json-carpeta').onclick=elegirCarpeta;$('json-archivos').onclick=elegirArchivos;$('json-cerrar').onclick=cerrarBuscador;$('json-buscar').oninput=render;
     $('json-refrescar').onclick=async()=>{try{if(carpeta)await indexar(await recorrer(carpeta));else render();}catch{alert('No se pudo releer la carpeta. Volvé a elegirla.');}};
     document.querySelectorAll('[data-json-decision]').forEach(b=>b.onclick=()=>$('json-decision').close(b.dataset.jsonDecision));
     $('json-input-archivos').onchange=async e=>{await indexar(Array.from(e.target.files,f=>({file:f,ubicacion:'Archivo seleccionado'})));e.target.value='';};
     $('json-input-carpeta').onchange=async e=>{carpeta=null;await indexar(Array.from(e.target.files,f=>({file:f,ubicacion:f.webkitRelativePath||f.name})));e.target.value='';};
     $('json-decision').addEventListener('cancel',()=>{$('json-decision').returnValue='cancelar';});
+    marcarSinCambios(); render();
   });
-  return {exportar,importar,recordar,reset};
+  return {exportar,importar,recordar,reset,marcarSinCambios};
 })();

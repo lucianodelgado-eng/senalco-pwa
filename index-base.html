@@ -235,7 +235,7 @@
   </div>
 
   <script>
-    function cerrarSesion(){try{if(typeof logout==="function"){logout();return;}}catch(e){} localStorage.removeItem("logueado");localStorage.removeItem("perfil");localStorage.removeItem("usuario");localStorage.removeItem("rol");localStorage.removeItem("senalco_session_v2");window.location.href="index.html";}
+    function cerrarSesion(){if(window.senalcoAuth){window.senalcoAuth.logout();return;}try{if(typeof logout==="function"){logout();return;}}catch(e){} localStorage.removeItem("logueado");localStorage.removeItem("perfil");localStorage.removeItem("usuario");localStorage.removeItem("rol");localStorage.removeItem("senalco_session_v2");window.location.href="index.html";}
     function toggleSection(id){const el=document.getElementById(id);if(!el)return;el.classList.toggle("open");const arrow=el.querySelector(".section-head div:last-child");if(arrow)arrow.textContent=el.classList.contains("open")?"⬆️":"⬇️";}
     function toggleBasesWindow(){const el=document.getElementById("bases-window");const arrow=document.getElementById("bases-window-arrow");if(!el)return;el.classList.toggle("open");if(arrow)arrow.textContent=el.classList.contains("open")?"⬆️":"⬇️";}
 
@@ -335,7 +335,10 @@
 
     document.addEventListener("DOMContentLoaded",()=>{
       setTimeout(()=>{
-        mostrarConsultaBase();
+        let borrador = null;
+        try { borrador = JSON.parse(localStorage.getItem("senalco_base_autosave") || "null"); } catch {}
+        if (borrador?._borrador?.edicion) mostrarEdicionBase();
+        else mostrarConsultaBase();
         renderConsultaBases();
         document.getElementById("buscar-consulta-base")?.addEventListener("input",renderConsultaBases);
         document.getElementById("btn-nueva-base-consulta")?.addEventListener("click",nuevaBaseDesdeConsulta);

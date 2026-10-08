@@ -116,25 +116,14 @@
         <div class="navegacion">
             <button type="button" id="atras">Atrás</button>
             <button type="button" id="siguiente">Siguiente</button>
-
-            <button type="button" id="btn-generar-pdf">Generar PDF</button>
-            <button type="button" id="btn-borrar-form">Borrar formulario guardado</button>
         </div>
-
-        <!-- ✅ BLOQUE JSON + VISTA PREVIA -->
-        <div style="margin-top:20px;">
-            <h3>📦 Gestión (JSON / Teléfono)</h3>
-
-            <div class="navegacion">
-                <button type="button" id="btn-vista-previa">👁️ Vista previa</button>
-
-                <button type="button" id="btn-guardar-json">💾 Guardar JSON</button>
-                <button type="button" id="btn-descargar-json">⬇️ Descargar JSON</button>
-
-                <button type="button" id="btn-importar-json">📤 Importar JSON</button>
-                <input type="file" id="file-json" accept="application/json" style="display:none;" />
-            </div>
-
+        <div class="navegacion" aria-label="Acciones del relevamiento">
+            <button type="button" id="btn-vista-previa">Vista previa</button>
+            <button type="button" id="btn-generar-pdf">Generar PDF + JSON</button>
+            <button type="button" id="btn-borrar-form">Limpiar formulario</button>
+        </div>
+        <div id="json-ventana"></div>
+        <div>
             <!-- ✅ Panel de Vista Previa -->
             <div id="preview-box" class="preview-box">
                 <h3 style="margin:0;">👁️ Vista previa del relevamiento</h3>
@@ -143,7 +132,6 @@
 
                 <div class="preview-actions">
                     <button type="button" id="btn-preview-cerrar">Cerrar vista</button>
-                    <button type="button" id="btn-preview-descargar">⬇️ Descargar JSON</button>
                 </div>
 
                 <div style="margin-top:10px;">
@@ -166,17 +154,6 @@
                 </div>
             </div>
 
-            <p style="color:#fff; opacity:.85; margin-top:10px;">
-                Tip: Descargás el JSON y lo compartís desde “Descargas” por WhatsApp/Mail.
-            </p>
-
-            <h3 style="margin-top:18px;">📁 Relevamientos guardados</h3>
-            <ul id="lista-relevamientos"></ul>
-
-            <div class="navegacion">
-                <button type="button" id="btn-borrador-1">💾 Guardar como Borrador 1</button>
-                <button type="button" id="btn-borrador-2">💾 Guardar como Borrador 2</button>
-            </div>
         </div>
 
         <!-- DRIVE -->
@@ -210,8 +187,7 @@
 
     <script>
         function cerrarSesion() {
-            localStorage.removeItem("logueado");
-            window.location.href = "login.html";
+            window.senalcoAuth.logout();
         }
     </script>
 </body>

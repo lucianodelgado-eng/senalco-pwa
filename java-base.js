@@ -2505,7 +2505,9 @@ function renderBasesMini() {
  *  ========================================== */
 function autosaveBase() {
   try {
-    localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(construirJSONBase()));
+    const data = construirJSONBase();
+    data._borrador = {edicion: document.getElementById("vista-edicion-base")?.style.display === "block"};
+    localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(data));
   } catch { }
 }
 
@@ -2513,7 +2515,9 @@ function autosaveBase() {
  *  Bootstrap
  *  ========================================== */
 window.addEventListener("DOMContentLoaded", () => {
-  if (!document.querySelector("#tabla-base")) return;
+  if (!document.querySelector("#tabla-base") || window.senalcoAuth?.allowed === false) return;
+  // Leer antes de precargar: esa función también guarda y pisaría el borrador.
+  const raw = localStorage.getItem(AUTOSAVE_KEY);
 
   if (typeof migrateLocalStorageToIDB === "function") {
     migrateLocalStorageToIDB().catch(console.warn);
@@ -2524,10 +2528,10 @@ window.addEventListener("DOMContentLoaded", () => {
   aplicarPreferenciaFiltros();
   renderPTUI();
 
-  const raw = localStorage.getItem(AUTOSAVE_KEY);
   if (raw) {
     try {
       const data = JSON.parse(raw);
+      if (data._borrador?.edicion && typeof mostrarEdicionBase === "function") mostrarEdicionBase();
       cargarDataEnPantalla(data);
       setCurrentBaseName("");
     } catch { }

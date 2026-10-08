@@ -16,7 +16,7 @@ const OLD_KEYS_TO_PURGE = [
 ];
 
 // ⏳ Expiración de sesión
-const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 días
+const SESSION_TTL_MS = 10 * 60 * 1000; // 10 minutos sin actividad
 
 const MONITOREO_URL = "https://itsenalco.com/monitoreo/web/";
 
@@ -146,14 +146,21 @@ function getSessionValidated(){
   if (!s) return null;
 
   const ts = Number(s.ts || 0);
-  if (!ts || (Date.now() - ts) > SESSION_TTL_MS){
+  const ultima = s.lastActivity ?? ts;
+  if (!Number.isFinite(ts) || ts <= 0 || ts > Date.now() + 60000 ||
+      !Number.isFinite(ultima) || ultima < ts || ultima > Date.now() + 60000 ||
+      (Date.now() - ultima) >= SESSION_TTL_MS){
     localStorage.removeItem(SESSION_KEY);
     return null;
   }
   return s;
 }
 
-function setSession(sess){ lsSet(SESSION_KEY, sess); }
+function setSession(sess){
+  sess.lastActivity = Date.now();
+  lsSet(SESSION_KEY, sess);
+  window.senalcoAuth?.check();
+}
 function clearSession(){ localStorage.removeItem(SESSION_KEY); }
 
 // ---- Users cache
@@ -187,6 +194,9 @@ function setUIState(mode){
     btnCont.style.display = "none";
     (loginBlock?.parentNode || document.body).appendChild(btnCont);
   }
+  // El botón se crea al mostrar el estado; asignar su acción aquí evita que
+  // quede sin listener cuando todavía no existía durante el inicio.
+  btnCont.onclick = continueSession;
 
   if (mode === "guest") {
     if (loginBlock) loginBlock.style.display = "block";
@@ -537,22 +547,24 @@ document.addEventListener("DOMContentLoaded", async () => {
     $("btn-cerrar-sesion")?.addEventListener("click", logout);
     $("btn-actualizar-app")?.addEventListener("click", updateApp);
 
-    $("btn-continuar")?.addEventListener("click", continueSession);
 
     $("clave")?.addEventListener("keydown", (e) => {
       if (e.key === "Enter") loginGeneral();
     });
 
+    // Mostrar el estado antes de la consulta: su respuesta no debe bloquear
+    // un acceso que el técnico ya abrió con Continuar sesión o Iniciar sesión.
+    renderLockedOrGuest();
     try {
       const data = await fetchUsersFromRepo();
       setUsersCache(data);
     } catch {}
-
-    renderLockedOrGuest();
   } catch (e) {
     console.error(e);
     setStatus("❌ Error en login.js: " + (e?.message || e));
   }
 });
+
+window.addEventListener('senalco-session-ended', logout);
 
 window.adminDeleteUser = adminDeleteUser;
